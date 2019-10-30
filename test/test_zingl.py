@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import unittest
 
-from path import *
+from svg_elements import *
 
 from math import ceil
 

@@ -78,8 +78,8 @@ SVG_TRANSFORM_MATRIX = 'matrix'
 SVG_TRANSFORM_TRANSLATE = 'translate'
 SVG_TRANSFORM_SCALE = 'scale'
 SVG_TRANSFORM_ROTATE = 'rotate'
-SVG_TRANSFORM_SKEW_X = 'skewX'
-SVG_TRANSFORM_SKEW_Y = 'skewY'
+SVG_TRANSFORM_SKEW_X = 'skewx'
+SVG_TRANSFORM_SKEW_Y = 'skewy'
 SVG_VALUE_NONE = 'none'
 
 COORD_PAIR_TMPLT = re.compile(
@@ -1245,7 +1245,9 @@ class Matrix:
         self.e = 0.0
         self.f = 0.0
         len_args = len(components)
-        if len_args == 1:
+        if len_args == 0:
+            pass
+        elif len_args == 1:
             m = components[0]
             if isinstance(m, str):
                 self.parse(m)

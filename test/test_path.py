@@ -2,15 +2,13 @@ from __future__ import print_function
 
 import unittest
 
-import svg_parser
-from path import *
+from svg_elements import *
 
 
 class TestPath(unittest.TestCase):
 
     def test_subpaths(self):
-        path = Path()
-        svg_parser.parse_svg_path(path, "M0,0 50,50 100,100z M0,100 50,50, 100,0")
+        path = Path("M0,0 50,50 100,100z M0,100 50,50, 100,0")
         for i, p in enumerate(path.as_subpaths()):
             if i == 0:
                 self.assertEqual(p.d(), "M 0,0 L 50,50 L 100,100 Z")

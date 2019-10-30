@@ -3,7 +3,7 @@ from __future__ import division
 import unittest
 from math import sqrt, pi, cos, sin
 
-from path import CubicBezier, QuadraticBezier, Line, Arc, Path
+from svg_elements import *
 tau = 2 * pi
 
 # Most of these test points are not calculated serparately, as that would
@@ -543,7 +543,6 @@ class TestPath(unittest.TestCase):
             self.assertAlmostEqual(point.imag, y, places=7)
 
     def test_repr(self):
-        from path import Point
         path = Path(
             Line(start=600 + 350j, end=650 + 325j),
             Arc(start=650 + 325j, radius=25 + 25j, rotation=-30, arc=0, sweep=1, end=700 + 300j),

@@ -2,39 +2,29 @@ from __future__ import print_function
 
 import unittest
 
-import svg_parser
+from svg_elements import *
 
-from path import *
-
-
-def parse_path(pathd):
-    parser = Path()
-    svg_parser.parse_svg_path(parser, pathd)
-    return parser
 
 class TestPathMatrix(unittest.TestCase):
 
     def test_transform_translate(self):
-        matrix = Matrix()
+        matrix = Matrix("translate(5,4)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("translate(5,4)", matrix)
         path *= matrix
         self.assertEqual("M 5,4 L 5,104 L 105,104 L 105,4 L 5,4 Z", path.d())
 
     def test_transform_scale(self):
-        matrix = Matrix()
+        matrix = Matrix("scale(2)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("scale(2)", matrix)
         path *= matrix
         self.assertEqual("M 0,0 L 0,200 L 200,200 L 200,0 L 0,0 Z", path.d())
 
     def test_transform_rotate(self):
-        matrix = Matrix()
+        matrix = Matrix("rotate(360)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("rotate(360)", matrix)
         path *= matrix
         self.assertAlmostEqual(path[0][1].x, 0)
         self.assertAlmostEqual(path[0][1].y, 0)
@@ -50,10 +40,9 @@ class TestPathMatrix(unittest.TestCase):
         self.assertAlmostEqual(path[4][1].y, 0)
 
     def test_transform_value(self):
-        matrix = Matrix()
+        matrix = Matrix("rotate(360,50,50)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("rotate(360,50,50)", matrix)
         path *= matrix
         self.assertAlmostEqual(path[0][1].x, 0)
         self.assertAlmostEqual(path[0][1].y, 0)
@@ -69,18 +58,16 @@ class TestPathMatrix(unittest.TestCase):
         self.assertAlmostEqual(path[4][1].y, 0)
 
     def test_transform_skewx(self):
-        matrix = Matrix()
+        matrix = Matrix("skewX(10,50,50)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("skewX(10,50,50)", matrix)
         path *= matrix
         self.assertEqual("M -8.81635,0 L 8.81635,100 L 108.816,100 L 91.1837,0 L -8.81635,0 Z", path.d())
 
     def test_transform_skewy(self):
-        matrix = Matrix()
+        matrix = Matrix("skewY(10, 50,50)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
-        svg_parser.parse_svg_transform("skewY(10, 50,50)", matrix)
         path *= matrix
         print(path.d())
         self.assertEqual("M 0,-8.81635 L 0,91.1837 L 100,108.816 L 100,8.81635 L 0,-8.81635 Z", path.d())
