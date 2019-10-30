@@ -8,6 +8,13 @@ The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Br
 also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
 correspondence "'Free and open source' means you can do anything with it like the MIT licence."
 
+# Installing
+`pip install svg.elements`
+
+Then in a script:
+
+`from svg.elements import *`
+
 # Goals/Philsophy
 
 The goal of this project is to provide svg spec-like objects and structures. The svg standard 1.1 and elements of 2.0 will
@@ -71,7 +78,7 @@ given segment.
 Unlike `svg.path` the preferred method of getting an Path from a `pathd` string is
 as an argument:
 
-    >>> from svg_elements import Path
+    >>> from svg.elements import Path
     >>> Path('M 100 100 L 300 100')
     Path(Move(end=Point(100,100)), Line(start=Point(100,100), end=Point(300,100)))
 
