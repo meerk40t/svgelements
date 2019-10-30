@@ -1,43 +1,48 @@
 # svg.elements
 SVG Parsing for Elements, Paths, and other SVG Objects.
 
-This project is based on the `regebro/svg.path` project. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatable. It is also based, in part, on some elements of `mathandy/svgpathtools`.
+This project is based on the `regebro/svg.path` project.  It is also may be based, in part, on some elements of `mathandy/svgpathtools`.
 
-This project began as part of `meerK40t` which does svg loading of files for laser cutting.
+This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatable.
 
-This file is derived from regebro's svg.path project ( https://github.com/regebro/svg.path )
+`svg.elements` is derived from regebro's svg.path project ( https://github.com/regebro/svg.path )
 some of the math is from mathandy's svgpathtools project ( https://github.com/mathandy/svgpathtools ).
+
 The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Bresenham's Algorithm"
 ( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
 also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
 correspondence "'Free and open source' means you can do anything with it like the MIT licence."
 
-## Goals/Philsophy
+# Goals/Philsophy
 
-The goal is to provide svg like path objects and structures. The svg standard 1.1 and elements of 2.0 will
-be used to provide much of the decisions making within path objects. Such that if there is a question on
+The goal is to provide svg like objects and structures. The svg standard 1.1 and elements of 2.0 will
+be used to provide much of the decisions making for implementation objects. If there is a question on
 implementation, if the SVG documentation has a methodology it should be used.
 
-The primary goal is to make a more robust version of svg.path including other elements like `SVGPoint` and `SVGMatrix` with clear emphasis on conforming to the SVG spec in all ways that real world uses for SVG demands.
+The primary goal is to make a more robust version of `svg.path` including other elements like `SVGPoint` and `SVGMatrix` with clear emphasis on conforming to the SVG spec in all ways that real world uses for SVG demands.
 
-We should conform to the SVG Conforming Interpretor class (2.5.4. Conforming SVG Interpreters):
+`svg.elements` should conform to the SVG Conforming Interpretor class (2.5.4. Conforming SVG Interpreters):
 
 >An SVG interpreter is a program which can parse and process SVG document fragments. Examples of SVG interpreters are server-side transcoding tools or optimizers (e.g., a tool which converts SVG content into modified SVG content) or analysis tools (e.g., a tool which extracts the text content from SVG content, or a validity checker).
 
 For real world functionality we must correctly and reasonably provide the ability to do transcoding of svg as well as accessing and modifying content.
 
+# Elements
 
-## svg.path
----
+The core functionality of this class are the elements. These are svg based objects which interact work in various reasonable methods.
 
-The base code for this is regebro's code and methods from the svg.path class. The primary methods is to use different path classes for the various elements within a pathd code. 
+## Path
 
-### Usage
------
+The base code for this is regebro's code and methods from the svg.path class. The primary methods is to use different path classes for the various elements within a pathd code. These should always have a high degree of backwards compatability.
 
-There are four path segment objects, ``Line``, ``Arc``, ``CubicBezier`` and ``QuadraticBezier``. There are two utility path elements ``Move`` and ``close``. There is also a ``Path`` object that acts as a collection of the path segment objects.
+### Segments
 
-While `svg.path` objects used complex values for coordinate data. We use `Point` objects which are backwards compatible with other point objects, including complex numbers. Because of this, there should be a high degree of compatibility between this project and ones that used `svg.path`. You can use complex numbers as points and they should seemlessly convert.
+There are 6 path segment objects:
+``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These correspond to all the objects a path can use. 
+
+There is also a ``Path`` object that acts as a collection of the path segment objects.
+
+While `svg.path` objects used complex values for coordinate data. We use `Point` objects which are backwards compatible with other point objects, including complex numbers. Because of this, there should be a high degree of compatibility between this project and ones that used `svg.path`. You can use complex numbers as points, and they should seemlessly convert.
 
     >>> from svg.path import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
 
@@ -74,27 +79,30 @@ and return a ``Path`` object::
     Path(Move(to=(100+100j)), Line(start=(100+100j), end=(300+100j)))
 
 
-### Classes
+### Segment Classes
 
 These are the SVG path segment classes. See the `SVG specifications
 <http://www.w3.org/TR/SVG/paths.html>`_ for more information on what each
 parameter means.
 
-* ``Line(start, end)``
+* ``Move(start, end)`` The move object describes a move to the start of the next subpath. It may lack a start position but not en end position.
 
-* ``Arc(start, radius, rotation, arc, sweep, end)``
+* ``Close(start, end)`` The close object describes a close path element. It will have a length if and only if the end point is not equal to the subpath start point. Neither the start point or end point is required.
 
-* ``QuadraticBezier(start, control, end)``
+* ``Line(start, end)`` The line object describes a line moving straight from one point to the next point. 
 
-* ``CubicBezier(start, control1, control2, end)``
+* ``Arc(start, radius, rotation, arc, sweep, end)`` The arc object describes an arc across a circular path. This supports multiple types of parameterizations. The given default there is compatable with `svg.path` and has a complex radius. It is also valid to divide radius into `rx` and `ry` or Arc(start, end, center, prx, pry, sweep) where start, end, center, prx, pry are points and sweep is the radians value of the arc distance travelled.
 
-In addition to that, there is the ``Path`` class, which is instantiated
-with a sequence of path segments:
+* ``QuadraticBezier(start, control, end)`` the quadraticbezier object describes a single control point bezier curve.
+
+* ``CubicBezier(start, control1, control2, end)`` the cubic bezier curve object describes a two control point bezier curve.
+
+In addition to that, there is the ``Path`` class, which is instantiated with a sequence of path segments:
 
 * ``Path(*segments)``
 
 The ``Path`` class is a mutable sequence, so it behaves like a list.
-You can add to it and replace path segments etc::
+You can add to it and replace path segments etc:
 
     >>> path = Path(Line(100+100j,300+100j), Line(100+100j,300+100j))
     >>> path.append(QuadraticBezier(300+100j, 200+200j, 200+300j))
@@ -102,7 +110,7 @@ You can add to it and replace path segments etc::
     >>> del path[1]
 
 The path object also has a ``d()`` method that will return the
-SVG representation of the Path segments::
+SVG representation of the Path segments:
 
     >>> path.d()
     'M 200,100 L 300,100 Q 200,200 200,300'
@@ -110,8 +118,7 @@ SVG representation of the Path segments::
 
 ### Examples
 
-This SVG path example draws a triangle::
-
+This SVG path example draws a triangle:
 
     >>> path1 = parse_path('M 100 100 L 300 100 L 200 300 z')
 
@@ -120,12 +127,12 @@ accepted::
 
     >>> path2 = parse_path('M100,100L300,100L200,300z')
 
-And these paths should be equal::
+And these paths should be equal:
 
     >>> path1 == path2
     True
 
-You can also build a path from objects::
+You can also build a path from objects:
 
     >>> path3 = Path(Line(100+100j,300+100j), Line(300+100j, 200+300j), Line(200+300j, 100+100j))
 
@@ -175,7 +182,7 @@ The extra robustness metric also includes a few additional robust methodologies 
     >>> parse_svg_transform("scale(2) translate(100,100)", Matrix())
     >>> Matrix(2.000000, 0.000000, 0.000000, 2.000000, 200.000000, 200.000000)
 
-# Real size scaling
+## Real Size scaling
 
 There is also a need in many applications to append a transformation for the viewbox height width, preserve to shapes. So as to prevent a variety of errors where the expected size is far different. If we have a viewbox of "0 0 100 100" but the height and width show that to be 50cm wide, then a path "M25,50L75,50" within that viewbox has a real size of length of 25cm which is different than parsing. 
 
