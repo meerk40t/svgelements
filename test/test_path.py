@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import unittest
 
-from svg_elements import *
+from svg.elements import *
 
 
 class TestPath(unittest.TestCase):
