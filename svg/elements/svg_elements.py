@@ -909,6 +909,7 @@ class Color(int):
     def hex(self):
         return '#%02x%02x%02x' % (self.red, self.green, self.blue)
 
+
 def segment_length(curve, start, end, start_point, end_point, error, min_depth, depth):
     """Recursively approximates the length by straight lines"""
     mid = (start + end) / 2
@@ -2896,6 +2897,7 @@ class Arc(PathSegment):
         start_angle = self.get_start_angle()
         theta = self.get_rotation()
         p_start = self.start
+        p_end = self.end
 
         current_angle = start_angle - theta
 
