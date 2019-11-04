@@ -1886,15 +1886,11 @@ class Close(PathSegment):
 
     def __init__(self, start=None, end=None):
         PathSegment.__init__(self)
-        if end is None:
-            if start is None:
-                self.start = None
-                self.end = None
-            else:
-                self.start = Point(start)
-                self.end = Point(start)
-        else:
+        self.end = None
+        self.start = None
+        if start is not None:
             self.start = Point(start)
+        if end is not None:
             self.end = Point(end)
 
     def __imul__(self, other):
@@ -1959,10 +1955,16 @@ class Close(PathSegment):
 class Line(PathSegment):
     def __init__(self, start, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.end = Point(end)
+        self.end = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
+        if self.start is None:
+            return 'Line(end=%s)' % (repr(self.end))
         return 'Line(start=%s, end=%s)' % (repr(self.start), repr(self.end))
 
     def __eq__(self, other):
@@ -1977,8 +1979,10 @@ class Line(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -2072,9 +2076,15 @@ class Line(PathSegment):
 class QuadraticBezier(PathSegment):
     def __init__(self, start, control, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.control = Point(control)
-        self.end = Point(end)
+        self.end = None
+        self.control = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if control is not None:
+            self.control = Point(control)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
         return 'QuadraticBezier(start=%s, control=%s, end=%s)' % (
@@ -2093,9 +2103,12 @@ class QuadraticBezier(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.control *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.control is not None:
+                self.control *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -2315,10 +2328,18 @@ class QuadraticBezier(PathSegment):
 class CubicBezier(PathSegment):
     def __init__(self, start, control1, control2, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.control1 = Point(control1)
-        self.control2 = Point(control2)
-        self.end = Point(end)
+        self.end = None
+        self.control1 = None
+        self.control2 = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if control1 is not None:
+            self.control1 = Point(control1)
+        if control2 is not None:
+            self.control2 = Point(control2)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
         return 'CubicBezier(start=%s, control1=%s, control2=%s, end=%s)' % (
@@ -2337,10 +2358,14 @@ class CubicBezier(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.control1 *= other
-            self.control2 *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.control1 is not None:
+                self.control1 *= other
+            if self.control2 is not None:
+                self.control2 *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -2713,15 +2738,20 @@ class Arc(PathSegment):
         # startAngle, endAngle, theta
         len_args = len(args)
         if len_args > 0:
-            self.start = Point(args[0])
+            if args[0] is not None:
+                self.start = Point(args[0])
         if len_args > 1:
-            self.end = Point(args[1])
+            if args[1] is not None:
+                self.end = Point(args[1])
         if len_args > 2:
-            self.center = Point(args[2])
+            if args[2] is not None:
+                self.center = Point(args[2])
         if len_args > 3:
-            self.prx = Point(args[3])
+            if args[3] is not None:
+                self.prx = Point(args[3])
         if len_args > 4:
-            self.pry = Point(args[4])
+            if args[4] is not None:
+                self.pry = Point(args[4])
         if len_args > 5:
             self.sweep = args[5]
             return  # The args gave us everything.
@@ -2807,11 +2837,16 @@ class Arc(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.center *= other
-            self.end *= other
-            self.prx *= other
-            self.pry *= other
+            if self.start is not None:
+                self.start *= other
+            if self.center is not None:
+                self.center *= other
+            if self.end is not None:
+                self.end *= other
+            if self.prx is not None:
+                self.prx *= other
+            if self.pry is not None:
+                self.pry *= other
             if other.value_scale_x() < 0:
                 self.sweep = -self.sweep
             if other.value_scale_y() < 0:
@@ -3257,11 +3292,37 @@ class Path(MutableSequence):
         """
         Corrects any invalidity in the current path.
         """
-        path_d = self.d()
-        p = Path(path_d)
-        self._segments = p._segments
-        self._length = None
-        self._lengths = None
+        segments = self._segments
+        i = len(self._segments) - 1
+        if i == -1:
+            return
+        while i >= 1:
+            next_segment = segments[i]
+            prev_segment = segments[i - 1]
+            if prev_segment.end != next_segment.start:
+                if prev_segment.end is None:
+                    prev_segment.end = Point(next_segment.start)
+                elif next_segment.start is None:
+                    next_segment.start = Point(prev_segment.end)
+                else:
+                    prev_segment.end = Point(next_segment.start)
+            i -= 1
+        if isinstance(segments[0], Move):
+            if segments[0].start is None:
+                segments[0].start = Point(0)
+        i = len(self._segments) - 1
+        while i >= 1:
+            next_segment = segments[i]
+            prev_segment = segments[i - 1]
+            if isinstance(next_segment, Close):
+                end_pos = segments[0].start
+                for segment in reversed(self._segments):
+                    if isinstance(segment, Move):
+                        end_pos = segment.end
+                        break
+                if next_segment.end != end_pos:
+                    next_segment.end = Point(end_pos)
+            i -= 1
         return self
 
     @property
