@@ -80,13 +80,41 @@ SVG_TRANSFORM_SCALE = 'scale'
 SVG_TRANSFORM_ROTATE = 'rotate'
 SVG_TRANSFORM_SKEW_X = 'skewx'
 SVG_TRANSFORM_SKEW_Y = 'skewy'
+SVG_TRANSFORM_SKEW = 'skew'
+SVG_TRANSFORM_TRANSLATE_X = 'translatex'
+SVG_TRANSFORM_TRANSLATE_Y = 'translatey'
+SVG_TRANSFORM_SCALE_X = 'scalex'
+SVG_TRANSFORM_SCALE_Y = 'scaley'
 SVG_VALUE_NONE = 'none'
 
-COORD_PAIR_TMPLT = re.compile(
-    r'([\+-]?\d*[\.\d]\d*[eE][\+-]?\d+|[\+-]?\d*[\.\d]\d*)' +
-    r'(?:\s*,\s*|\s+|(?=-))' +
-    r'([\+-]?\d*[\.\d]\d*[eE][\+-]?\d+|[\+-]?\d*[\.\d]\d*)'
-)
+PATTERN_WS = r'[\s\t\n]*'
+PATTERN_COMMA = r'(?:\s*,\s*|\s+|(?=-))'
+PATTERN_FLOAT = '[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?'
+PATTERN_LENGTH_UNITS = 'cm|mm|Q|in|pt|pc|px|em|cx|ch|rem|vw|vh|vmin|vmax'
+PATTERN_ANGLE_UNITS = 'deg|grad|rad|turn'
+PATTERN_TIME_UNITS = 's|ms'
+PATTERN_FREQUENCY_UNITS = 'Hz|kHz'
+PATTERN_RESOLUTION_UNITS = 'dpi|dpcm|dppx'
+PATTERN_PERCENT = '%'
+PATTERN_TRANSFORM = SVG_TRANSFORM_MATRIX + '|' \
+                    + SVG_TRANSFORM_TRANSLATE + '|' \
+                    + SVG_TRANSFORM_TRANSLATE_X + '|' \
+                    + SVG_TRANSFORM_TRANSLATE_Y + '|' \
+                    + SVG_TRANSFORM_SCALE + '|' \
+                    + SVG_TRANSFORM_SCALE_X + '|' \
+                    + SVG_TRANSFORM_SCALE_Y + '|' \
+                    + SVG_TRANSFORM_ROTATE + '|' \
+                    + SVG_TRANSFORM_SKEW + '|' \
+                    + SVG_TRANSFORM_SKEW_X + '|' \
+                    + SVG_TRANSFORM_SKEW_Y
+PATTERN_TRANSFORM_UNITS = PATTERN_LENGTH_UNITS + '|' \
+                          + PATTERN_ANGLE_UNITS + '|' \
+                          + PATTERN_PERCENT
+
+REGEX_FLOAT = re.compile(PATTERN_FLOAT)
+REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT))
+REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
+REGEX_TRANSFORM_PARAMETER = re.compile('(%s)%s(%s)?' % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS))
 
 
 # Leaf node to pathd values.
@@ -128,7 +156,7 @@ def polyline2pathd(polyline, is_polygon=False):
     polyline_d = polyline.get(SVG_ATTR_POINTS, None)
     if polyline_d is None:
         return ''
-    points = COORD_PAIR_TMPLT.findall(polyline_d)
+    points = REGEX_COORD_PAIR.findall(polyline_d)
     closed = (float(points[0][0]) == float(points[-1][0]) and
               float(points[0][1]) == float(points[-1][1]))
 
@@ -186,8 +214,7 @@ class PathTokens:
         commands = ''
         for k in command_elements:
             commands += k
-        self.COMMAND_RE = re.compile("([" + commands + "])")
-        self.FLOAT_RE = re.compile("[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?")
+        self.COMMAND_RE = re.compile("([%s])" % (commands))
         self.elements = None
         self.command = None
         self.last_command = None
@@ -197,7 +224,7 @@ class PathTokens:
         for x in self.COMMAND_RE.split(pathdef):
             if x in self.command_elements:
                 yield x
-            for token in self.FLOAT_RE.findall(x):
+            for token in REGEX_FLOAT.findall(x):
                 yield token
 
     def get(self):
@@ -972,8 +999,11 @@ class Point:
             b1 = other.imag
         else:
             return NotImplemented
-        c0 = abs(a0 - b0) <= ERROR
-        c1 = abs(a1 - b1) <= ERROR
+        try:
+            c0 = abs(a0 - b0) <= ERROR
+            c1 = abs(a1 - b1) <= ERROR
+        except TypeError:
+            return False
         return c0 and c1
 
     def __ne__(self, other):
@@ -1200,10 +1230,10 @@ class Angle(float):
         angle_string = angle_string.lower()
         if angle_string.endswith('deg'):
             return Angle.degrees(float(angle_string[:-3]))
-        if angle_string.endswith('rad'):
-            return Angle.radians(float(angle_string[:-3]))
         if angle_string.endswith('grad'):
             return Angle.gradians(float(angle_string[:-4]))
+        if angle_string.endswith('rad'):  # Must be after 'grad' since 'grad' ends with 'rad' too.
+            return Angle.radians(float(angle_string[:-3]))
         if angle_string.endswith('turn'):
             return Angle.turns(float(angle_string[:-4]))
         return Angle.degrees(float(angle_string))
@@ -1313,6 +1343,10 @@ class Matrix:
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(self, other)
         return self
 
+    __mul__ = __matmul__
+    __rmul__ = __rmatmul__
+    __imul__ = __imatmul__
+
     def __getitem__(self, item):
         if item == 0:
             return self.a
@@ -1357,56 +1391,59 @@ class Matrix:
         return "[%3f, %3f,\n %3f, %3f,   %3f, %3f]" % \
                (self.a, self.c, self.b, self.d, self.e, self.f)
 
-    @staticmethod
-    def _tokenize_transform(transform_str):
-        """Generator to create transform parse elements.
-        Will return tuples(command, list(values))
-
-        TODO: Convert to 2D CSS transforms from SVG 1.1 for SVG 2.0.
-        In addition to SVG commands,
-        2D CSS has: translateX, translateY, scaleX, scaleY
-        2D CSS angles haves units: "deg" tau / 360, "rad" tau/tau, "grad" tau/400, "turn" tau.
-        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%
-        """
-
-        if not transform_str:
-            return
-        transform_regex = '(?u)(' \
-                          + SVG_TRANSFORM_MATRIX + '|' \
-                          + SVG_TRANSFORM_TRANSLATE + '|' \
-                          + SVG_TRANSFORM_SCALE + '|' \
-                          + SVG_TRANSFORM_ROTATE + '|' \
-                          + SVG_TRANSFORM_SKEW_X + '|' \
-                          + SVG_TRANSFORM_SKEW_Y + \
-                          ')[\s\t\n]*\(([^)]+)\)'
-        transform_re = re.compile(transform_regex)
-        float_re = re.compile("[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?")
-        for sub_element in transform_re.findall(transform_str):
-            yield sub_element[0], tuple(map(float, float_re.findall(sub_element[1])))
-
     def parse(self, transform_str):
-        """Parses the svg transform tag. Currently parses SVG 1.1 transformations.
-        With regard to SVG 2.0 would be CSS transformations, and require a superset.
+        """Parses the svg transform string.
 
-        For typical usecase these will be given a path.Matrix."""
+        Transforms from SVG 1.1 have a smaller complete set of operations. Whereas in SVG 2.0 they gain
+        the CSS transforms and the additional functions and parsing that go with that. This parse is
+        compatible with SVG 1.1 and the SVG 2.0 which includes the CSS 2d superset.
+
+        CSS transforms have scalex() scaley() translatex(), translatey(), and skew() (deprecated).
+        2D CSS angles haves units: "deg" tau / 360, "rad" tau/tau, "grad" tau/400, "turn" tau.
+        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%"""
         if not transform_str:
             return
         if not isinstance(transform_str, str):
             raise TypeError('Must provide a string to parse')
 
-        for name, params in Matrix._tokenize_transform(transform_str.lower()):
+        for sub_element in REGEX_TRANSFORM_TEMPLATE.findall(transform_str.lower()):
+            name = sub_element[0]
+            params = tuple(REGEX_TRANSFORM_PARAMETER.findall(sub_element[1]))
+            params = [mag + units for mag, units in params]
             if SVG_TRANSFORM_MATRIX == name:
+                params = map(float, params)
                 self.pre_cat(*params)
             elif SVG_TRANSFORM_TRANSLATE == name:
+                params = map(Distance.parse, params)
                 self.pre_translate(*params)
+            elif SVG_TRANSFORM_TRANSLATE_X == name:
+                self.pre_translate(Distance.parse(params[0]), 0)
+            elif SVG_TRANSFORM_TRANSLATE_Y == name:
+                self.pre_translate(0, Distance.parse(params[0]))
             elif SVG_TRANSFORM_SCALE == name:
+                params = map(float, params)
                 self.pre_scale(*params)
+            elif SVG_TRANSFORM_SCALE_X == name:
+                self.pre_scale(float(params[0]), 1)
+            elif SVG_TRANSFORM_SCALE_Y == name:
+                self.pre_scale(1, float(params[0]))
             elif SVG_TRANSFORM_ROTATE == name:
-                self.pre_rotate(Angle.degrees(params[0]), *params[1:])
+                angle = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_rotate(angle, *params)
+            elif SVG_TRANSFORM_SKEW == name:
+                angle_a = Angle.parse(params[0])
+                angle_b = Angle.parse(params[1])
+                params = map(Distance.parse, params[2:])
+                self.pre_skew(angle_a, angle_b, *params)
             elif SVG_TRANSFORM_SKEW_X == name:
-                self.pre_skew_x(Angle.degrees(params[0]), *params[1:])
+                angle_a = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_skew_x(angle_a, *params)
             elif SVG_TRANSFORM_SKEW_Y == name:
-                self.pre_skew_y(Angle.degrees(params[0]), *params[1:])
+                angle_b = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_skew_y(angle_b, *params)
         return self
 
     def value_trans_x(self):
@@ -1462,13 +1499,13 @@ class Matrix:
         mx = Matrix(*components)
         self.__imatmul__(mx)
 
-    def post_scale(self, sx=1, sy=None, x=0, y=0):
+    def post_scale(self, sx=1.0, sy=None, x=0.0, y=0.0):
         if sy is None:
             sy = sx
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.post_cat(Matrix.scale(sx, sy))
         else:
@@ -1476,14 +1513,26 @@ class Matrix:
             self.post_scale(sx, sy)
             self.post_translate(x, y)
 
-    def post_translate(self, tx, ty):
+    def post_scale_x(self, sx=1.0, x=0.0, y=0.0):
+        self.post_scale(sx, 1, x, y)
+
+    def post_scale_y(self, sy=1.0, x=0.0, y=0.0):
+        self.post_scale(1, sy, x, y)
+
+    def post_translate(self, tx=0.0, ty=0.0):
         self.post_cat(Matrix.translate(tx, ty))
 
-    def post_rotate(self, angle, x=0, y=0):
+    def post_translate_x(self, tx=0.0):
+        self.post_translate(tx, 0.0)
+
+    def post_translate_y(self, ty=0.0):
+        self.post_translate(0.0, ty)
+
+    def post_rotate(self, angle, x=0.0, y=0.0):
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.post_cat(Matrix.rotate(angle))  # self %= self.get_rotate(theta)
         else:
@@ -1493,65 +1542,35 @@ class Matrix:
             matrix.post_translate(x, y)
             self.post_cat(matrix)
 
-    def post_skew_x(self, angle, x=0, y=0):
+    def post_skew(self, angle_a=0.0, angle_b=0.0, x=0.0, y=0.0):
         if x is None:
             x = 0
         if y is None:
             y = 0
         if x == 0 and y == 0:
-            self.post_cat(Matrix.skew_x(angle))
+            self.post_cat(Matrix.skew(angle_a, angle_b))
         else:
             self.post_translate(-x, -y)
-            self.post_skew_x(angle)
+            self.post_skew(angle_a, angle_b)
             self.post_translate(x, y)
 
-    def post_skew_y(self, angle, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.post_cat(Matrix.skew_y(angle))
-        else:
-            self.post_translate(-x, -y)
-            self.post_skew_y(angle)
-            self.post_translate(x, y)
+    def post_skew_x(self, angle_a=0.0, x=0.0, y=0.0):
+        self.post_skew(angle_a, 0.0, x, y)
+
+    def post_skew_y(self, angle_b=0.0, x=0.0, y=0.0):
+        self.post_skew(0.0, angle_b, x, y)
 
     def pre_cat(self, *components):
         mx = Matrix(*components)
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(mx, self)
 
-    def pre_skew_x(self, radians, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.pre_cat(Matrix.skew_x(radians))
-        else:
-            self.pre_translate(x, y)
-            self.pre_skew_x(radians)
-            self.pre_translate(-x, -y)
-
-    def pre_skew_y(self, radians, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.pre_cat(Matrix.skew_y(radians))
-        else:
-            self.pre_translate(x, y)
-            self.pre_skew_y(radians)
-            self.pre_translate(-x, -y)
-
-    def pre_scale(self, sx=1, sy=None, x=0, y=0):
+    def pre_scale(self, sx=1.0, sy=None, x=0.0, y=0.0):
         if sy is None:
             sy = sx
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.pre_cat(Matrix.scale(sx, sy))
         else:
@@ -1559,10 +1578,22 @@ class Matrix:
             self.pre_scale(sx, sy)
             self.pre_translate(-x, -y)
 
-    def pre_translate(self, tx, ty):
+    def pre_scale_x(self, sx=1.0, x=0.0, y=0.0):
+        self.pre_scale(sx, 1, x, y)
+
+    def pre_scale_y(self, sy=1.0, x=0.0, y=0.0):
+        self.pre_scale(1, sy, x, y)
+
+    def pre_translate(self, tx=0.0, ty=0.0):
         self.pre_cat(Matrix.translate(tx, ty))
 
-    def pre_rotate(self, angle, x=0, y=0):
+    def pre_translate_x(self, tx=0.0):
+        self.pre_translate(tx, 0.0)
+
+    def pre_translate_y(self, ty=0.0):
+        self.pre_translate(0.0, ty)
+
+    def pre_rotate(self, angle, x=0.0, y=0.0):
         if x is None:
             x = 0
         if y is None:
@@ -1573,6 +1604,24 @@ class Matrix:
             self.pre_translate(x, y)
             self.pre_rotate(angle)
             self.pre_translate(-x, -y)
+
+    def pre_skew(self, angle_a=0.0, angle_b=0.0, x=0.0, y=0.0):
+        if x is None:
+            x = 0
+        if y is None:
+            y = 0
+        if x == 0 and y == 0:
+            self.pre_cat(Matrix.skew(angle_a, angle_b))
+        else:
+            self.pre_translate(x, y)
+            self.pre_skew(angle_a, angle_b)
+            self.pre_translate(-x, -y)
+
+    def pre_skew_x(self, angle_a=0.0, x=0.0, y=0.0):
+        self.pre_skew(angle_a, 0, x, y)
+
+    def pre_skew_y(self, angle_b=0.0, x=0.0, y=0.0):
+        self.pre_skew(0.0, angle_b, x, y)
 
     def point_in_inverse_space(self, v0):
         inverse = Matrix(self)
@@ -1590,39 +1639,58 @@ class Matrix:
         v[1] = ny
 
     @classmethod
-    def scale(cls, sx, sy=None):
+    def scale(cls, sx=1.0, sy=None):
         if sy is None:
             sy = sx
         return cls(sx, 0,
                    0, sy, 0, 0)
 
     @classmethod
-    def translate(cls, tx, ty):
+    def scale_x(cls, sx=1.0):
+        return cls.scale(sx, 1.0)
+
+    @classmethod
+    def scale_y(cls, sy=1.0):
+        return cls.scale(1.0, sy)
+
+    @classmethod
+    def translate(cls, tx=0.0, ty=0.0):
         """SVG Matrix:
                 [a c e]
                 [b d f]
                 """
-        return cls(1, 0,
-                   0, 1, tx, ty)
+        return cls(1.0, 0.0,
+                   0.0, 1.0, tx, ty)
 
     @classmethod
-    def rotate(cls, angle):
+    def translate_x(cls, tx=0.0):
+        return cls.translate(tx, 0)
+
+    @classmethod
+    def translate_y(cls, ty=0.0):
+        return cls.translate(0.0, ty)
+
+    @classmethod
+    def rotate(cls, angle=0.0):
         ct = cos(angle)
         st = sin(angle)
         return cls(ct, st,
-                   -st, ct, 0, 0)
+                   -st, ct, 0.0, 0.0)
 
     @classmethod
-    def skew_x(cls, angle):
-        tt = tan(angle)
-        return cls(1, 0,
-                   tt, 1, 0, 0)
+    def skew(cls, angle_a=0.0, angle_b=0.0):
+        aa = tan(angle_a)
+        bb = tan(angle_b)
+        return cls(1.0, bb,
+                   aa, 1.0, 0.0, 0.0)
 
     @classmethod
-    def skew_y(cls, angle):
-        tt = tan(angle)
-        return cls(1, tt,
-                   0, 1, 0, 0)
+    def skew_x(cls, angle=0.0):
+        return cls.skew(angle, 0.0)
+
+    @classmethod
+    def skew_y(cls, angle=0.0):
+        return cls.skew(0.0, angle)
 
     @classmethod
     def identity(cls):
@@ -1666,8 +1734,24 @@ class PathSegment:
             n = copy(self)
             n *= other
             return n
+        elif isinstance(other, str):
+            n = copy(self)
+            n *= Matrix(other)
+            return n
+        return NotImplemented
 
     __rmul__ = __mul__
+
+    def __iadd__(self, other):
+        if isinstance(other, PathSegment):
+            path = Path(self, other)
+            return path
+        elif isinstance(other, str):
+            path = Path(self) + other
+            return path
+        return NotImplemented
+
+    __add__ = __iadd__
 
     def __iter__(self):
         self.n = -1
@@ -1749,7 +1833,7 @@ class Move(PathSegment):
     def __eq__(self, other):
         if not isinstance(other, Move):
             return NotImplemented
-        return self.start == other.start
+        return self.start == other.start and self.end == other.end
 
     def __ne__(self, other):
         if not isinstance(other, Move):
@@ -1838,7 +1922,7 @@ class Close(PathSegment):
     def __eq__(self, other):
         if not isinstance(other, Close):
             return NotImplemented
-        return self.start == other.start
+        return self.start == other.start and self.end == other.end
 
     def __ne__(self, other):
         if not isinstance(other, Close):
@@ -2784,9 +2868,14 @@ class Arc(PathSegment):
         integration, and in that case it's simpler to just do a geometric
         approximation, as for cubic bezier curves.
         """
+        if self.sweep == 0:
+            return 0
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
             return 0
+        if self.rx == self.ry:  # This is a circle.
+            return abs(self.rx * self.sweep)
+
         start_point = self.point(0)
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
@@ -3083,14 +3172,46 @@ class Path(MutableSequence):
         del self._segments[index]
         self._length = None
 
+    def __iadd__(self, other):
+        if isinstance(other, str):
+            self.parse(other)
+        elif isinstance(other, Path):
+            for seg in other._segments:
+                self.append(copy(seg))
+        elif isinstance(other, PathSegment):
+            self.append(other)
+        else:
+            return NotImplemented
+        return self
+
+    def __add__(self, other):
+        n = copy(self)
+        n += other
+        return n
+
+    def __radd__(self, other):
+        if isinstance(other, str):
+            path = Path(other)
+            for seg in self._segments:
+                path.append(copy(seg))
+            return path
+        elif isinstance(other, PathSegment):
+            path = copy(self)
+            path.insert(0, other)
+            return path
+        else:
+            return NotImplemented
+
     def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
         if isinstance(other, Matrix):
             for e in self._segments:
                 e *= other
         return self
 
     def __mul__(self, other):
-        if isinstance(other, Matrix):
+        if isinstance(other, (Matrix, str)):
             n = copy(self)
             n *= other
             return n
@@ -3111,6 +3232,8 @@ class Path(MutableSequence):
         return 'Path(%s)' % (', '.join(repr(x) for x in self._segments))
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__eq__(Path(other))
         if not isinstance(other, Path):
             return NotImplemented
         if len(self) != len(other):
@@ -3121,7 +3244,7 @@ class Path(MutableSequence):
         return True
 
     def __ne__(self, other):
-        if not isinstance(other, Path):
+        if not isinstance(other, (Path, str)):
             return NotImplemented
         return not self == other
 
@@ -3129,6 +3252,17 @@ class Path(MutableSequence):
         """Parses the SVG path."""
         tokens = SVGPathTokens()
         tokens.svg_parse(self, pathdef)
+
+    def validate(self):
+        """
+        Corrects any invalidity in the current path.
+        """
+        path_d = self.d()
+        p = Path(path_d)
+        self._segments = p._segments
+        self._length = None
+        self._lengths = None
+        return self
 
     @property
     def first_point(self):
@@ -3159,7 +3293,10 @@ class Path(MutableSequence):
                 end_pos = segment.end
                 break
         if end_pos is None:
-            end_pos = self._segments[0].start
+            try:
+                end_pos = self._segments[0].start
+            except IndexError:
+                pass  # entire path is "z".
         return end_pos
 
     @property
@@ -3383,14 +3520,11 @@ class Path(MutableSequence):
 
     def as_subpaths(self):
         last = 0
-        subpath = Path()
         for current, seg in enumerate(self):
             if current != last and isinstance(seg, Move):
-                subpath._segments = self[last:current]
-                yield subpath
+                yield Path(*self[last:current])
                 last = current
-        subpath._segments = self[last:]
-        yield subpath
+        yield Path(*self[last:])
 
     def as_points(self):
         """Returns the list of defining points within path"""
