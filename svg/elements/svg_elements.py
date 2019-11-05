@@ -80,13 +80,41 @@ SVG_TRANSFORM_SCALE = 'scale'
 SVG_TRANSFORM_ROTATE = 'rotate'
 SVG_TRANSFORM_SKEW_X = 'skewx'
 SVG_TRANSFORM_SKEW_Y = 'skewy'
+SVG_TRANSFORM_SKEW = 'skew'
+SVG_TRANSFORM_TRANSLATE_X = 'translatex'
+SVG_TRANSFORM_TRANSLATE_Y = 'translatey'
+SVG_TRANSFORM_SCALE_X = 'scalex'
+SVG_TRANSFORM_SCALE_Y = 'scaley'
 SVG_VALUE_NONE = 'none'
 
-COORD_PAIR_TMPLT = re.compile(
-    r'([\+-]?\d*[\.\d]\d*[eE][\+-]?\d+|[\+-]?\d*[\.\d]\d*)' +
-    r'(?:\s*,\s*|\s+|(?=-))' +
-    r'([\+-]?\d*[\.\d]\d*[eE][\+-]?\d+|[\+-]?\d*[\.\d]\d*)'
-)
+PATTERN_WS = r'[\s\t\n]*'
+PATTERN_COMMA = r'(?:\s*,\s*|\s+|(?=-))'
+PATTERN_FLOAT = '[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?'
+PATTERN_LENGTH_UNITS = 'cm|mm|Q|in|pt|pc|px|em|cx|ch|rem|vw|vh|vmin|vmax'
+PATTERN_ANGLE_UNITS = 'deg|grad|rad|turn'
+PATTERN_TIME_UNITS = 's|ms'
+PATTERN_FREQUENCY_UNITS = 'Hz|kHz'
+PATTERN_RESOLUTION_UNITS = 'dpi|dpcm|dppx'
+PATTERN_PERCENT = '%'
+PATTERN_TRANSFORM = SVG_TRANSFORM_MATRIX + '|' \
+                    + SVG_TRANSFORM_TRANSLATE + '|' \
+                    + SVG_TRANSFORM_TRANSLATE_X + '|' \
+                    + SVG_TRANSFORM_TRANSLATE_Y + '|' \
+                    + SVG_TRANSFORM_SCALE + '|' \
+                    + SVG_TRANSFORM_SCALE_X + '|' \
+                    + SVG_TRANSFORM_SCALE_Y + '|' \
+                    + SVG_TRANSFORM_ROTATE + '|' \
+                    + SVG_TRANSFORM_SKEW + '|' \
+                    + SVG_TRANSFORM_SKEW_X + '|' \
+                    + SVG_TRANSFORM_SKEW_Y
+PATTERN_TRANSFORM_UNITS = PATTERN_LENGTH_UNITS + '|' \
+                          + PATTERN_ANGLE_UNITS + '|' \
+                          + PATTERN_PERCENT
+
+REGEX_FLOAT = re.compile(PATTERN_FLOAT)
+REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT))
+REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
+REGEX_TRANSFORM_PARAMETER = re.compile('(%s)%s(%s)?' % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS))
 
 
 # Leaf node to pathd values.
@@ -128,7 +156,7 @@ def polyline2pathd(polyline, is_polygon=False):
     polyline_d = polyline.get(SVG_ATTR_POINTS, None)
     if polyline_d is None:
         return ''
-    points = COORD_PAIR_TMPLT.findall(polyline_d)
+    points = REGEX_COORD_PAIR.findall(polyline_d)
     closed = (float(points[0][0]) == float(points[-1][0]) and
               float(points[0][1]) == float(points[-1][1]))
 
@@ -186,8 +214,7 @@ class PathTokens:
         commands = ''
         for k in command_elements:
             commands += k
-        self.COMMAND_RE = re.compile("([" + commands + "])")
-        self.FLOAT_RE = re.compile("[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?")
+        self.COMMAND_RE = re.compile("([%s])" % (commands))
         self.elements = None
         self.command = None
         self.last_command = None
@@ -197,7 +224,7 @@ class PathTokens:
         for x in self.COMMAND_RE.split(pathdef):
             if x in self.command_elements:
                 yield x
-            for token in self.FLOAT_RE.findall(x):
+            for token in REGEX_FLOAT.findall(x):
                 yield token
 
     def get(self):
@@ -355,8 +382,7 @@ class SVGPathTokens(PathTokens):
         self.absolute = self.command.isupper()
 
     def post_execute(self):
-        if self.command == 'Z':  # Z might have been triggered inside commands.
-            self.close()
+        pass
 
 
 def parse_viewbox_transform(svg_node, ppi=96.0, viewbox=None):
@@ -935,23 +961,34 @@ def segment_length(curve, start, end, start_point, end_point, error, min_depth, 
 class Point:
     """Point is a general subscriptable point class with .x and .y as well as [0] and [1]
 
-    For compatibility with regbro svg.path we accept complex numbers as x + yj,
+    For compatibility with regebro svg.path we accept complex numbers as points x + yj,
     and provide .real and .imag as properties. As well as float and integer values as (v,0) elements.
 
     With regard to SGV 7.15.1 defining SVGPoint this class provides for matrix transformations.
     """
 
     def __init__(self, x, y=None):
-        if y is None:
-            try:
-                y = x[1]
-                x = x[0]
-            except TypeError:  # not subscriptable, must be a legacy complex
-                if isinstance(x, complex):
-                    y = x.imag
-                    x = x.real
-                else:
-                    y = 0
+        if x is not None and y is None:
+            if isinstance(x, str):
+                string_x, string_y = REGEX_COORD_PAIR.findall(x)[0]
+                x = float(string_x)
+                y = float(string_y)
+            else:
+                try:  # try subscription.
+                    y = x[1]
+                    x = x[0]
+                except TypeError:
+                    try:  # Try .x .y
+                        y = x.y
+                        x = x.x
+                    except AttributeError:
+                        try:  # try .imag .real complex values.
+                            y = x.imag
+                            x = x.real
+                        except AttributeError:
+                            # Unknown.
+                            x = 0
+                            y = 0
         self.x = x
         self.y = y
 
@@ -964,6 +1001,8 @@ class Point:
     def __eq__(self, other):
         a0 = self[0]
         a1 = self[1]
+        if isinstance(other, str):
+            other = Point(other)
         if isinstance(other, (Point, list, tuple)):
             b0 = other[0]
             b1 = other[1]
@@ -972,8 +1011,11 @@ class Point:
             b1 = other.imag
         else:
             return NotImplemented
-        c0 = abs(a0 - b0) <= ERROR
-        c1 = abs(a1 - b1) <= ERROR
+        try:
+            c0 = abs(a0 - b0) <= ERROR
+            c1 = abs(a1 - b1) <= ERROR
+        except TypeError:
+            return False
         return c0 and c1
 
     def __ne__(self, other):
@@ -996,13 +1038,25 @@ class Point:
             raise IndexError
 
     def __repr__(self):
-        return "Point(%.12f,%.12f)" % (self.x, self.y)
+        x_str = ('%.12f' % (self.x))
+        if '.' in x_str:
+            x_str = x_str.rstrip('0').rstrip('.')
+        y_str = ('%.12f' % (self.y))
+        if '.' in y_str:
+            y_str = y_str.rstrip('0').rstrip('.')
+        return "Point(%s,%s)" % (x_str, y_str)
 
     def __copy__(self):
         return Point(self.x, self.y)
 
     def __str__(self):
-        return "(%g,%g)" % (self.x, self.y)
+        x_str = ('%G' % (self.x))
+        if '.' in x_str:
+            x_str = x_str.rstrip('0').rstrip('.')
+        y_str = ('%G' % (self.y))
+        if '.' in y_str:
+            y_str = y_str.rstrip('0').rstrip('.')
+        return "%s,%s" % (x_str, y_str)
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
@@ -1188,6 +1242,9 @@ class Angle(float):
     def __repr__(self):
         return "Angle(%.12f)" % self
 
+    def __copy__(self):
+        return Angle(self)
+
     def __eq__(self, other):
         # Python 2
         c1 = abs(self - other) <= 1e-11
@@ -1200,10 +1257,10 @@ class Angle(float):
         angle_string = angle_string.lower()
         if angle_string.endswith('deg'):
             return Angle.degrees(float(angle_string[:-3]))
-        if angle_string.endswith('rad'):
-            return Angle.radians(float(angle_string[:-3]))
         if angle_string.endswith('grad'):
             return Angle.gradians(float(angle_string[:-4]))
+        if angle_string.endswith('rad'):  # Must be after 'grad' since 'grad' ends with 'rad' too.
+            return Angle.radians(float(angle_string[:-3]))
         if angle_string.endswith('turn'):
             return Angle.turns(float(angle_string[:-4]))
         return Angle.degrees(float(angle_string))
@@ -1313,6 +1370,10 @@ class Matrix:
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(self, other)
         return self
 
+    __mul__ = __matmul__
+    __rmul__ = __rmatmul__
+    __imul__ = __imatmul__
+
     def __getitem__(self, item):
         if item == 0:
             return self.a
@@ -1357,56 +1418,59 @@ class Matrix:
         return "[%3f, %3f,\n %3f, %3f,   %3f, %3f]" % \
                (self.a, self.c, self.b, self.d, self.e, self.f)
 
-    @staticmethod
-    def _tokenize_transform(transform_str):
-        """Generator to create transform parse elements.
-        Will return tuples(command, list(values))
-
-        TODO: Convert to 2D CSS transforms from SVG 1.1 for SVG 2.0.
-        In addition to SVG commands,
-        2D CSS has: translateX, translateY, scaleX, scaleY
-        2D CSS angles haves units: "deg" tau / 360, "rad" tau/tau, "grad" tau/400, "turn" tau.
-        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%
-        """
-
-        if not transform_str:
-            return
-        transform_regex = '(?u)(' \
-                          + SVG_TRANSFORM_MATRIX + '|' \
-                          + SVG_TRANSFORM_TRANSLATE + '|' \
-                          + SVG_TRANSFORM_SCALE + '|' \
-                          + SVG_TRANSFORM_ROTATE + '|' \
-                          + SVG_TRANSFORM_SKEW_X + '|' \
-                          + SVG_TRANSFORM_SKEW_Y + \
-                          ')[\s\t\n]*\(([^)]+)\)'
-        transform_re = re.compile(transform_regex)
-        float_re = re.compile("[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?")
-        for sub_element in transform_re.findall(transform_str):
-            yield sub_element[0], tuple(map(float, float_re.findall(sub_element[1])))
-
     def parse(self, transform_str):
-        """Parses the svg transform tag. Currently parses SVG 1.1 transformations.
-        With regard to SVG 2.0 would be CSS transformations, and require a superset.
+        """Parses the svg transform string.
 
-        For typical usecase these will be given a path.Matrix."""
+        Transforms from SVG 1.1 have a smaller complete set of operations. Whereas in SVG 2.0 they gain
+        the CSS transforms and the additional functions and parsing that go with that. This parse is
+        compatible with SVG 1.1 and the SVG 2.0 which includes the CSS 2d superset.
+
+        CSS transforms have scalex() scaley() translatex(), translatey(), and skew() (deprecated).
+        2D CSS angles haves units: "deg" tau / 360, "rad" tau/tau, "grad" tau/400, "turn" tau.
+        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%"""
         if not transform_str:
             return
         if not isinstance(transform_str, str):
             raise TypeError('Must provide a string to parse')
 
-        for name, params in Matrix._tokenize_transform(transform_str.lower()):
+        for sub_element in REGEX_TRANSFORM_TEMPLATE.findall(transform_str.lower()):
+            name = sub_element[0]
+            params = tuple(REGEX_TRANSFORM_PARAMETER.findall(sub_element[1]))
+            params = [mag + units for mag, units in params]
             if SVG_TRANSFORM_MATRIX == name:
+                params = map(float, params)
                 self.pre_cat(*params)
             elif SVG_TRANSFORM_TRANSLATE == name:
+                params = map(Distance.parse, params)
                 self.pre_translate(*params)
+            elif SVG_TRANSFORM_TRANSLATE_X == name:
+                self.pre_translate(Distance.parse(params[0]), 0)
+            elif SVG_TRANSFORM_TRANSLATE_Y == name:
+                self.pre_translate(0, Distance.parse(params[0]))
             elif SVG_TRANSFORM_SCALE == name:
+                params = map(float, params)
                 self.pre_scale(*params)
+            elif SVG_TRANSFORM_SCALE_X == name:
+                self.pre_scale(float(params[0]), 1)
+            elif SVG_TRANSFORM_SCALE_Y == name:
+                self.pre_scale(1, float(params[0]))
             elif SVG_TRANSFORM_ROTATE == name:
-                self.pre_rotate(Angle.degrees(params[0]), *params[1:])
+                angle = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_rotate(angle, *params)
+            elif SVG_TRANSFORM_SKEW == name:
+                angle_a = Angle.parse(params[0])
+                angle_b = Angle.parse(params[1])
+                params = map(Distance.parse, params[2:])
+                self.pre_skew(angle_a, angle_b, *params)
             elif SVG_TRANSFORM_SKEW_X == name:
-                self.pre_skew_x(Angle.degrees(params[0]), *params[1:])
+                angle_a = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_skew_x(angle_a, *params)
             elif SVG_TRANSFORM_SKEW_Y == name:
-                self.pre_skew_y(Angle.degrees(params[0]), *params[1:])
+                angle_b = Angle.parse(params[0])
+                params = map(Distance.parse, params[1:])
+                self.pre_skew_y(angle_b, *params)
         return self
 
     def value_trans_x(self):
@@ -1462,13 +1526,13 @@ class Matrix:
         mx = Matrix(*components)
         self.__imatmul__(mx)
 
-    def post_scale(self, sx=1, sy=None, x=0, y=0):
+    def post_scale(self, sx=1.0, sy=None, x=0.0, y=0.0):
         if sy is None:
             sy = sx
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.post_cat(Matrix.scale(sx, sy))
         else:
@@ -1476,14 +1540,26 @@ class Matrix:
             self.post_scale(sx, sy)
             self.post_translate(x, y)
 
-    def post_translate(self, tx, ty):
+    def post_scale_x(self, sx=1.0, x=0.0, y=0.0):
+        self.post_scale(sx, 1, x, y)
+
+    def post_scale_y(self, sy=1.0, x=0.0, y=0.0):
+        self.post_scale(1, sy, x, y)
+
+    def post_translate(self, tx=0.0, ty=0.0):
         self.post_cat(Matrix.translate(tx, ty))
 
-    def post_rotate(self, angle, x=0, y=0):
+    def post_translate_x(self, tx=0.0):
+        self.post_translate(tx, 0.0)
+
+    def post_translate_y(self, ty=0.0):
+        self.post_translate(0.0, ty)
+
+    def post_rotate(self, angle, x=0.0, y=0.0):
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.post_cat(Matrix.rotate(angle))  # self %= self.get_rotate(theta)
         else:
@@ -1493,65 +1569,35 @@ class Matrix:
             matrix.post_translate(x, y)
             self.post_cat(matrix)
 
-    def post_skew_x(self, angle, x=0, y=0):
+    def post_skew(self, angle_a=0.0, angle_b=0.0, x=0.0, y=0.0):
         if x is None:
             x = 0
         if y is None:
             y = 0
         if x == 0 and y == 0:
-            self.post_cat(Matrix.skew_x(angle))
+            self.post_cat(Matrix.skew(angle_a, angle_b))
         else:
             self.post_translate(-x, -y)
-            self.post_skew_x(angle)
+            self.post_skew(angle_a, angle_b)
             self.post_translate(x, y)
 
-    def post_skew_y(self, angle, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.post_cat(Matrix.skew_y(angle))
-        else:
-            self.post_translate(-x, -y)
-            self.post_skew_y(angle)
-            self.post_translate(x, y)
+    def post_skew_x(self, angle_a=0.0, x=0.0, y=0.0):
+        self.post_skew(angle_a, 0.0, x, y)
+
+    def post_skew_y(self, angle_b=0.0, x=0.0, y=0.0):
+        self.post_skew(0.0, angle_b, x, y)
 
     def pre_cat(self, *components):
         mx = Matrix(*components)
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(mx, self)
 
-    def pre_skew_x(self, radians, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.pre_cat(Matrix.skew_x(radians))
-        else:
-            self.pre_translate(x, y)
-            self.pre_skew_x(radians)
-            self.pre_translate(-x, -y)
-
-    def pre_skew_y(self, radians, x=0, y=0):
-        if x is None:
-            x = 0
-        if y is None:
-            y = 0
-        if x == 0 and y == 0:
-            self.pre_cat(Matrix.skew_y(radians))
-        else:
-            self.pre_translate(x, y)
-            self.pre_skew_y(radians)
-            self.pre_translate(-x, -y)
-
-    def pre_scale(self, sx=1, sy=None, x=0, y=0):
+    def pre_scale(self, sx=1.0, sy=None, x=0.0, y=0.0):
         if sy is None:
             sy = sx
         if x is None:
-            x = 0
+            x = 0.0
         if y is None:
-            y = 0
+            y = 0.0
         if x == 0 and y == 0:
             self.pre_cat(Matrix.scale(sx, sy))
         else:
@@ -1559,10 +1605,22 @@ class Matrix:
             self.pre_scale(sx, sy)
             self.pre_translate(-x, -y)
 
-    def pre_translate(self, tx, ty):
+    def pre_scale_x(self, sx=1.0, x=0.0, y=0.0):
+        self.pre_scale(sx, 1, x, y)
+
+    def pre_scale_y(self, sy=1.0, x=0.0, y=0.0):
+        self.pre_scale(1, sy, x, y)
+
+    def pre_translate(self, tx=0.0, ty=0.0):
         self.pre_cat(Matrix.translate(tx, ty))
 
-    def pre_rotate(self, angle, x=0, y=0):
+    def pre_translate_x(self, tx=0.0):
+        self.pre_translate(tx, 0.0)
+
+    def pre_translate_y(self, ty=0.0):
+        self.pre_translate(0.0, ty)
+
+    def pre_rotate(self, angle, x=0.0, y=0.0):
         if x is None:
             x = 0
         if y is None:
@@ -1573,6 +1631,24 @@ class Matrix:
             self.pre_translate(x, y)
             self.pre_rotate(angle)
             self.pre_translate(-x, -y)
+
+    def pre_skew(self, angle_a=0.0, angle_b=0.0, x=0.0, y=0.0):
+        if x is None:
+            x = 0
+        if y is None:
+            y = 0
+        if x == 0 and y == 0:
+            self.pre_cat(Matrix.skew(angle_a, angle_b))
+        else:
+            self.pre_translate(x, y)
+            self.pre_skew(angle_a, angle_b)
+            self.pre_translate(-x, -y)
+
+    def pre_skew_x(self, angle_a=0.0, x=0.0, y=0.0):
+        self.pre_skew(angle_a, 0, x, y)
+
+    def pre_skew_y(self, angle_b=0.0, x=0.0, y=0.0):
+        self.pre_skew(0.0, angle_b, x, y)
 
     def point_in_inverse_space(self, v0):
         inverse = Matrix(self)
@@ -1590,39 +1666,58 @@ class Matrix:
         v[1] = ny
 
     @classmethod
-    def scale(cls, sx, sy=None):
+    def scale(cls, sx=1.0, sy=None):
         if sy is None:
             sy = sx
         return cls(sx, 0,
                    0, sy, 0, 0)
 
     @classmethod
-    def translate(cls, tx, ty):
+    def scale_x(cls, sx=1.0):
+        return cls.scale(sx, 1.0)
+
+    @classmethod
+    def scale_y(cls, sy=1.0):
+        return cls.scale(1.0, sy)
+
+    @classmethod
+    def translate(cls, tx=0.0, ty=0.0):
         """SVG Matrix:
                 [a c e]
                 [b d f]
                 """
-        return cls(1, 0,
-                   0, 1, tx, ty)
+        return cls(1.0, 0.0,
+                   0.0, 1.0, tx, ty)
 
     @classmethod
-    def rotate(cls, angle):
+    def translate_x(cls, tx=0.0):
+        return cls.translate(tx, 0)
+
+    @classmethod
+    def translate_y(cls, ty=0.0):
+        return cls.translate(0.0, ty)
+
+    @classmethod
+    def rotate(cls, angle=0.0):
         ct = cos(angle)
         st = sin(angle)
         return cls(ct, st,
-                   -st, ct, 0, 0)
+                   -st, ct, 0.0, 0.0)
 
     @classmethod
-    def skew_x(cls, angle):
-        tt = tan(angle)
-        return cls(1, 0,
-                   tt, 1, 0, 0)
+    def skew(cls, angle_a=0.0, angle_b=0.0):
+        aa = tan(angle_a)
+        bb = tan(angle_b)
+        return cls(1.0, bb,
+                   aa, 1.0, 0.0, 0.0)
 
     @classmethod
-    def skew_y(cls, angle):
-        tt = tan(angle)
-        return cls(1, tt,
-                   0, 1, 0, 0)
+    def skew_x(cls, angle=0.0):
+        return cls.skew(angle, 0.0)
+
+    @classmethod
+    def skew_y(cls, angle=0.0):
+        return cls.skew(0.0, angle)
 
     @classmethod
     def identity(cls):
@@ -1666,8 +1761,24 @@ class PathSegment:
             n = copy(self)
             n *= other
             return n
+        elif isinstance(other, str):
+            n = copy(self)
+            n *= Matrix(other)
+            return n
+        return NotImplemented
 
     __rmul__ = __mul__
+
+    def __iadd__(self, other):
+        if isinstance(other, PathSegment):
+            path = Path(self, other)
+            return path
+        elif isinstance(other, str):
+            path = Path(self) + other
+            return path
+        return NotImplemented
+
+    __add__ = __iadd__
 
     def __iter__(self):
         self.n = -1
@@ -1683,6 +1794,11 @@ class PathSegment:
             return val
         except IndexError:
             raise StopIteration
+
+    def reverse(self):
+        end = self.end
+        self.end = self.start
+        self.start = end
 
 
 class Move(PathSegment):
@@ -1737,19 +1853,19 @@ class Move(PathSegment):
                 self.end *= other
         return self
 
-    def __copy__(self):
-        return Move(self.start, self.end)
-
     def __repr__(self):
         if self.start is None:
             return 'Move(end=%s)' % repr(self.end)
         else:
             return 'Move(start=%s, end=%s)' % (repr(self.start), repr(self.end))
 
+    def __copy__(self):
+        return Move(self.start, self.end)
+
     def __eq__(self, other):
         if not isinstance(other, Move):
             return NotImplemented
-        return self.start == other.start
+        return self.start == other.start and self.end == other.end
 
     def __ne__(self, other):
         if not isinstance(other, Move):
@@ -1778,13 +1894,6 @@ class Move(PathSegment):
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 0
 
-    def reverse(self):
-        if self.start is not None:
-            return Move(self.end, self.start)
-        else:
-            if self.start is not None:
-                return Move(self.start, self.end)
-
     def bbox(self):
         """returns the bounding box for the segment in the form
         (xmin, ymin, ymax, ymax)."""
@@ -1802,15 +1911,11 @@ class Close(PathSegment):
 
     def __init__(self, start=None, end=None):
         PathSegment.__init__(self)
-        if end is None:
-            if start is None:
-                self.start = None
-                self.end = None
-            else:
-                self.start = Point(start)
-                self.end = Point(start)
-        else:
+        self.end = None
+        self.start = None
+        if start is not None:
             self.start = Point(start)
+        if end is not None:
             self.end = Point(end)
 
     def __imul__(self, other):
@@ -1820,9 +1925,6 @@ class Close(PathSegment):
             if self.end is not None:
                 self.end *= other
         return self
-
-    def __copy__(self):
-        return Close(self.start, self.end)
 
     def __repr__(self):
         if self.start is None and self.end is None:
@@ -1835,10 +1937,13 @@ class Close(PathSegment):
             e = repr(e)
         return 'Close(start=%s, end=%s)' % (s, e)
 
+    def __copy__(self):
+        return Close(self.start, self.end)
+
     def __eq__(self, other):
         if not isinstance(other, Close):
             return NotImplemented
-        return self.start == other.start
+        return self.start == other.start and self.end == other.end
 
     def __ne__(self, other):
         if not isinstance(other, Close):
@@ -1861,9 +1966,6 @@ class Close(PathSegment):
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 1
 
-    def reverse(self):
-        return Close(self.end, self.start)
-
     def bbox(self):
         """returns the bounding box for the segment in the form
         (xmin, ymin, ymax, ymax)."""
@@ -1875,11 +1977,20 @@ class Close(PathSegment):
 class Line(PathSegment):
     def __init__(self, start, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.end = Point(end)
+        self.end = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
+        if self.start is None:
+            return 'Line(end=%s)' % (repr(self.end))
         return 'Line(start=%s, end=%s)' % (repr(self.start), repr(self.end))
+
+    def __copy__(self):
+        return Line(self.start, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, Line):
@@ -1893,8 +2004,10 @@ class Line(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -1913,9 +2026,6 @@ class Line(PathSegment):
 
     def length(self, error=None, min_depth=None):
         return Point.distance(self.end, self.start)
-
-    def reverse(self):
-        return Line(self.end, self.start)
 
     def closest_segment_point(self, p, respect_bounds=True):
         """ Gives the t value of the point on the line closest to the given point. """
@@ -1988,13 +2098,22 @@ class Line(PathSegment):
 class QuadraticBezier(PathSegment):
     def __init__(self, start, control, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.control = Point(control)
-        self.end = Point(end)
+        self.end = None
+        self.control = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if control is not None:
+            self.control = Point(control)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
         return 'QuadraticBezier(start=%s, control=%s, end=%s)' % (
             repr(self.start), repr(self.control), repr(self.end))
+
+    def __copy__(self):
+        return QuadraticBezier(self.start, self.control, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, QuadraticBezier):
@@ -2009,9 +2128,12 @@ class QuadraticBezier(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.control *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.control is not None:
+                self.control *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -2065,9 +2187,6 @@ class QuadraticBezier(PathSegment):
             s = (A32 * Sabc + A2 * B * (Sabc - C2) + (4 * C * A - B ** 2) *
                  log((2 * A2 + BA + Sabc) / (BA + C2))) / (4 * A32)
         return s
-
-    def reverse(self):
-        return QuadraticBezier(self.end, self.control, self.start)
 
     def is_smooth_from(self, previous):
         """Checks if this segment would be a smooth segment following the previous"""
@@ -2231,14 +2350,25 @@ class QuadraticBezier(PathSegment):
 class CubicBezier(PathSegment):
     def __init__(self, start, control1, control2, end):
         PathSegment.__init__(self)
-        self.start = Point(start)
-        self.control1 = Point(control1)
-        self.control2 = Point(control2)
-        self.end = Point(end)
+        self.end = None
+        self.control1 = None
+        self.control2 = None
+        self.start = None
+        if start is not None:
+            self.start = Point(start)
+        if control1 is not None:
+            self.control1 = Point(control1)
+        if control2 is not None:
+            self.control2 = Point(control2)
+        if end is not None:
+            self.end = Point(end)
 
     def __repr__(self):
         return 'CubicBezier(start=%s, control1=%s, control2=%s, end=%s)' % (
             repr(self.start), repr(self.control1), repr(self.control2), repr(self.end))
+
+    def __copy__(self):
+        return CubicBezier(self.start, self.control1, self.control2, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, CubicBezier):
@@ -2253,10 +2383,14 @@ class CubicBezier(PathSegment):
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.control1 *= other
-            self.control2 *= other
-            self.end *= other
+            if self.start is not None:
+                self.start *= other
+            if self.control1 is not None:
+                self.control1 *= other
+            if self.control2 is not None:
+                self.control2 *= other
+            if self.end is not None:
+                self.end *= other
         return self
 
     def __len__(self):
@@ -2273,6 +2407,12 @@ class CubicBezier(PathSegment):
             return self.end
         else:
             raise IndexError
+
+    def reverse(self):
+        PathSegment.reverse(self)
+        c2 = self.control2
+        self.control2 = self.control1
+        self.control1 = c2
 
     def point(self, t):
         """Calculate the x,y position at a certain position of the path"""
@@ -2291,9 +2431,6 @@ class CubicBezier(PathSegment):
         start_point = self.point(0)
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
-
-    def reverse(self):
-        return CubicBezier(self.end, self.control2, self.control1, self.start)
 
     def is_smooth_from(self, previous):
         """Checks if this segment would be a smooth segment following the previous"""
@@ -2610,15 +2747,15 @@ class Arc(PathSegment):
         self.pry = None
         self.sweep = None
         if len(args) == 6 and isinstance(args[1], complex):
-            self.svg_complex_parameterize(*args)
+            self._svg_complex_parameterize(*args)
             return
         elif len(kwargs) == 6 and 'rotation' in kwargs:
-            self.svg_complex_parameterize(**kwargs)
+            self._svg_complex_parameterize(**kwargs)
             return
         elif len(args) == 7:
             # This is an svg parameterized call.
             # A: rx ry x-axis-rotation large-arc-flag sweep-flag x y
-            self.svg_parameterize(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+            self._svg_parameterize(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
             return
         # TODO: account for L, T, R, B, startAngle, endAngle, theta parameters.
         # cx = (left + right) / 2
@@ -2629,15 +2766,20 @@ class Arc(PathSegment):
         # startAngle, endAngle, theta
         len_args = len(args)
         if len_args > 0:
-            self.start = Point(args[0])
+            if args[0] is not None:
+                self.start = Point(args[0])
         if len_args > 1:
-            self.end = Point(args[1])
+            if args[1] is not None:
+                self.end = Point(args[1])
         if len_args > 2:
-            self.center = Point(args[2])
+            if args[2] is not None:
+                self.center = Point(args[2])
         if len_args > 3:
-            self.prx = Point(args[3])
+            if args[3] is not None:
+                self.prx = Point(args[3])
         if len_args > 4:
-            self.pry = Point(args[4])
+            if args[4] is not None:
+                self.pry = Point(args[4])
         if len_args > 5:
             self.sweep = args[5]
             return  # The args gave us everything.
@@ -2706,6 +2848,9 @@ class Arc(PathSegment):
         return 'Arc(%s, %s, %s, %s, %s, %s)' % (
             repr(self.start), repr(self.end), repr(self.center), repr(self.prx), repr(self.pry), self.sweep)
 
+    def __copy__(self):
+        return Arc(self.start, self.end, self.center, self.prx, self.pry, self.sweep)
+
     def __eq__(self, other):
         if not isinstance(other, Arc):
             return NotImplemented
@@ -2718,16 +2863,18 @@ class Arc(PathSegment):
             return NotImplemented
         return not self == other
 
-    def __copy__(self):
-        return Arc(self.start, self.end, self.center, self.prx, self.pry, self.sweep)
-
     def __imul__(self, other):
         if isinstance(other, Matrix):
-            self.start *= other
-            self.center *= other
-            self.end *= other
-            self.prx *= other
-            self.pry *= other
+            if self.start is not None:
+                self.start *= other
+            if self.center is not None:
+                self.center *= other
+            if self.end is not None:
+                self.end *= other
+            if self.prx is not None:
+                self.prx *= other
+            if self.pry is not None:
+                self.pry *= other
             if other.value_scale_x() < 0:
                 self.sweep = -self.sweep
             if other.value_scale_y() < 0:
@@ -2772,6 +2919,10 @@ class Arc(PathSegment):
         y = (sin_theta_rotation * cos_angle * rx + cos_theta_rotation * sin_angle * ry + self.center[1])
         return Point(x, y)
 
+    def reverse(self):
+        PathSegment.reverse(self)
+        self.sweep = -self.sweep
+
     def point(self, t):
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
@@ -2784,21 +2935,23 @@ class Arc(PathSegment):
         integration, and in that case it's simpler to just do a geometric
         approximation, as for cubic bezier curves.
         """
+        if self.sweep == 0:
+            return 0
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
             return 0
+        if self.rx == self.ry:  # This is a circle.
+            return abs(self.rx * self.sweep)
+
         start_point = self.point(0)
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
 
-    def reverse(self):
-        return Arc(self.end, self.start, self.center, self.prx, self.pry, -self.sweep)
-
-    def svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
+    def _svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
         """Parameterization with complex radius and having rotation factors."""
-        self.svg_parameterize(Point(start), radius.real, radius.imag, rotation, bool(arc), bool(sweep), Point(end))
+        self._svg_parameterize(Point(start), radius.real, radius.imag, rotation, bool(arc), bool(sweep), Point(end))
 
-    def svg_parameterize(self, start, rx, ry, rotation, large_arc_flag, sweep_flag, end):
+    def _svg_parameterize(self, start, rx, ry, rotation, large_arc_flag, sweep_flag, end):
         """Conversion from svg parameterization, our chosen native native form.
         http://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes """
 
@@ -3058,19 +3211,24 @@ class Path(MutableSequence):
     """A Path is a sequence of path segments"""
 
     def __init__(self, *segments):
-        if len(segments) == 1 and isinstance(segments[0], str):
-            self._segments = list()
-            self.parse(segments[0])
-        else:
-            self._segments = list(segments)
         self._length = None
         self._lengths = None
+        if len(segments) == 1:
+            if isinstance(segments[0], Subpath):
+                self._segments = []
+                self._segments.extend(map(copy, list(segments[0])))
+                return
+            elif isinstance(segments[0], str):
+                self._segments = list()
+                self.parse(segments[0])
+                return
+            elif isinstance(segments[0], list):
+                self._segments = segments[0]
+                return
+        self._segments = list(segments)
 
     def __copy__(self):
-        p = Path()
-        for seg in self._segments:
-            p.append(copy(seg))
-        return p
+        return Path(*map(copy, self._segments))
 
     def __getitem__(self, index):
         return self._segments[index]
@@ -3083,23 +3241,52 @@ class Path(MutableSequence):
         del self._segments[index]
         self._length = None
 
+    def __iadd__(self, other):
+        if isinstance(other, str):
+            self.parse(other)
+        elif isinstance(other, (Path, Subpath)):
+            self._segments.extend(map(copy, list(other)))
+        elif isinstance(other, PathSegment):
+            self.append(other)
+        else:
+            return NotImplemented
+        self.validate_connections()
+        return self
+
+    def __add__(self, other):
+        n = copy(self)
+        n += other
+        return n
+
+    def __radd__(self, other):
+        if isinstance(other, str):
+            path = Path(other)
+            path.extend(map(copy, self._segments))
+            path.validate_connections()
+            return path
+        elif isinstance(other, PathSegment):
+            path = copy(self)
+            path.insert(0, other)
+            path.validate_connections()
+            return path
+        else:
+            return NotImplemented
+
     def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
         if isinstance(other, Matrix):
             for e in self._segments:
                 e *= other
         return self
 
     def __mul__(self, other):
-        if isinstance(other, Matrix):
+        if isinstance(other, (Matrix, str)):
             n = copy(self)
             n *= other
             return n
 
     __rmul__ = __mul__
-
-    def __reversed__(self):
-        for segment in reversed(self._segments):
-            yield segment.reverse()
 
     def __len__(self):
         return len(self._segments)
@@ -3111,6 +3298,8 @@ class Path(MutableSequence):
         return 'Path(%s)' % (', '.join(repr(x) for x in self._segments))
 
     def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__eq__(Path(other))
         if not isinstance(other, Path):
             return NotImplemented
         if len(self) != len(other):
@@ -3121,7 +3310,7 @@ class Path(MutableSequence):
         return True
 
     def __ne__(self, other):
-        if not isinstance(other, Path):
+        if not isinstance(other, (Path, str)):
             return NotImplemented
         return not self == other
 
@@ -3129,6 +3318,35 @@ class Path(MutableSequence):
         """Parses the SVG path."""
         tokens = SVGPathTokens()
         tokens.svg_parse(self, pathdef)
+
+    def validate_connections(self):
+        """
+        Validate path connections. This will scan path connections and link any adjacent elements together by replacing
+        any None points or causing the start position of the next element to equal the end position of the previous.
+        This should only be needed when combining paths and elements together. Close elements are always connected to
+        the last Move element or to the end position of the first element in the list. The start element of the first
+        segment may or may not be None. But, will not be regarded as important.
+
+        This does not guarantee that the SVG path is valid. It may still have no initial Move element, multiple Close
+        elements, Arcs that cannot be denoted by SVG or segments that do not exist in SVG.
+
+        There is no need to call this directly as it will be invoked on any changes to Path.
+        """
+        zpoint = None
+        last_segment = None
+        for segment in self._segments:
+            if zpoint is None or isinstance(segment, Move):
+                zpoint = segment.end
+            if last_segment is not None:
+                if segment.start is None and last_segment.end is not None:
+                    segment.start = Point(last_segment.end)
+                elif last_segment.end is None and segment.start is not None:
+                    last_segment.end = Point(segment.start)
+                elif last_segment.end != segment.start:
+                    segment.start = Point(last_segment.end)
+            if isinstance(segment, Close) and zpoint is not None and segment.end != zpoint:
+                segment.end = Point(zpoint)
+            last_segment = segment
 
     @property
     def first_point(self):
@@ -3159,7 +3377,10 @@ class Path(MutableSequence):
                 end_pos = segment.end
                 break
         if end_pos is None:
-            end_pos = self._segments[0].start
+            try:
+                end_pos = self._segments[0].end
+            except IndexError:
+                pass  # entire path is "z".
         return end_pos
 
     @property
@@ -3192,11 +3413,11 @@ class Path(MutableSequence):
 
     def move(self, *points):
         end_pos = points[0]
-        if len(self._segments) > 0:
-            if isinstance(self._segments[-1], Move):
-                # If there was just a move command update that.
-                self._segments[-1].end = Point(end_pos)
-                return
+        # if len(self._segments) > 0:
+        #     if isinstance(self._segments[-1], Move):
+        #         # If there was just a move command update that.
+        #         self._segments[-1].end = Point(end_pos)
+        #         return
         start_pos = self.current_point
         self.append(Move(start_pos, end_pos))
         if len(points) > 1:
@@ -3341,6 +3562,8 @@ class Path(MutableSequence):
         self._lengths = [each / self._length for each in lengths]
 
     def point(self, pos, error=ERROR):
+        if len(self._segments) == 0:
+            return None
         # Shortcuts
         if pos == 0.0:
             return self._segments[0].point(pos)
@@ -3357,7 +3580,6 @@ class Path(MutableSequence):
                 segment_pos = (pos - segment_start) / (segment_end - segment_start)
                 break
             segment_start = segment_end
-
         return segment.point(segment_pos)
 
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
@@ -3369,28 +3591,38 @@ class Path(MutableSequence):
             for e in segment.plot():
                 yield e
 
-    def insert(self, index, value):
-        self._segments.insert(index, value)
+    def insert(self, index, object):
+        self._segments.insert(index, object)
         self._length = None
+        self.validate_connections()
+
+    def extend(self, iterable):
+        self._segments.extend(iterable)
+        self._length = None
+        self.validate_connections()
 
     def reverse(self):
-        reversed_segments = self._segments[::-1]
-        for i in range(0, len(reversed_segments)):
-            reversed_segments[i] = reversed_segments[i].reverse()
-        path = Path()
-        path._segments = reversed_segments
-        return path
+        if len(self._segments) == 0:
+            return
+        prepoint = self._segments[0].start
+        self._segments[0].start = None
+        p = Path()
+        subpaths = list(self.as_subpaths())
+        for subpath in subpaths:
+            subpath.reverse()
+        for subpath in reversed(subpaths):
+            p += subpath
+        self._segments = p._segments
+        self._segments[0].start = prepoint
+        self.validate_connections()
 
     def as_subpaths(self):
         last = 0
-        subpath = Path()
         for current, seg in enumerate(self):
             if current != last and isinstance(seg, Move):
-                subpath._segments = self[last:current]
-                yield subpath
+                yield Subpath(self, last, current - 1)
                 last = current
-        subpath._segments = self[last:]
-        yield subpath
+        yield Subpath(self, last, len(self) - 1)
 
     def as_points(self):
         """Returns the list of defining points within path"""
@@ -3414,51 +3646,215 @@ class Path(MutableSequence):
         ymax = max(ymaxs)
         return xmin, ymin, xmax, ymax
 
-    def d(self):
+    @staticmethod
+    def svg_d(segments):
+        if len(segments) == 0:
+            return ''
         parts = []
         previous_segment = None
-        if len(self) == 0:
-            return ''
-        for segment in self:
+        for segment in segments:
             if isinstance(segment, Move):
-                parts.append('M {0:G},{1:G}'.format(segment.end[0], segment.end[1]))
+                parts.append('M %s' % segment.end)
             elif isinstance(segment, Line):
-                parts.append('L {0:G},{1:G}'.format(
-                    segment.end[0], segment.end[1])
-                )
+                parts.append('L %s' % segment.end)
             elif isinstance(segment, CubicBezier):
                 if segment.is_smooth_from(previous_segment):
-                    parts.append('S {0:G},{1:G} {2:G},{3:G}'.format(
-                        segment.control2[0], segment.control2[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('S %s %s' % (segment.control2,segment.end))
                 else:
-                    parts.append('C {0:G},{1:G} {2:G},{3:G} {4:G},{5:G}'.format(
-                        segment.control1[0], segment.control1[1],
-                        segment.control2[0], segment.control2[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('C %s %s %s' % (segment.control1, segment.control2, segment.end))
             elif isinstance(segment, QuadraticBezier):
                 if segment.is_smooth_from(previous_segment):
-                    parts.append('T {0:G},{1:G}'.format(
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('T %s' % (segment.end))
                 else:
-                    parts.append('Q {0:G},{1:G} {2:G},{3:G}'.format(
-                        segment.control[0], segment.control[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('Q %s %s' % (segment.control, segment.end))
 
             elif isinstance(segment, Arc):
-                parts.append('A {0:G},{1:G} {2:G} {3:d},{4:d} {5:G},{6:G}'.format(
-                    segment.rx, segment.ry, segment.get_rotation().as_degrees,
-                    int(abs(segment.sweep) > (tau / 2.0)), int(segment.sweep >= 0),
-                    segment.end[0], segment.end[1])
+                parts.append(
+                    'A %G,%G %G %d,%d %s' %
+                    (
+                        segment.rx,
+                        segment.ry,
+                        segment.get_rotation().as_degrees,
+                        int(abs(segment.sweep) > (tau / 2.0)),
+                        int(segment.sweep >= 0),
+                        segment.end
+                     )
                 )
             elif isinstance(segment, Close):
                 parts.append('Z')
             previous_segment = segment
         return ' '.join(parts)
+
+    def d(self):
+        return Path.svg_d(self._segments)
+
+
+class Subpath:
+    """Subpath is a Path-backed window implementation. It does not store a list of segments but rather
+    stores a Path, start position, end position. When a function is called on a subpath, the result of those events
+    occurs is performed on the backing Path. When the backing Path is modified the behavior is undefined."""
+
+    def __init__(self, path, start, end):
+        self._path = path
+        self._start = start
+        self._end = end
+
+    def __copy__(self):
+        p = Path()
+        for seg in self._path:
+            p.append(copy(seg))
+        return p
+
+    def __getitem__(self, index):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        return self._path[index]
+
+    def __setitem__(self, index, value):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        self._path[index] = value
+
+    def __delitem__(self, index):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        del self._path[index]
+        self._end -= 1
+
+    def __iadd__(self, other):
+        if isinstance(other, str):
+            p = Path(other)
+            self._path[self._end:self._end] = p
+        elif isinstance(other, Path):
+            p = copy(other)
+            self._path[self._end:self._end] = p
+        elif isinstance(other, PathSegment):
+            self._path.insert(self._end, other)
+        else:
+            return NotImplemented
+        return self
+
+    def __add__(self, other):
+        n = copy(self)
+        n += other
+        return n
+
+    def __radd__(self, other):
+        if isinstance(other, str):
+            path = Path(other)
+            path.extend(map(copy, self._path))
+            return path
+        elif isinstance(other, PathSegment):
+            path = Path(self)
+            path.insert(0, other)
+            return path
+        else:
+            return NotImplemented
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            for e in self:
+                e *= other
+        return self
+
+    def __mul__(self, other):
+        if isinstance(other, (Matrix, str)):
+            n = copy(self)
+            n *= other
+            return n
+
+    __rmul__ = __mul__
+
+    def __iter__(self):
+        class Iterator:
+            def __init__(self, subpath):
+                self.n = subpath._start - 1
+                self.subpath = subpath
+
+            def __next__(self):
+                self.n += 1
+                try:
+                    if self.n > self.subpath._end:
+                        raise StopIteration
+                    return self.subpath._path[self.n]
+                except IndexError:
+                    raise StopIteration
+
+            next = __next__
+
+        return Iterator(self)
+
+    def __len__(self):
+        return self._end - self._start + 1
+
+    def __str__(self):
+        return self.d()
+
+    def __repr__(self):
+        return 'Path(%s)' % (', '.join(repr(x) for x in self))
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__eq__(Path(other))
+        if not isinstance(other, Path):
+            return NotImplemented
+        if len(self) != len(other):
+            return False
+        for s, o in zip(self, other):
+            if not s == o:
+                return False
+        return True
+
+    def __ne__(self, other):
+        if not isinstance(other, (Path, str)):
+            return NotImplemented
+        return not self == other
+
+    def d(self):
+        return Path.svg_d(self._path._segments[self._start:self._end + 1])
+
+    def reverse_segments(self, start, end):
+        """Reverses segments within between the given indexes in the subpath space."""
+        while start <= end:
+            start_segment = self[start]
+            end_segment = self[end]
+            start_segment.reverse()
+            if start_segment is not end_segment:
+                end_segment.reverse()
+                self[start] = end_segment
+                self[end] = start_segment
+            start += 1
+            end -= 1
+
+    def reverse(self):
+        size = len(self)
+        if size == 0:
+            return
+        start = 0
+        end = size - 1
+        if isinstance(self[-1], Close):
+            end -= 1
+        if isinstance(self[0], Move):  # Move remains in place but references next element.
+            start += 1
+        self.reverse_segments(start, end)
+        if size > 1:
+            if isinstance(self[0], Move):
+                self[0].end = Point(self[1].start)
+        last = self[-1]
+        if isinstance(last, Close):
+            last.reverse()
+            if last.start != self[-2].end:
+                last.start = Point(self[-2].end)
+            if last.end != self[0].end:
+                last.end = Point(self[0].end)
 
 
 class SVG:

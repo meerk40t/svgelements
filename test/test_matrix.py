@@ -7,6 +7,76 @@ from svg.elements import *
 
 class TestPathMatrix(unittest.TestCase):
 
+    def test_rotate_css_angles(self):
+        matrix = Matrix("rotate(90, 100,100)")
+        path = Path("M0,0z")
+        path *= matrix
+        self.assertEqual("M 200,0 Z", path.d())
+        matrix = Matrix("rotate(90deg, 100,100)")
+        path = Path("M0,0z")
+        path *= matrix
+        self.assertEqual("M 200,0 Z", path.d())
+        matrix = Matrix("rotate(0.25turn, 100,100)")
+        path = Path("M0,0z")
+        path *= matrix
+        self.assertEqual("M 200,0 Z", path.d())
+        matrix = Matrix("rotate(100grad, 100,100)")
+        path = Path("M0,0z")
+        path *= matrix
+        self.assertEqual("M 200,0 Z", path.d())
+        matrix = Matrix("rotate(1.5707963267948966rad, 100,100)")
+        path = Path("M0,0z")
+        path *= matrix
+        self.assertEqual("M 200,0 Z", path.d())
+
+    def test_matrix_multiplication(self):
+        self.assertEqual(Matrix("scale(0.2) translate(-5,-5)"), Matrix("translate(-5,-5)") * Matrix("scale(0.2)"))
+        self.assertEqual(Matrix("translate(-5,-5) scale(0.2)"), Matrix("scale(0.2)") * Matrix("translate(-5,-5)"))
+
+    def test_rotate_css_distance(self):
+        matrix = Matrix("rotate(90deg,100cm,100cm)")
+        path = Path("M0,0z")
+        path *= matrix
+        p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % Distance.parse("1cm"))
+        self.assertEqual(p2, path)
+
+    def test_skew_single_value(self):
+        m0 = Matrix("skew(15deg,0deg)")
+        m1 = Matrix("skewX(15deg)")
+        self.assertEqual(m0, m1)
+        m0 = Matrix("skew(0deg,15deg)")
+        m1 = Matrix("skewY(15deg)")
+        self.assertEqual(m0, m1)
+
+    def test_scale_single_value(self):
+        m0 = Matrix("scale(2,1)")
+        m1 = Matrix("scaleX(2)")
+        self.assertEqual(m0, m1)
+        m0 = Matrix("scale(1,2)")
+        m1 = Matrix("scaleY(2)")
+        self.assertEqual(m0, m1)
+
+    def test_translate_single_value(self):
+        m0 = Matrix("translate(500cm,0)")
+        m1 = Matrix("translateX(500cm)")
+        self.assertEqual(m0, m1)
+        m0 = Matrix("translate(0,500cm)")
+        m1 = Matrix("translateY(500cm)")
+        self.assertEqual(m0, m1)
+        m0 = Matrix("translate(500cm)")
+        m1 = Matrix("translateX(500cm)")
+        self.assertEqual(m0, m1)
+
+    def test_translate_css_value(self):
+        m0 = Matrix("translate(50mm,5cm)")
+        m1 = Matrix("translate(5cm,5cm)")
+        self.assertEqual(repr(m0), repr(m1))
+
+    def test_rotate_css_value(self):
+        m0 = Matrix("rotate(90deg, 50cm,50cm)")
+        m1 = Matrix("rotate(0.25turn, 500mm,500mm)")
+        self.assertEqual(repr(m0), repr(m1))
+
     def test_transform_translate(self):
         matrix = Matrix("translate(5,4)")
         path = Path()
@@ -205,4 +275,3 @@ class TestPathMatrix(unittest.TestCase):
             p = Matrix()
             p.pre_skew_y(a, tx, ty)
             self.assertEqual(p, q)
-

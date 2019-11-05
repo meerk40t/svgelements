@@ -31,6 +31,48 @@ For real world functionality we must correctly and reasonably provide the abilit
 
 This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatable.
 
+# Usage.
+
+The usability has greatly increased with dunder methods and various extensions. Points, PathSegments, Paths can be multiplied by a matrix. Functionally understandable parsable elements are parsed and used.
+
+Most of the usefulness is in the simplicity of the implemented values.
+
+    >>> Line((20,20), (40,40)) * Matrix("Rotate(45)")
+    Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
+
+But, also, since the Line element is part of the project we don't need to wrap the element in the matrix ourselves.
+
+    >>> Line((20,20), (40,40)) * "Rotate(45)"
+    Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
+
+Path elements can wrap any number of PathSegments. So we could similarly do:
+
+    >>> Path("L 40,40") * "Rotate(45)"
+    Path(Line(end=Point(0,56.568542494924)))
+
+That line is merely to an end point.
+
+    >>> Move((20,20)) + Path("L 40,40") * "Rotate(45)"
+    Path(Move(end=Point(20,20)), Line(start=Point(20,20), end=Point(0,56.568542494924)))
+
+This this is because of the order of operations The L40,40 was rotated by 45 degrees before the move was added.
+
+    >>> Path("M 20,20 L 40,40") * "Rotate(45)"
+    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+
+You can add segments together to form Paths:
+
+    >>> print(Move((2,2)) + Close())
+    M 2,2 Z
+
+You can reverse paths:
+
+    >>> p = (Path("M1,1 1,2 2,2 2,1z") * "scale(2)")
+    >>> p.reverse()
+    >>> print(p)
+    M 4,2 L 4,4 L 2,4 L 2,2 Z
+
+
 # Elements
 
 The core functionality of this class are the elements. These are svg-based objects which interact work in various reasonable methods.
@@ -234,14 +276,6 @@ Point is used in all the SVG path segment objects. With regard to `svg.path` it 
 
 The class supports `complex` subscriptable elements, .x and .y methods, and .imag and .real. As well as providing several of these indexing methods.
 
-# Interactions
-
-Most of the usefulness is in the simplicity of the implemented values.
-
-    >>> Line((20,20), (40,40)) * Matrix("Rotate(45)")
-    Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
-
-Points, PathSegments, Paths can be multiplied by a matrix. 
 
 
 # License

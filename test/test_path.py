@@ -59,3 +59,60 @@ class TestPath(unittest.TestCase):
         for p in hull:
             self.assertEqual(abs(p[0]), 100)
             self.assertEqual(abs(p[1]), 100)
+
+    def test_reverse_path_q(self):
+        path = Path("M1,0 22,7 Q 17,17 91,2")
+        path.reverse()
+        self.assertEqual(path, Path("M 91,2 Q 17,17 22,7 L 1,0"))
+
+    def test_reverse_path_multi_move(self):
+        path = Path("M1,0 M2,0 M3,0")
+        path.reverse()
+        self.assertEqual(path, "M3,0 M2,0 M1,0")
+        path = Path("M1,0z M2,0z M3,0z")
+        path.reverse()
+        self.assertEqual(path, "M3,0 Z M2,0 Z M1,0 Z")
+
+    def test_reverse_path_multipath(self):
+        path = Path("M1,0 22,7 Q 17,17 91,2M0,0zM20,20z")
+        print(path)
+        path.reverse()
+        print(path)
+        self.assertEqual(path, Path("M20,20zM0,0zM 91,2 Q 17,17 22,7 L 1,0"))
+
+    def test_path_mult_sideeffect(self):
+        path = Path("M1,1 10,10 Q 17,17 91,2 T 9,9 C 40,40 20,0, 9,9 S 60,50 0,0 A 25,25 -30 0,1 30,30 z")
+        q = path * "scale(2)"
+        self.assertEqual(path, "M1,1 10,10 Q 17,17 91,2 T 9,9 C 40,40 20,0, 9,9 S 60,50 0,0 A 25,25 -30 0,1 30,30 z")
+
+    def test_subpath_imult_sideeffect(self):
+        path = Path("M1,1 10,10 Q 17,17 91,2 T 9,9 C 40,40 20,0, 9,9 S 60,50 0,0 A 25,25 -30 0,1 30,30 zM50,50z")
+        self.assertEqual(
+            path,
+            "M1,1 10,10 Q 17,17 91,2 T 9,9 C 40,40 20,0, 9,9 S 60,50 0,0 A 25,25 -30 0,1 30,30 zM50,50z")
+        for p in path.as_subpaths():
+            p *= "scale(2)"
+        self.assertEqual(
+            path,
+            "M 2,2 L 20,20 Q 34,34 182,4 T 18,18 C 80,80 40,0 18,18 S 120,100 0,0 A 50,50 -30 0,1 60,60 ZM100,100z")
+
+    def test_subpath_reverse(self):
+        p = Path("M1,1 L5,5M2,1 L6,5M3,1 L7,5")
+        subpaths = list(p.as_subpaths())
+        subpaths[1].reverse()
+        self.assertEqual("M 1,1 L 5,5 M 6,5 L 2,1 M 3,1 L 7,5", str(p))
+        subpaths[1].reverse()
+        self.assertEqual("M 1,1 L 5,5 M 2,1 L 6,5 M 3,1 L 7,5", str(p))
+
+        p = Path("M1,1 L5,5M2,1 L6,5zM3,1 L7,5")
+        subpaths = list(p.as_subpaths())
+        print(subpaths[1])
+        subpaths[1].reverse()
+        print(subpaths[1])
+        self.assertEqual("M 6,5 L 2,1 Z", str(subpaths[1]))
+        self.assertEqual("M 1,1 L 5,5 M 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
+
+        p = Path("M1,1 L5,5M2,1 6,5 100,100 200,200 zM3,1 L7,5")
+        subpaths = list(p.as_subpaths())
+        subpaths[1].reverse()
+        self.assertEqual("M 1,1 L 5,5 M 200,200 L 100,100 L 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
