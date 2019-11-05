@@ -3585,7 +3585,7 @@ class Path(MutableSequence):
         self.validate_connections()
 
     def extend(self, iterable):
-        super().extend(iterable)
+        self._segments.extend(iterable)
         self._length = None
         self.validate_connections()
 
@@ -3783,6 +3783,8 @@ class Subpath:
                     return self.subpath._path[self.n]
                 except IndexError:
                     raise StopIteration
+
+            next = __next__
 
         return Iterator(self)
 
