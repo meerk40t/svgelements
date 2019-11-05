@@ -1038,13 +1038,25 @@ class Point:
             raise IndexError
 
     def __repr__(self):
-        return "Point(%.12f,%.12f)" % (self.x, self.y)
+        x_str = ('%.12f' % (self.x))
+        if '.' in x_str:
+            x_str = x_str.rstrip('0').rstrip('.')
+        y_str = ('%.12f' % (self.y))
+        if '.' in y_str:
+            y_str = y_str.rstrip('0').rstrip('.')
+        return "Point(%s,%s)" % (x_str, y_str)
 
     def __copy__(self):
         return Point(self.x, self.y)
 
     def __str__(self):
-        return "(%g,%g)" % (self.x, self.y)
+        x_str = ('%G' % (self.x))
+        if '.' in x_str:
+            x_str = x_str.rstrip('0').rstrip('.')
+        y_str = ('%G' % (self.y))
+        if '.' in y_str:
+            y_str = y_str.rstrip('0').rstrip('.')
+        return "%s,%s" % (x_str, y_str)
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
@@ -3642,39 +3654,31 @@ class Path(MutableSequence):
         previous_segment = None
         for segment in segments:
             if isinstance(segment, Move):
-                parts.append('M {0:G},{1:G}'.format(segment.end[0], segment.end[1]))
+                parts.append('M %s' % segment.end)
             elif isinstance(segment, Line):
-                parts.append('L {0:G},{1:G}'.format(
-                    segment.end[0], segment.end[1])
-                )
+                parts.append('L %s' % segment.end)
             elif isinstance(segment, CubicBezier):
                 if segment.is_smooth_from(previous_segment):
-                    parts.append('S {0:G},{1:G} {2:G},{3:G}'.format(
-                        segment.control2[0], segment.control2[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('S %s %s' % (segment.control2,segment.end))
                 else:
-                    parts.append('C {0:G},{1:G} {2:G},{3:G} {4:G},{5:G}'.format(
-                        segment.control1[0], segment.control1[1],
-                        segment.control2[0], segment.control2[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('C %s %s %s' % (segment.control1, segment.control2, segment.end))
             elif isinstance(segment, QuadraticBezier):
                 if segment.is_smooth_from(previous_segment):
-                    parts.append('T {0:G},{1:G}'.format(
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('T %s' % (segment.end))
                 else:
-                    parts.append('Q {0:G},{1:G} {2:G},{3:G}'.format(
-                        segment.control[0], segment.control[1],
-                        segment.end[0], segment.end[1])
-                    )
+                    parts.append('Q %s %s' % (segment.control, segment.end))
 
             elif isinstance(segment, Arc):
-                parts.append('A {0:G},{1:G} {2:G} {3:d},{4:d} {5:G},{6:G}'.format(
-                    segment.rx, segment.ry, segment.get_rotation().as_degrees,
-                    int(abs(segment.sweep) > (tau / 2.0)), int(segment.sweep >= 0),
-                    segment.end[0], segment.end[1])
+                parts.append(
+                    'A %G,%G %G %d,%d %s' %
+                    (
+                        segment.rx,
+                        segment.ry,
+                        segment.get_rotation().as_degrees,
+                        int(abs(segment.sweep) > (tau / 2.0)),
+                        int(segment.sweep >= 0),
+                        segment.end
+                     )
                 )
             elif isinstance(segment, Close):
                 parts.append('Z')
