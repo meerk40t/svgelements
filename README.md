@@ -124,8 +124,6 @@ as an argument:
     >>> Path('M 100 100 L 300 100')
     Path(Move(end=Point(100,100)), Line(start=Point(100,100), end=Point(300,100)))
 
-
-
 ### Segment Classes
 
 These are the SVG PathSegment classes. See the `SVG specifications
@@ -166,6 +164,17 @@ SVG representation of the Path segments:
 
 In elements this is also the preferred result of `str()` typically `str(path)`.
 
+### Subpaths
+
+There is also a class called Subpath which works as a window into the Path class.
+
+    >>> p = Path("M1,1 1,2 2,2 2,1zM40,40 L 20,20 M0,0 L 5,5")
+    >>> subpaths = list(p.as_subpaths())
+    >>> subpaths[1].reverse()
+    >>> print(p)
+    M 1,1 L 1,2 L 2,2 L 2,1 Z M 20,20 L 40,40 M 0,0 L 5,5
+    
+In the above example the subpaths are put into a list, the second subpath is reversed resulting in the 2nd subpath in the element `M40,40 L 20,20` getting flipped and becoming: `M 20,20 L 40,40`
 
 ### Examples
 
