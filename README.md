@@ -1,5 +1,5 @@
 # svg.elements
-SVG Parsing for Elements, Paths, and other SVG Objects.
+SVG Parsing for Files, Elements, Paths, and other SVG Objects.
 
 The Path element of this project is based in part on the `regebro/svg.path` ( https://github.com/regebro/svg.path ) project. It is also may be based, in part, on some elements of `mathandy/svgpathtools` ( https://github.com/mathandy/svgpathtools ).
 
@@ -31,53 +31,95 @@ For real world functionality we must correctly and reasonably provide the abilit
 
 This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatable.
 
-# Usage.
+# Example Usages
 
 The usability has greatly increased with dunder methods and various extensions. Points, PathSegments, Paths can be multiplied by a matrix. Functionally understandable parsable elements are parsed and used.
 
-Most of the usefulness is in the simplicity of the implemented values.
+Parse an svg file:
+
+    >>> svg = SVG(file)
+    >>> list(svg.nodes())
+
+Make a PathSegment
+
+    >>> Line((20,20), (40,40))
+    Line(start=Point(20,20), end=Point(40,40))
+
+Rotate a PathSegment:
+
+    >>> Line((20,20), (40,40)) * Matrix.rotate(Angle.degrees(45))
+    Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
+    
+Rotate a PathSegment with a parsed matrix:
 
     >>> Line((20,20), (40,40)) * Matrix("Rotate(45)")
     Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
 
-But, also, since the Line element is part of the project we don't need to wrap the element in the matrix ourselves.
+Rotate a PathSegment with an implied parsed matrix:
 
     >>> Line((20,20), (40,40)) * "Rotate(45)"
     Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
 
-Path elements can wrap any number of PathSegments. So we could similarly do:
+Rotate a Partial Path with an implied matrix:
+(Note: The SVG does not allow us to specify a start point for the invalid path)
 
     >>> Path("L 40,40") * "Rotate(45)"
     Path(Line(end=Point(0,56.568542494924)))
 
-That line is merely to an end point.
+Prepend a move to the rotated partial path:
+(Note: This rotates the partial path, then adds the start point)
 
     >>> Move((20,20)) + Path("L 40,40") * "Rotate(45)"
     Path(Move(end=Point(20,20)), Line(start=Point(20,20), end=Point(0,56.568542494924)))
 
-This this is because of the order of operations The L40,40 was rotated by 45 degrees before the move was added.
+Prepend a move to the partial path, and rotate:
+
+    >>> (Move((20,20)) + Path("L 40,40")) * "Rotate(45)"
+    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+
+Since Move() is a qualified element we can postpend the SVG text:
+
+    >>> (Move((20,20)) + "L 40,40") * "Rotate(45)"
+    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+
+Define the entire qualified path and rotate:
 
     >>> Path("M 20,20 L 40,40") * "Rotate(45)"
     Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
 
-You can add segments together to form Paths:
+Combine individual PathSegments together:
+
+    >>> Move((2,2)) + Close()
+    Path(Move(end=Point(2,2)), Close())
+
+Write that as SVG text:
 
     >>> print(Move((2,2)) + Close())
     M 2,2 Z
 
-You can reverse paths:
+Scale a path:
+
+    >>> Path("M1,1 1,2 2,2 2,1z") * "scale(2)"
+    Path(Move(end=Point(2,2)), Line(start=Point(2,2), end=Point(2,4)), Line(start=Point(2,4), end=Point(4,4)), Line(start=Point(4,4), end=Point(4,2)), Close(start=Point(4,2), end=Point(2,2)))
+ 
+Print that:
+
+    >>> print(Path("M1,1 1,2 2,2 2,1z") * "scale(2)")
+    M 2,2 L 2,4 L 4,4 L 4,2 Z
+ 
+Reverse a scaled path:
 
     >>> p = (Path("M1,1 1,2 2,2 2,1z") * "scale(2)")
     >>> p.reverse()
     >>> print(p)
     M 4,2 L 4,4 L 2,4 L 2,2 Z
 
-You can query lengths:
+Query length of paths:
 
     >>> QuadraticBezier("0,0", "50,50", "100,0").length()
     114.7793574696319
 
-Apply translations:
+Apply a translations:
 
     >>> Path('M 0,0 Q 50,50 100,0') * "translate(40,40)"
     Path(Move(end=Point(40,40)), QuadraticBezier(start=Point(40,40), control=Point(90,90), end=Point(140,40)))
@@ -89,7 +131,7 @@ Query lengths of translated paths:
     >>> Path('M 0,0 Q 50,50 100,0').length()
     114.7793574696319
 
-Query subpaths:
+Query a subpaths:
 
     >>> Path('M 0,0 Q 50,50 100,0 M 20,20 v 20 h 20 v-20 h-20 z').subpath(1).d()
     'M 20,20 L 20,40 L 40,40 L 40,20 L 20,20 Z'
@@ -103,10 +145,18 @@ Reverse subpaths:
     >>> print(p)
     M 0,0 Q 50,50 100,0 M 20,20 L 40,20 L 40,40 L 20,40 L 20,20 Z
 
-Parse an svg file:
+Query a bounding box:
 
-    >>> svg = SVG(file)
-    >>> list(svg.nodes())
+    >>> QuadraticBezier("0,0", "50,50", "100,0").bbox()
+    (0.0, 0.0, 100.0, 50.0)
+
+Query a translated bounding box:
+
+    >>> (Path('M 0,0 Q 50,50 100,0') * "translate(40,40)").bbox()
+    (40.0, 40.0, 140.0, 90.0)
+
+Etc.
+
 
 # Elements
 
