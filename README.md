@@ -72,6 +72,41 @@ You can reverse paths:
     >>> print(p)
     M 4,2 L 4,4 L 2,4 L 2,2 Z
 
+You can query lengths:
+
+    >>> QuadraticBezier("0,0", "50,50", "100,0").length()
+    114.7793574696319
+
+Apply translations:
+
+    >>> Path('M 0,0 Q 50,50 100,0') * "translate(40,40)"
+    Path(Move(end=Point(40,40)), QuadraticBezier(start=Point(40,40), control=Point(90,90), end=Point(140,40)))
+    
+Query lengths of translated paths:
+
+    >>> (Path('M 0,0 Q 50,50 100,0') * "translate(40,40)").length()
+    114.7793574696319
+    >>> Path('M 0,0 Q 50,50 100,0').length()
+    114.7793574696319
+
+Query subpaths:
+
+    >>> Path('M 0,0 Q 50,50 100,0 M 20,20 v 20 h 20 v-20 h-20 z').subpath(1).d()
+    'M 20,20 L 20,40 L 40,40 L 40,20 L 20,20 Z'
+
+Reverse subpaths:
+
+    >>> p = Path('M 0,0 Q 50,50 100,0 M 20,20 v 20 h 20 v-20 h-20 z')
+    >>> print(p)
+    M 0,0 Q 50,50 100,0 M 20,20 L 20,40 L 40,40 L 40,20 L 20,20 Z
+    >>> p.subpath(1).reverse()
+    >>> print(p)
+    M 0,0 Q 50,50 100,0 M 20,20 L 40,20 L 40,40 L 20,40 L 20,20 Z
+
+Parse an svg file:
+
+    >>> svg = SVG(file)
+    >>> list(svg.nodes())
 
 # Elements
 
