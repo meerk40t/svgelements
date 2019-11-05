@@ -16,9 +16,9 @@ class TestPath(unittest.TestCase):
         p1 += "M1,1z"
         p1 += "M0,0z"
         subpaths = list(p1.as_subpaths())
-        self.assertEqual(str(subpaths[0]), str(Path("M2,2z")))
-        self.assertEqual(str(subpaths[1]), str(Path("M1,1z")))
-        self.assertEqual(str(subpaths[2]), str(Path("M0,0z")))
+        self.assertEqual(str(subpaths[0]), Path("M2,2z"))
+        self.assertEqual(str(subpaths[1]), Path("M1,1z"))
+        self.assertEqual(str(subpaths[2]), Path("M0,0z"))
 
     def test_path_add_str(self):
         p1 = Path("M0,0")
@@ -51,9 +51,7 @@ class TestPath(unittest.TestCase):
         p1 = Path("L7,7")
         p1 = Move((0, 0)) + p1
         p1 += "z"
-        self.assertNotEqual(p1, Path("M0,0 L7,7 z"))
-        p2 = Path("M0,0 L7,7 z")
-        self.assertEqual(p1.validate(), p2)
+        self.assertEqual(p1, Path("M0,0 L7,7 z"))
 
     def test_path_from_segment(self):
         p1 = Move(0) + Line(0, (7, 7)) + "z"
@@ -102,4 +100,11 @@ class TestPath(unittest.TestCase):
         self.assertEqual(p, "L11.953449549205,25.634255282232 23.906899098410,51.268510564463")
         p = Path("L20,20 40,40") * Matrix("Rotate(20)") + "L 100, 100"
         p += Close()
-        self.assertEqual(p.validate(), "L11.953449549205,25.634255282232 23.906899098410,51.268510564463 100,100 z")
+        self.assertEqual(p, Path("L11.953449549205,25.634255282232 23.906899098410,51.268510564463 100,100 z"))
+
+    def test_partial_path(self):
+        p1 = Path("M0,0")
+        p2 = Path("L7,7")
+        p3 = Path("Z")
+        self.assertEqual(p1 + p2 + p3, "M0,0 7,7z")
+

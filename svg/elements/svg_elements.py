@@ -382,8 +382,7 @@ class SVGPathTokens(PathTokens):
         self.absolute = self.command.isupper()
 
     def post_execute(self):
-        if self.command == 'Z':  # Z might have been triggered inside commands.
-            self.close()
+        pass
 
 
 def parse_viewbox_transform(svg_node, ppi=96.0, viewbox=None):
@@ -962,23 +961,34 @@ def segment_length(curve, start, end, start_point, end_point, error, min_depth, 
 class Point:
     """Point is a general subscriptable point class with .x and .y as well as [0] and [1]
 
-    For compatibility with regbro svg.path we accept complex numbers as x + yj,
+    For compatibility with regebro svg.path we accept complex numbers as points x + yj,
     and provide .real and .imag as properties. As well as float and integer values as (v,0) elements.
 
     With regard to SGV 7.15.1 defining SVGPoint this class provides for matrix transformations.
     """
 
     def __init__(self, x, y=None):
-        if y is None:
-            try:
-                y = x[1]
-                x = x[0]
-            except TypeError:  # not subscriptable, must be a legacy complex
-                if isinstance(x, complex):
-                    y = x.imag
-                    x = x.real
-                else:
-                    y = 0
+        if x is not None and y is None:
+            if isinstance(x, str):
+                string_x, string_y = REGEX_COORD_PAIR.findall(x)[0]
+                x = float(string_x)
+                y = float(string_y)
+            else:
+                try:  # try subscription.
+                    y = x[1]
+                    x = x[0]
+                except TypeError:
+                    try:  # Try .x .y
+                        y = x.y
+                        x = x.x
+                    except AttributeError:
+                        try:  # try .imag .real complex values.
+                            y = x.imag
+                            x = x.real
+                        except AttributeError:
+                            # Unknown.
+                            x = 0
+                            y = 0
         self.x = x
         self.y = y
 
@@ -991,6 +1001,8 @@ class Point:
     def __eq__(self, other):
         a0 = self[0]
         a1 = self[1]
+        if isinstance(other, str):
+            other = Point(other)
         if isinstance(other, (Point, list, tuple)):
             b0 = other[0]
             b1 = other[1]
@@ -1217,6 +1229,9 @@ class Angle(float):
 
     def __repr__(self):
         return "Angle(%.12f)" % self
+
+    def __copy__(self):
+        return Angle(self)
 
     def __eq__(self, other):
         # Python 2
@@ -1768,6 +1783,11 @@ class PathSegment:
         except IndexError:
             raise StopIteration
 
+    def reverse(self):
+        end = self.end
+        self.end = self.start
+        self.start = end
+
 
 class Move(PathSegment):
     """Represents move commands. Does nothing, but is there to handle
@@ -1821,14 +1841,14 @@ class Move(PathSegment):
                 self.end *= other
         return self
 
-    def __copy__(self):
-        return Move(self.start, self.end)
-
     def __repr__(self):
         if self.start is None:
             return 'Move(end=%s)' % repr(self.end)
         else:
             return 'Move(start=%s, end=%s)' % (repr(self.start), repr(self.end))
+
+    def __copy__(self):
+        return Move(self.start, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, Move):
@@ -1862,13 +1882,6 @@ class Move(PathSegment):
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 0
 
-    def reverse(self):
-        if self.start is not None:
-            return Move(self.end, self.start)
-        else:
-            if self.start is not None:
-                return Move(self.start, self.end)
-
     def bbox(self):
         """returns the bounding box for the segment in the form
         (xmin, ymin, ymax, ymax)."""
@@ -1901,9 +1914,6 @@ class Close(PathSegment):
                 self.end *= other
         return self
 
-    def __copy__(self):
-        return Close(self.start, self.end)
-
     def __repr__(self):
         if self.start is None and self.end is None:
             return 'Close()'
@@ -1914,6 +1924,9 @@ class Close(PathSegment):
         if e is not None:
             e = repr(e)
         return 'Close(start=%s, end=%s)' % (s, e)
+
+    def __copy__(self):
+        return Close(self.start, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, Close):
@@ -1941,9 +1954,6 @@ class Close(PathSegment):
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 1
 
-    def reverse(self):
-        return Close(self.end, self.start)
-
     def bbox(self):
         """returns the bounding box for the segment in the form
         (xmin, ymin, ymax, ymax)."""
@@ -1966,6 +1976,9 @@ class Line(PathSegment):
         if self.start is None:
             return 'Line(end=%s)' % (repr(self.end))
         return 'Line(start=%s, end=%s)' % (repr(self.start), repr(self.end))
+
+    def __copy__(self):
+        return Line(self.start, self.end)
 
     def __eq__(self, other):
         if not isinstance(other, Line):
@@ -2001,9 +2014,6 @@ class Line(PathSegment):
 
     def length(self, error=None, min_depth=None):
         return Point.distance(self.end, self.start)
-
-    def reverse(self):
-        return Line(self.end, self.start)
 
     def closest_segment_point(self, p, respect_bounds=True):
         """ Gives the t value of the point on the line closest to the given point. """
@@ -2090,6 +2100,9 @@ class QuadraticBezier(PathSegment):
         return 'QuadraticBezier(start=%s, control=%s, end=%s)' % (
             repr(self.start), repr(self.control), repr(self.end))
 
+    def __copy__(self):
+        return QuadraticBezier(self.start, self.control, self.end)
+
     def __eq__(self, other):
         if not isinstance(other, QuadraticBezier):
             return NotImplemented
@@ -2162,9 +2175,6 @@ class QuadraticBezier(PathSegment):
             s = (A32 * Sabc + A2 * B * (Sabc - C2) + (4 * C * A - B ** 2) *
                  log((2 * A2 + BA + Sabc) / (BA + C2))) / (4 * A32)
         return s
-
-    def reverse(self):
-        return QuadraticBezier(self.end, self.control, self.start)
 
     def is_smooth_from(self, previous):
         """Checks if this segment would be a smooth segment following the previous"""
@@ -2345,6 +2355,9 @@ class CubicBezier(PathSegment):
         return 'CubicBezier(start=%s, control1=%s, control2=%s, end=%s)' % (
             repr(self.start), repr(self.control1), repr(self.control2), repr(self.end))
 
+    def __copy__(self):
+        return CubicBezier(self.start, self.control1, self.control2, self.end)
+
     def __eq__(self, other):
         if not isinstance(other, CubicBezier):
             return NotImplemented
@@ -2383,6 +2396,12 @@ class CubicBezier(PathSegment):
         else:
             raise IndexError
 
+    def reverse(self):
+        PathSegment.reverse(self)
+        c2 = self.control2
+        self.control2 = self.control1
+        self.control1 = c2
+
     def point(self, t):
         """Calculate the x,y position at a certain position of the path"""
         x0, y0 = self.start
@@ -2400,9 +2419,6 @@ class CubicBezier(PathSegment):
         start_point = self.point(0)
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
-
-    def reverse(self):
-        return CubicBezier(self.end, self.control2, self.control1, self.start)
 
     def is_smooth_from(self, previous):
         """Checks if this segment would be a smooth segment following the previous"""
@@ -2719,15 +2735,15 @@ class Arc(PathSegment):
         self.pry = None
         self.sweep = None
         if len(args) == 6 and isinstance(args[1], complex):
-            self.svg_complex_parameterize(*args)
+            self._svg_complex_parameterize(*args)
             return
         elif len(kwargs) == 6 and 'rotation' in kwargs:
-            self.svg_complex_parameterize(**kwargs)
+            self._svg_complex_parameterize(**kwargs)
             return
         elif len(args) == 7:
             # This is an svg parameterized call.
             # A: rx ry x-axis-rotation large-arc-flag sweep-flag x y
-            self.svg_parameterize(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
+            self._svg_parameterize(args[0], args[1], args[2], args[3], args[4], args[5], args[6])
             return
         # TODO: account for L, T, R, B, startAngle, endAngle, theta parameters.
         # cx = (left + right) / 2
@@ -2820,6 +2836,9 @@ class Arc(PathSegment):
         return 'Arc(%s, %s, %s, %s, %s, %s)' % (
             repr(self.start), repr(self.end), repr(self.center), repr(self.prx), repr(self.pry), self.sweep)
 
+    def __copy__(self):
+        return Arc(self.start, self.end, self.center, self.prx, self.pry, self.sweep)
+
     def __eq__(self, other):
         if not isinstance(other, Arc):
             return NotImplemented
@@ -2831,9 +2850,6 @@ class Arc(PathSegment):
         if not isinstance(other, Arc):
             return NotImplemented
         return not self == other
-
-    def __copy__(self):
-        return Arc(self.start, self.end, self.center, self.prx, self.pry, self.sweep)
 
     def __imul__(self, other):
         if isinstance(other, Matrix):
@@ -2891,6 +2907,10 @@ class Arc(PathSegment):
         y = (sin_theta_rotation * cos_angle * rx + cos_theta_rotation * sin_angle * ry + self.center[1])
         return Point(x, y)
 
+    def reverse(self):
+        PathSegment.reverse(self)
+        self.sweep = -self.sweep
+
     def point(self, t):
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
@@ -2915,14 +2935,11 @@ class Arc(PathSegment):
         end_point = self.point(1)
         return segment_length(self, 0, 1, start_point, end_point, error, min_depth, 0)
 
-    def reverse(self):
-        return Arc(self.end, self.start, self.center, self.prx, self.pry, -self.sweep)
-
-    def svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
+    def _svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
         """Parameterization with complex radius and having rotation factors."""
-        self.svg_parameterize(Point(start), radius.real, radius.imag, rotation, bool(arc), bool(sweep), Point(end))
+        self._svg_parameterize(Point(start), radius.real, radius.imag, rotation, bool(arc), bool(sweep), Point(end))
 
-    def svg_parameterize(self, start, rx, ry, rotation, large_arc_flag, sweep_flag, end):
+    def _svg_parameterize(self, start, rx, ry, rotation, large_arc_flag, sweep_flag, end):
         """Conversion from svg parameterization, our chosen native native form.
         http://www.w3.org/TR/SVG/implnote.html#ArcImplementationNotes """
 
@@ -3182,19 +3199,24 @@ class Path(MutableSequence):
     """A Path is a sequence of path segments"""
 
     def __init__(self, *segments):
-        if len(segments) == 1 and isinstance(segments[0], str):
-            self._segments = list()
-            self.parse(segments[0])
-        else:
-            self._segments = list(segments)
         self._length = None
         self._lengths = None
+        if len(segments) == 1:
+            if isinstance(segments[0], Subpath):
+                self._segments = []
+                self._segments.extend(map(copy, list(segments[0])))
+                return
+            elif isinstance(segments[0], str):
+                self._segments = list()
+                self.parse(segments[0])
+                return
+            elif isinstance(segments[0], list):
+                self._segments = segments[0]
+                return
+        self._segments = list(segments)
 
     def __copy__(self):
-        p = Path()
-        for seg in self._segments:
-            p.append(copy(seg))
-        return p
+        return Path(*map(copy, self._segments))
 
     def __getitem__(self, index):
         return self._segments[index]
@@ -3210,13 +3232,13 @@ class Path(MutableSequence):
     def __iadd__(self, other):
         if isinstance(other, str):
             self.parse(other)
-        elif isinstance(other, Path):
-            for seg in other._segments:
-                self.append(copy(seg))
+        elif isinstance(other, (Path, Subpath)):
+            self._segments.extend(map(copy, list(other)))
         elif isinstance(other, PathSegment):
             self.append(other)
         else:
             return NotImplemented
+        self.validate_connections()
         return self
 
     def __add__(self, other):
@@ -3227,12 +3249,13 @@ class Path(MutableSequence):
     def __radd__(self, other):
         if isinstance(other, str):
             path = Path(other)
-            for seg in self._segments:
-                path.append(copy(seg))
+            path.extend(map(copy, self._segments))
+            path.validate_connections()
             return path
         elif isinstance(other, PathSegment):
             path = copy(self)
             path.insert(0, other)
+            path.validate_connections()
             return path
         else:
             return NotImplemented
@@ -3252,10 +3275,6 @@ class Path(MutableSequence):
             return n
 
     __rmul__ = __mul__
-
-    def __reversed__(self):
-        for segment in reversed(self._segments):
-            yield segment.reverse()
 
     def __len__(self):
         return len(self._segments)
@@ -3288,42 +3307,34 @@ class Path(MutableSequence):
         tokens = SVGPathTokens()
         tokens.svg_parse(self, pathdef)
 
-    def validate(self):
+    def validate_connections(self):
         """
-        Corrects any invalidity in the current path.
+        Validate path connections. This will scan path connections and link any adjacent elements together by replacing
+        any None points or causing the start position of the next element to equal the end position of the previous.
+        This should only be needed when combining paths and elements together. Close elements are always connected to
+        the last Move element or to the end position of the first element in the list. The start element of the first
+        segment may or may not be None. But, will not be regarded as important.
+
+        This does not guarantee that the SVG path is valid. It may still have no initial Move element, multiple Close
+        elements, Arcs that cannot be denoted by SVG or segments that do not exist in SVG.
+
+        There is no need to call this directly as it will be invoked on any changes to Path.
         """
-        segments = self._segments
-        i = len(self._segments) - 1
-        if i == -1:
-            return
-        while i >= 1:
-            next_segment = segments[i]
-            prev_segment = segments[i - 1]
-            if prev_segment.end != next_segment.start:
-                if prev_segment.end is None:
-                    prev_segment.end = Point(next_segment.start)
-                elif next_segment.start is None:
-                    next_segment.start = Point(prev_segment.end)
-                else:
-                    prev_segment.end = Point(next_segment.start)
-            i -= 1
-        if isinstance(segments[0], Move):
-            if segments[0].start is None:
-                segments[0].start = Point(0)
-        i = len(self._segments) - 1
-        while i >= 1:
-            next_segment = segments[i]
-            prev_segment = segments[i - 1]
-            if isinstance(next_segment, Close):
-                end_pos = segments[0].start
-                for segment in reversed(self._segments):
-                    if isinstance(segment, Move):
-                        end_pos = segment.end
-                        break
-                if next_segment.end != end_pos:
-                    next_segment.end = Point(end_pos)
-            i -= 1
-        return self
+        zpoint = None
+        last_segment = None
+        for segment in self._segments:
+            if zpoint is None or isinstance(segment, Move):
+                zpoint = segment.end
+            if last_segment is not None:
+                if segment.start is None and last_segment.end is not None:
+                    segment.start = Point(last_segment.end)
+                elif last_segment.end is None and segment.start is not None:
+                    last_segment.end = Point(segment.start)
+                elif last_segment.end != segment.start:
+                    segment.start = Point(last_segment.end)
+            if isinstance(segment, Close) and zpoint is not None and segment.end != zpoint:
+                segment.end = Point(zpoint)
+            last_segment = segment
 
     @property
     def first_point(self):
@@ -3355,7 +3366,7 @@ class Path(MutableSequence):
                 break
         if end_pos is None:
             try:
-                end_pos = self._segments[0].start
+                end_pos = self._segments[0].end
             except IndexError:
                 pass  # entire path is "z".
         return end_pos
@@ -3390,11 +3401,11 @@ class Path(MutableSequence):
 
     def move(self, *points):
         end_pos = points[0]
-        if len(self._segments) > 0:
-            if isinstance(self._segments[-1], Move):
-                # If there was just a move command update that.
-                self._segments[-1].end = Point(end_pos)
-                return
+        # if len(self._segments) > 0:
+        #     if isinstance(self._segments[-1], Move):
+        #         # If there was just a move command update that.
+        #         self._segments[-1].end = Point(end_pos)
+        #         return
         start_pos = self.current_point
         self.append(Move(start_pos, end_pos))
         if len(points) > 1:
@@ -3539,6 +3550,8 @@ class Path(MutableSequence):
         self._lengths = [each / self._length for each in lengths]
 
     def point(self, pos, error=ERROR):
+        if len(self._segments) == 0:
+            return None
         # Shortcuts
         if pos == 0.0:
             return self._segments[0].point(pos)
@@ -3555,7 +3568,6 @@ class Path(MutableSequence):
                 segment_pos = (pos - segment_start) / (segment_end - segment_start)
                 break
             segment_start = segment_end
-
         return segment.point(segment_pos)
 
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
@@ -3567,25 +3579,38 @@ class Path(MutableSequence):
             for e in segment.plot():
                 yield e
 
-    def insert(self, index, value):
-        self._segments.insert(index, value)
+    def insert(self, index, object):
+        self._segments.insert(index, object)
         self._length = None
+        self.validate_connections()
+
+    def extend(self, iterable):
+        super().extend(iterable)
+        self._length = None
+        self.validate_connections()
 
     def reverse(self):
-        reversed_segments = self._segments[::-1]
-        for i in range(0, len(reversed_segments)):
-            reversed_segments[i] = reversed_segments[i].reverse()
-        path = Path()
-        path._segments = reversed_segments
-        return path
+        if len(self._segments) == 0:
+            return
+        prepoint = self._segments[0].start
+        self._segments[0].start = None
+        p = Path()
+        subpaths = list(self.as_subpaths())
+        for subpath in subpaths:
+            subpath.reverse()
+        for subpath in reversed(subpaths):
+            p += subpath
+        self._segments = p._segments
+        self._segments[0].start = prepoint
+        self.validate_connections()
 
     def as_subpaths(self):
         last = 0
         for current, seg in enumerate(self):
             if current != last and isinstance(seg, Move):
-                yield Path(*self[last:current])
+                yield Subpath(self, last, current - 1)
                 last = current
-        yield Path(*self[last:])
+        yield Subpath(self, last, len(self) - 1)
 
     def as_points(self):
         """Returns the list of defining points within path"""
@@ -3609,12 +3634,13 @@ class Path(MutableSequence):
         ymax = max(ymaxs)
         return xmin, ymin, xmax, ymax
 
-    def d(self):
+    @staticmethod
+    def svg_d(segments):
+        if len(segments) == 0:
+            return ''
         parts = []
         previous_segment = None
-        if len(self) == 0:
-            return ''
-        for segment in self:
+        for segment in segments:
             if isinstance(segment, Move):
                 parts.append('M {0:G},{1:G}'.format(segment.end[0], segment.end[1]))
             elif isinstance(segment, Line):
@@ -3654,6 +3680,175 @@ class Path(MutableSequence):
                 parts.append('Z')
             previous_segment = segment
         return ' '.join(parts)
+
+    def d(self):
+        return Path.svg_d(self._segments)
+
+
+class Subpath:
+    """Subpath is a Path-backed window implementation. It does not store a list of segments but rather
+    stores a Path, start position, end position. When a function is called on a subpath, the result of those events
+    occurs is performed on the backing Path. When the backing Path is modified the behavior is undefined."""
+
+    def __init__(self, path, start, end):
+        self._path = path
+        self._start = start
+        self._end = end
+
+    def __copy__(self):
+        p = Path()
+        for seg in self._path:
+            p.append(copy(seg))
+        return p
+
+    def __getitem__(self, index):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        return self._path[index]
+
+    def __setitem__(self, index, value):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        self._path[index] = value
+
+    def __delitem__(self, index):
+        if index < 0:
+            index = self._end + index + 1
+        else:
+            index = self._start + index
+        del self._path[index]
+        self._end -= 1
+
+    def __iadd__(self, other):
+        if isinstance(other, str):
+            p = Path(other)
+            self._path[self._end:self._end] = p
+        elif isinstance(other, Path):
+            p = copy(other)
+            self._path[self._end:self._end] = p
+        elif isinstance(other, PathSegment):
+            self._path.insert(self._end, other)
+        else:
+            return NotImplemented
+        return self
+
+    def __add__(self, other):
+        n = copy(self)
+        n += other
+        return n
+
+    def __radd__(self, other):
+        if isinstance(other, str):
+            path = Path(other)
+            path.extend(map(copy, self._path))
+            return path
+        elif isinstance(other, PathSegment):
+            path = Path(self)
+            path.insert(0, other)
+            return path
+        else:
+            return NotImplemented
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            for e in self:
+                e *= other
+        return self
+
+    def __mul__(self, other):
+        if isinstance(other, (Matrix, str)):
+            n = copy(self)
+            n *= other
+            return n
+
+    __rmul__ = __mul__
+
+    def __iter__(self):
+        class Iterator:
+            def __init__(self, subpath):
+                self.n = subpath._start - 1
+                self.subpath = subpath
+
+            def __next__(self):
+                self.n += 1
+                try:
+                    if self.n > self.subpath._end:
+                        raise StopIteration
+                    return self.subpath._path[self.n]
+                except IndexError:
+                    raise StopIteration
+
+        return Iterator(self)
+
+    def __len__(self):
+        return self._end - self._start + 1
+
+    def __str__(self):
+        return self.d()
+
+    def __repr__(self):
+        return 'Path(%s)' % (', '.join(repr(x) for x in self))
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.__eq__(Path(other))
+        if not isinstance(other, Path):
+            return NotImplemented
+        if len(self) != len(other):
+            return False
+        for s, o in zip(self, other):
+            if not s == o:
+                return False
+        return True
+
+    def __ne__(self, other):
+        if not isinstance(other, (Path, str)):
+            return NotImplemented
+        return not self == other
+
+    def d(self):
+        return Path.svg_d(self._path._segments[self._start:self._end + 1])
+
+    def reverse_segments(self, start, end):
+        """Reverses segments within between the given indexes in the subpath space."""
+        while start <= end:
+            start_segment = self[start]
+            end_segment = self[end]
+            start_segment.reverse()
+            if start_segment is not end_segment:
+                end_segment.reverse()
+                self[start] = end_segment
+                self[end] = start_segment
+            start += 1
+            end -= 1
+
+    def reverse(self):
+        size = len(self)
+        if size == 0:
+            return
+        start = 0
+        end = size - 1
+        if isinstance(self[-1], Close):
+            end -= 1
+        if isinstance(self[0], Move):  # Move remains in place but references next element.
+            start += 1
+        self.reverse_segments(start, end)
+        if size > 1:
+            if isinstance(self[0], Move):
+                self[0].end = Point(self[1].start)
+        last = self[-1]
+        if isinstance(last, Close):
+            last.reverse()
+            if last.start != self[-2].end:
+                last.start = Point(self[-2].end)
+            if last.end != self[0].end:
+                last.end = Point(self[0].end)
 
 
 class SVG:
