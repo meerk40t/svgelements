@@ -15,8 +15,7 @@ None.
 
 # Compatibility
 
-Currently `svg.elements` is compatible with Python 2.7 and Python 3.6. 
-Support for 2.7 will be dropped at Python 2 End Of Life January 1 2020.
+`svg.elements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
 
 # Goals/Philsophy
 
