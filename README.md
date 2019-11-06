@@ -1,12 +1,6 @@
 # svg.elements
-SVG Parsing for Files, Elements, Paths, and other SVG Objects.
+Parsing for SVG File, Path, Matrix, Angle, Distance, Color, Point and other SVG Elements. The SVG spec defines not only paths by a variety of classes. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these elements.
 
-The Path element of this project is based in part on the `regebro/svg.path` ( https://github.com/regebro/svg.path ) project. It is also may be based, in part, on some elements of `mathandy/svgpathtools` ( https://github.com/mathandy/svgpathtools ).
-
-The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Bresenham's Algorithm"
-( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
-also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
-correspondence "'Free and open source' means you can do anything with it like the MIT licence."
 
 # Installing
 `pip install svg.elements`
@@ -29,7 +23,7 @@ The primary goal is to make a more robust version of `svg.path` including other 
 
 For real world functionality we must correctly and reasonably provide the ability to do transcoding of svg as well as accessing and modifying content.
 
-This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatable.
+This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatible.
 
 # Example Usages
 
@@ -164,7 +158,7 @@ The core functionality of this class are the elements. These are svg-based objec
 
 ## Path
 
-The element is Path this is based on regebro's code and methods from the `svg.path` project. The primary methods use different PathSegment classes for the various elements within a pathd code. These should always have a high degree of backwards compatability. And for most purposes importing the relevant classes from `svg.elements` should be highly compatable with any existing code.
+The element is Path this is based on regebro's code and methods from the `svg.path` project. The primary methods use different PathSegment classes for the various elements within a pathd code. These should always have a high degree of backwards compatibility. And for most purposes importing the relevant classes from `svg.elements` should be highly compatible with any existing code.
 
 For this reason the test code and functionality from `svg.path` is included in this project. The Point class takes and works like a `complex` while not actually being one. This permits any other code from other projects to quickly port without requiring a rewrite. But, also allows for corrections like making the `Matrix` object easy.
 
@@ -228,7 +222,7 @@ or likewise `.reverse()`
 ### Segments
 
 There are 6 PathSegment objects:
-``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These have a 1:1 correspondance to the commands in a `pathd`.
+``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These have a 1:1 correspondence to the commands in a `pathd`.
 
     >>> from svg.elements import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
 
@@ -257,7 +251,7 @@ CubicBezier and QuadraticBezier also have ``is_smooth_from(previous)``
 methods, that check if the segment is a "smooth" segment compared to the
 given segment.
 
-Unlike `svg.path` the preferred method of getting an Path from a `pathd` string is
+Unlike `svg.path` the preferred method of getting a Path from a `pathd` string is
 as an argument:
 
     >>> from svg.elements import Path
@@ -276,7 +270,7 @@ parameter means.
 
 * ``Line(start, end)`` The line object describes a line moving straight from one point to the next point. 
 
-* ``Arc(start, radius, rotation, arc, sweep, end)`` The arc object describes an arc across a circular path. This supports multiple types of parameterizations. The given default there is compatable with `svg.path` and has a complex radius. It is also valid to divide radius into `rx` and `ry` or Arc(start, end, center, prx, pry, sweep) where start, end, center, prx, pry are points and sweep is the radians value of the arc distance travelled.
+* ``Arc(start, radius, rotation, arc, sweep, end)`` The arc object describes an arc across a circular path. This supports multiple types of parameterizations. The given default there is compatible with `svg.path` and has a complex radius. It is also valid to divide radius into `rx` and `ry` or Arc(start, end, center, prx, pry, sweep) where start, end, center, prx, pry are points and sweep is the radians value of the arc distance traveled.
 
 * ``QuadraticBezier(start, control, end)`` the quadraticbezier object describes a single control point bezier curve.
 
@@ -328,7 +322,7 @@ SVG 1.1, 7.15.3 defines the matrix form as:
 
 Since we are delegating to SVG spec for such things, this is how it is implemented in elements.
 
-To be compatable with SGV 1.1 and SVG 2.0 the matrix class provided has all the SVG functions as well as the CSS functions:
+To be compatible with SGV 1.1 and SVG 2.0 the matrix class provided has all the SVG functions as well as the CSS functions:
 
 * translate(x,[y])
 * translateX(x)
@@ -357,7 +351,7 @@ We can also rotate by `turns`, `grad`, `deg`, `rad` which are permitted CSS angl
     
 A large goal of this project is to provide a more robust modifications of Path objects including matrix transformations. This is done by three major shifts from `svg.path`s methods. 
 
-* Points are not stored as complex numbers. These are stored as Point objects, which have backwards compatability with complex numbers, without the data actually being backed by a `complex`.
+* Points are not stored as complex numbers. These are stored as Point objects, which have backwards compatibility with complex numbers, without the data actually being backed by a `complex`.
 * A matrix is added which conforms to the SVGMatrix Element. The matrix contains valid versions of all the affline transformations elements required by the SVG Spec.
 * The `Arc` object is fundamentally backed by a different point-based parameterization.
 
@@ -384,7 +378,7 @@ The Matrix objects can be used to modify points:
     >>> Point(100,100) * (Matrix("scale(2)") * Matrix("Translate(40,40)"))
     Point(240,240)
     
-Do note that the order of operations for matricies matters:
+Do note that the order of operations for matrices matters:
 
     >>> Point(100,100) * (Matrix("Translate(40,40)") * Matrix("scale(2)"))
     Point(280,280)
@@ -407,7 +401,7 @@ This is:
 
 ### SVG Transform Parsing
 
-Within the SVG.nodes() schema where objects svg nodes are dictonaries. The `transform` tags within objects are combined together. This means that if you get a the `d` object from an end-node in the SVG you can choose to apply the transformations. This list of transformations complies with the SVG spec. They merely applied automatically in the call for nodes().
+Within the SVG.nodes() schema where objects svg nodes are dictionaries. The `transform` tags within objects are combined together. This means that if you get a the `d` object from an end-node in the SVG you can choose to apply the transformations. This list of transformations complies with the SVG spec. They merely applied automatically in the call for nodes().
 
     >>> node = { 'd': "M0,0 100,0, 0,100 z", 'transform': "scale(0.5)"}
     >>> print(Path(node['d']) * Matrix(node['transform']))
@@ -460,12 +454,12 @@ Point is used in all the SVG path segment objects. With regard to `svg.path` it 
 
 The class supports `complex` subscriptable elements, .x and .y methods, and .imag and .real. As well as providing several of these indexing methods.
 
-It includes a number of point funcitons like:
+It includes a number of point functions like:
 * `move_towards(point,float)`: Move this point towards the other point. with an amount [0,1]
 * `distance_to(point)`: Calculate the Euclidean distance to the other point.
 * `angle_to(point)`: Calculate the angle to the given point.
 * `polar_to(angle,distance)`:  Return a point via polar coords at the angle and distance.
-* `reflected_across(poiint)`: Returns a point reflected across another point. (Smooth bezier curves use this).
+* `reflected_across(point)`: Returns a point reflected across another point. (Smooth bezier curves use this).
 
 This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by 5cm.
 
@@ -473,6 +467,14 @@ This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by
     Point(133.626550492764,133.626550492764)
 
 
+# Acknowledgments
+
+The Path element of this project is based in part on the `regebro/svg.path` ( https://github.com/regebro/svg.path ) project. It is also may be based, in part, on some elements of `mathandy/svgpathtools` ( https://github.com/mathandy/svgpathtools ).
+
+The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Bresenham's Algorithm"
+( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
+also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
+correspondence "'Free and open source' means you can do anything with it like the MIT licence[sic]."
 
 # License
 
