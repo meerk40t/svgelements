@@ -75,9 +75,7 @@ class TestPath(unittest.TestCase):
 
     def test_reverse_path_multipath(self):
         path = Path("M1,0 22,7 Q 17,17 91,2M0,0zM20,20z")
-        print(path)
         path.reverse()
-        print(path)
         self.assertEqual(path, Path("M20,20zM0,0zM 91,2 Q 17,17 22,7 L 1,0"))
 
     def test_path_mult_sideeffect(self):

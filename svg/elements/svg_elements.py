@@ -1780,6 +1780,9 @@ class PathSegment:
 
     __add__ = __iadd__
 
+    def __str__(self):
+        return self.d()
+
     def __iter__(self):
         self.n = -1
         return self
@@ -1795,10 +1798,38 @@ class PathSegment:
         except IndexError:
             raise StopIteration
 
+    next = __next__
+
+    def plot(self):
+        pass
+
+    def bbox(self):
+        """returns the bounding box for the segment.
+        xmin, ymin, xmax, ymax
+        """
+        xs = [p[0] for p in self if p is not None]
+        ys = [p[1] for p in self if p is not None]
+        xmin = min(xs)
+        xmax = max(xs)
+        ymin = min(ys)
+        ymax = max(ys)
+        return xmin, ymin, xmax, ymax
+
     def reverse(self):
         end = self.end
         self.end = self.start
         self.start = end
+
+    def point(self, t):
+        return self.end
+
+    def length(self, error=ERROR, min_depth=MIN_DEPTH):
+        return 0
+
+    def d(self, current_point=None, smooth=False):
+        """If current point is None, the function will return the absolute form. If it contains a point,
+        it will give the value relative to that point."""
+        raise NotImplementedError
 
 
 class Move(PathSegment):
@@ -1883,24 +1914,16 @@ class Move(PathSegment):
         else:
             raise IndexError
 
-    def point(self, pos):
-        return self.start
-
-    def length(self, error=ERROR, min_depth=MIN_DEPTH):
-        return 0
-
     def plot(self):
         if self.start is not None:
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 0
 
-    def bbox(self):
-        """returns the bounding box for the segment in the form
-        (xmin, ymin, ymax, ymax)."""
-        if self.start is not None:
-            return self.start[0], self.start[1], self.end[0], self.end[1]
+    def d(self, current_point=None, smooth=False):
+        if current_point is None:
+            return 'M %s' % (self.end)
         else:
-            return self.end[0], self.end[1], self.end[0], self.end[1]
+            return 'm %s' % (self.end - current_point)
 
 
 class Close(PathSegment):
@@ -1966,12 +1989,17 @@ class Close(PathSegment):
             for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
                 yield x, y, 1
 
-    def bbox(self):
-        """returns the bounding box for the segment in the form
-        (xmin, ymin, ymax, ymax)."""
-        if self.start is None and self.end is None:
-            return None
-        return self.start[0], self.start[1], self.end[0], self.end[1]
+    def length(self, error=None, min_depth=None):
+        if self.start is not None and self.end is not None:
+            return Point.distance(self.end, self.start)
+        else:
+            return 0
+
+    def d(self, current_point=None, smooth=False):
+        if current_point is None:
+            return 'Z'
+        else:
+            return 'z'
 
 
 class Line(PathSegment):
@@ -2021,8 +2049,8 @@ class Line(PathSegment):
         else:
             raise IndexError
 
-    def point(self, pos):
-        return Point.towards(self.start, self.end, pos)
+    def point(self, t):
+        return Point.towards(self.start, self.end, t)
 
     def length(self, error=None, min_depth=None):
         return Point.distance(self.end, self.start)
@@ -2047,15 +2075,11 @@ class Line(PathSegment):
                 amount = 0
         return self.point(amount)
 
-    def bbox(self):
-        """returns the bounding box for the segment.
-        xmin, ymin, xmax, ymax
-        """
-        xmin = min(self.start[0], self.end[0])
-        xmax = max(self.start[0], self.end[0])
-        ymin = min(self.start[1], self.end[1])
-        ymax = max(self.start[1], self.end[1])
-        return xmin, ymin, xmax, ymax
+    def d(self, current_point=None, smooth=False):
+        if current_point is None:
+            return 'L %s' % (self.end)
+        else:
+            return 'l %s' % (self.end - current_point)
 
     def plot(self):
         for x, y in Line.plot_line(self.start[0], self.start[1], self.end[0], self.end[1]):
@@ -2196,19 +2220,23 @@ class QuadraticBezier(PathSegment):
         else:
             return self.control == self.start
 
+    def d(self, current_point=None, smooth=False):
+        if smooth:
+            if current_point is None:
+                return 'T %s' % (self.end)
+            else:
+                return 't %s' % (self.end - current_point)
+        else:
+            if current_point is None:
+                return 'Q %s %s' % (self.control, self.end)
+            else:
+                return 'q %s %s' % (self.control - current_point, self.end - current_point)
+
     def plot(self):
         for x, y in QuadraticBezier.plot_quad_bezier(self.start[0], self.start[1],
                                                      self.control[0], self.control[1],
                                                      self.end[0], self.end[1]):
             yield x, y, 1
-
-    def bbox(self):
-        """returns the bounding box for the segment"""
-        xmin = min(self.start[0], self.control[0], self.end[0])
-        ymin = min(self.start[1], self.control[1], self.end[1])
-        xmax = max(self.start[0], self.control[0], self.end[0])
-        ymax = max(self.start[1], self.control[1], self.end[1])
-        return xmin, ymin, xmax, ymax
 
     @staticmethod
     def plot_quad_bezier_seg(x0, y0, x1, y1, x2, y2):
@@ -2440,13 +2468,18 @@ class CubicBezier(PathSegment):
         else:
             return self.control1 == self.start
 
-    def bbox(self):
-        """returns the bounding box for the segment"""
-        xmin = min(self.start[0], self.control1[0], self.control2[0], self.end[0])
-        ymin = min(self.start[1], self.control1[1], self.control2[1], self.end[1])
-        xmax = max(self.start[0], self.control1[0], self.control2[0], self.end[0])
-        ymax = max(self.start[1], self.control1[1], self.control2[1], self.end[1])
-        return xmin, ymin, xmax, ymax
+    def d(self, current_point=None, smooth=False):
+        if smooth:
+            if current_point is None:
+                return 'S %s %s' % (self.control2, self.end)
+            else:
+                return 's %s %s' % (self.control2 - current_point, self.end - current_point)
+        else:
+            if current_point is None:
+                return 'C %s %s %s' % (self.control1, self.control2, self.end)
+            else:
+                return 'c %s %s %s' % (
+                    self.control1 - current_point, self.control2 - current_point, self.end - current_point)
 
     def plot(self):
         for e in CubicBezier.plot_cubic_bezier(self.start[0], self.start[1],
@@ -3139,7 +3172,9 @@ class Arc(PathSegment):
     def get_end_angle(self):
         return Point.angle(self.center, self.end)
 
-    def bbox_rotated(self):
+    def bbox(self):
+        """Returns the bounding box of the arc."""
+        # TODO: truncated the bounding box to the arc rather than the entire ellipse.
         theta = Point.angle(self.center, self.prx)
         a = Point.distance(self.center, self.prx)
         b = Point.distance(self.center, self.pry)
@@ -3151,60 +3186,30 @@ class Arc(PathSegment):
         ymin = -xmax
         return xmin + self.center[0], ymin + self.center[1], xmax + self.center[0], ymax + self.center[1]
 
-    def bbox(self):
-        """returns the bounding box for the segment"""
-        # TODO: The bbox rotated command should be integrated into here. It's not enough to min and max the start, end,
-        #  and center, but rather needs to find the min and max of the path along the arc.
-        xmin = min(self.start[0], self.center[0], self.end[0])
-        ymin = min(self.start[1], self.center[1], self.end[1])
-        xmax = max(self.start[0], self.center[0], self.end[0])
-        ymax = max(self.start[1], self.center[1], self.end[1])
-        return xmin, ymin, xmax, ymax
+    def d(self, current_point=None, smooth=False):
+        if current_point is None:
+            return 'A %G,%G %G %d,%d %s' % (
+                self.rx,
+                self.ry,
+                self.get_rotation().as_degrees,
+                int(abs(self.sweep) > (tau / 2.0)),
+                int(self.sweep >= 0),
+                self.end)
+        else:
+            return 'a %G,%G %G %d,%d %s' % (
+                self.rx,
+                self.ry,
+                self.get_rotation().as_degrees,
+                int(abs(self.sweep) > (tau / 2.0)),
+                int(self.sweep >= 0),
+                self.end - current_point)
 
     def plot(self):
-        # TODO: This needs to work correctly. Should actually plot the arc according to the pixel-perfect standard.
+        # TODO: Should actually plot the arc according to the pixel-perfect standard. In this case we would plot a
+        # Bernstein weighted bezier curve.
         for curve in self.as_cubic_curves():
             for value in curve.plot():
                 yield value
-
-    @staticmethod
-    def plot_arc(arc):
-        theta = Point.angle(arc.center, arc.prx)
-        a = Point.distance(arc.center, arc.prx)
-        b = Point.distance(arc.center, arc.pry)
-        cos_theta = cos(theta)
-        sin_theta = sin(theta)
-        xmax = sqrt(a * a * cos_theta * cos_theta + b * b * sin_theta * sin_theta)
-        ymax = sqrt(a * a * sin_theta * sin_theta + b * b * cos_theta * cos_theta)
-        angle_xmax = Point.distance(arc.center, [xmax, ymax])
-        # TODO: need to plug this back into the arc to solve for the position of xmax,
-        #  y-unknown on the ellipse.
-
-        yield arc.start[0], arc.start[1]
-        # TODO: Actually write this, divide into proper segments
-        yield arc.end[0], arc.end[1]
-
-    @staticmethod
-    def plot_arc_seg(xm, ym, ar, br=None, theta=0):
-        if br is None:
-            br = ar
-        x = -ar
-        y = 0
-        e2 = br * br
-        err = x * (2 * e2 + x) + e2
-        sx = 1
-        sy = 1
-        while True:
-            yield xm + x, ym + y
-            e2 = 2 * err
-            if e2 >= (x * 2 + 1) * br * br:
-                x = x + sx
-                err += (x * 2 + 1) * br * br
-            if e2 <= (y * 2 + 1) * ar * ar:
-                y = y + sy
-                err += (y * 2 + 1) * ar * ar
-            if x <= 0:
-                break
 
 
 class Path(MutableSequence):
@@ -3565,14 +3570,16 @@ class Path(MutableSequence):
         if len(self._segments) == 0:
             return None
         # Shortcuts
-        if pos == 0.0:
+        if pos <= 0.0:
             return self._segments[0].point(pos)
-        if pos == 1.0:
+        if pos >= 1.0:
             return self._segments[-1].point(pos)
 
         self._calc_lengths(error=error)
         # Find which segment the point we search for is located on:
         segment_start = 0
+        segment_pos = 0
+        segment = self._segments[0]
         for index, segment in enumerate(self._segments):
             segment_end = segment_start + self._lengths[index]
             if segment_end >= pos:
@@ -3614,7 +3621,15 @@ class Path(MutableSequence):
             p += subpath
         self._segments = p._segments
         self._segments[0].start = prepoint
-        self.validate_connections()
+        return self
+
+    def subpath(self, index):
+        subpaths = list(self.as_subpaths())
+        return subpaths[index]
+
+    def count_subpaths(self):
+        subpaths = list(self.as_subpaths())
+        return len(subpaths)
 
     def as_subpaths(self):
         last = 0
@@ -3647,46 +3662,43 @@ class Path(MutableSequence):
         return xmin, ymin, xmax, ymax
 
     @staticmethod
-    def svg_d(segments):
+    def svg_d(segments, relative=False):
         if len(segments) == 0:
             return ''
+        if relative:
+            return Path.svg_d_relative(segments)
+        else:
+            return Path.svg_d_absolute(segments)
+
+    @staticmethod
+    def svg_d_relative(segments):
+        parts = []
+        previous_segment = None
+        p = Point(0)
+        for segment in segments:
+            if isinstance(segment, (Move, Line, Arc, Close)):
+                parts.append(segment.d(p))
+            elif isinstance(segment, (CubicBezier, QuadraticBezier)):
+                parts.append(segment.d(p, smooth=segment.is_smooth_from(previous_segment)))
+            previous_segment = segment
+            p = previous_segment.end
+        return ' '.join(parts)
+
+    @staticmethod
+    def svg_d_absolute(segments):
         parts = []
         previous_segment = None
         for segment in segments:
-            if isinstance(segment, Move):
-                parts.append('M %s' % segment.end)
-            elif isinstance(segment, Line):
-                parts.append('L %s' % segment.end)
-            elif isinstance(segment, CubicBezier):
-                if segment.is_smooth_from(previous_segment):
-                    parts.append('S %s %s' % (segment.control2,segment.end))
-                else:
-                    parts.append('C %s %s %s' % (segment.control1, segment.control2, segment.end))
-            elif isinstance(segment, QuadraticBezier):
-                if segment.is_smooth_from(previous_segment):
-                    parts.append('T %s' % (segment.end))
-                else:
-                    parts.append('Q %s %s' % (segment.control, segment.end))
-
-            elif isinstance(segment, Arc):
-                parts.append(
-                    'A %G,%G %G %d,%d %s' %
-                    (
-                        segment.rx,
-                        segment.ry,
-                        segment.get_rotation().as_degrees,
-                        int(abs(segment.sweep) > (tau / 2.0)),
-                        int(segment.sweep >= 0),
-                        segment.end
-                     )
-                )
-            elif isinstance(segment, Close):
-                parts.append('Z')
+            if isinstance(segment, (Move, Line, Arc, Close)):
+                parts.append(segment.d())
+            elif isinstance(segment, (CubicBezier, QuadraticBezier)):
+                parts.append(segment.d(smooth=segment.is_smooth_from(previous_segment)))
             previous_segment = segment
+            p = previous_segment.end
         return ' '.join(parts)
 
-    def d(self):
-        return Path.svg_d(self._segments)
+    def d(self, relative=False):
+        return Path.svg_d(self._segments, relative)
 
 
 class Subpath:
@@ -3804,7 +3816,7 @@ class Subpath:
     def __eq__(self, other):
         if isinstance(other, str):
             return self.__eq__(Path(other))
-        if not isinstance(other, Path):
+        if not isinstance(other, Path, Subpath):
             return NotImplemented
         if len(self) != len(other):
             return False
@@ -3814,14 +3826,29 @@ class Subpath:
         return True
 
     def __ne__(self, other):
-        if not isinstance(other, (Path, str)):
+        if not isinstance(other, (Path, Subpath, str)):
             return NotImplemented
         return not self == other
 
-    def d(self):
-        return Path.svg_d(self._path._segments[self._start:self._end + 1])
+    def bbox(self):
+        """returns a bounding box for the input Path"""
+        segments = self._path._segments[self._start:self._end + 1]
+        bbs = [seg.bbox() for seg in segments if not isinstance(Close, Move)]
+        try:
+            xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
+        except ValueError:
+            return None  # No bounding box items existed. So no bounding box.
+        xmin = min(xmins)
+        xmax = max(xmaxs)
+        ymin = min(ymins)
+        ymax = max(ymaxs)
+        return xmin, ymin, xmax, ymax
 
-    def reverse_segments(self, start, end):
+    def d(self, relative=False):
+        segments = self._path._segments[self._start:self._end + 1]
+        return Path.svg_d(segments, relative)
+
+    def _reverse_segments(self, start, end):
         """Reverses segments within between the given indexes in the subpath space."""
         while start <= end:
             start_segment = self[start]
@@ -3844,7 +3871,7 @@ class Subpath:
             end -= 1
         if isinstance(self[0], Move):  # Move remains in place but references next element.
             start += 1
-        self.reverse_segments(start, end)
+        self._reverse_segments(start, end)
         if size > 1:
             if isinstance(self[0], Move):
                 self[0].end = Point(self[1].start)
@@ -3855,6 +3882,7 @@ class Subpath:
                 last.start = Point(self[-2].end)
             if last.end != self[0].end:
                 last.end = Point(self[0].end)
+        return self
 
 
 class SVG:
