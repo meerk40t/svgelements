@@ -9,6 +9,15 @@ Then in a script:
 
 `from svg.elements import *`
 
+# Requirements
+
+None.
+
+# Compatibility
+
+Currently `svg.elements` is compatible with Python 2.7 and Python 3.6. 
+Support for 2.7 will be dropped at Python 2 End Of Life January 1 2020.
+
 # Goals/Philsophy
 
 The goal of this project is to provide svg spec-like objects and structures. The svg standard 1.1 and elements of 2.0 will
