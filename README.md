@@ -160,22 +160,77 @@ Etc.
 
 # Elements
 
-The core functionality of this class are the elements. These are svg-based objects which interact work in various reasonable methods.
+The core functionality of this class are the elements. These are svg-based objects which interact in coherent ways.
 
 ## Path
 
-The base code for this is regebro's code and methods from the svg.path class. The primary methods is to use different PathSegment classes for the various elements within a pathd code. These should always have a high degree of backwards compatability. And for most purposes importing the relevant classes from svg_elements should be highly compatable with any existing code.
+The element is Path this is based on regebro's code and methods from the `svg.path` project. The primary methods use different PathSegment classes for the various elements within a pathd code. These should always have a high degree of backwards compatability. And for most purposes importing the relevant classes from `svg.elements` should be highly compatable with any existing code.
 
-There is a ``Path`` object that acts as a collection of the path segment objects.
+For this reason the test code and functionality from `svg.path` is included in this project. The Point class takes and works like a `complex` while not actually being one. This permits any other code from other projects to quickly port without requiring a rewrite. But, also allows for corrections like making the `Matrix` object easy.
 
-While `svg.path` objects used complex values for coordinate data. We use `Point` objects which are backwards compatible with other point objects, including complex numbers. Because of this, there should be a high degree of compatibility between this project and ones that used `svg.path`. You can use complex numbers as points, and they should seemlessly convert.
+* ``Path(*segments)``
+
+The ``Path`` class is a mutable sequence, so it behaves like a list.
+You can add to it and replace path segments etc:
+
+    >>> path = Path(Line(100+100j,300+100j), Line(100+100j,300+100j))
+    >>> path.append(QuadraticBezier(300+100j, 200+200j, 200+300j))
+    >>> print(path)
+    L 300,100 L 300,100 Q 200,200 200,300
+    
+    >>> path[1] = Line(200+100j,300+100j)
+    >>> print(path)
+    L 300,100 L 300,100 Q 200,200 200,300
+    
+    >>> del path[1]
+    >>> print(path)
+    L 300,100 Q 200,200 200,300
+    
+    >>> path = path = Move() + path
+    >>> print(path)
+    M 100,100 L 300,100 Q 200,200 200,300
+
+The path object also has a ``d()`` method that will return the
+SVG representation of the Path segments:
+
+    >>> path.d()
+    'M 100,100 L 300,100 Q 200,200 200,300'
+
+The d() parameter also takes a value for relative:
+
+    >>> path.d(relative=True)
+    'm 100,100 l 200,0 q -100,100 -100,200'
+
+
+---
+
+A ``Path`` object that is a collection of the PathSegment objects. These can be defined by combining a PathSegment with another PathSegment initializing it with `Path()` or `Path(*segments)` or `Path(<svg_text>)`.
+
+### Subpaths
+
+Subpaths provide a window into a Path object. These are backed by the path and consequently operations performed on them apply to that part of the path.
+
+    >>> p = Path('M 0,0 Q 50,50 100,0 M 20,20 v 20 h 20 v-20 h-20 z')
+    >>> print(p)
+    M 0,0 Q 50,50 100,0 M 20,20 L 20,40 L 40,40 L 40,20 L 20,20 Z
+    >>> q = p.subpath(1) 
+    >>> q *= "scale(2)"
+    >>> print(p)
+    M 0,0 Q 50,50 100,0 M 40,40 L 40,80 L 80,80 L 80,40 L 40,40 Z
+
+or likewise `.reverse()` 
+(notice the path will go 80,40 first rather than 40,80.)
+
+    >>> q.reverse()
+    >>> print(p)
+    M 0,0 Q 50,50 100,0 M 40,40 L 80,40 L 80,80 L 40,80 L 40,40 Z
 
 ### Segments
 
-There are 6 path segment objects:
-``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These have a 1:1 correspondance to the commands in a `pathd`. 
+There are 6 PathSegment objects:
+``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These have a 1:1 correspondance to the commands in a `pathd`.
 
-    >>> from svg_elements import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
+    >>> from svg.elements import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
 
 All of these objects have a ``.point()`` function which will return the
 coordinates of a point on the path, where the point is given as a floating
@@ -209,7 +264,7 @@ as an argument:
     >>> Path('M 100 100 L 300 100')
     Path(Move(end=Point(100,100)), Line(start=Point(100,100), end=Point(300,100)))
 
-### Segment Classes
+#### PathSegment Classes
 
 These are the SVG PathSegment classes. See the `SVG specifications
 <http://www.w3.org/TR/SVG/paths.html>`_ for more information on what each
@@ -227,39 +282,6 @@ parameter means.
 
 * ``CubicBezier(start, control1, control2, end)`` the cubic bezier curve object describes a two control point bezier curve.
 
----
-
-In addition to that, there is the ``Path`` class, which is instantiated with a sequence of path segments:
-
-* ``Path(*segments)``
-
-The ``Path`` class is a mutable sequence, so it behaves like a list.
-You can add to it and replace path segments etc:
-
-    >>> path = Path(Line(100+100j,300+100j), Line(100+100j,300+100j))
-    >>> path.append(QuadraticBezier(300+100j, 200+200j, 200+300j))
-    >>> path[0] = Line(200+100j,300+100j)
-    >>> del path[1]
-
-The path object also has a ``d()`` method that will return the
-SVG representation of the Path segments:
-
-    >>> path.d()
-    'M 200,100 L 300,100 Q 200,200 200,300'
-
-In elements this is also the preferred result of `str()` typically `str(path)`.
-
-### Subpaths
-
-There is also a class called Subpath which works as a window into the Path class.
-
-    >>> p = Path("M1,1 1,2 2,2 2,1zM40,40 L 20,20 M0,0 L 5,5")
-    >>> subpaths = list(p.as_subpaths())
-    >>> subpaths[1].reverse()
-    >>> print(p)
-    M 1,1 L 1,2 L 2,2 L 2,1 Z M 20,20 L 40,40 M 0,0 L 5,5
-    
-In the above example the subpaths are put into a list, the second subpath is reversed resulting in the 2nd subpath in the element `M40,40 L 20,20` getting flipped and becoming: `M 20,20 L 40,40`
 
 ### Examples
 
@@ -283,7 +305,7 @@ You can also build a path from objects:
 
 And it should again be equal to the first path::
 
-    >>> path1 == path2
+    >>> path1 == path3
     True
 
 Paths are mutable sequences, you can slice and append::
@@ -299,6 +321,40 @@ You can for example have a Close command that doesn't end at the path start:
 
 ## Matrix (Transformations)
 
+SVG 1.1, 7.15.3 defines the matrix form as:
+
+    [a c  e]
+    [b d  f]
+
+Since we are delegating to SVG spec for such things, this is how it is implemented in elements.
+
+To be compatable with SGV 1.1 and SVG 2.0 the matrix class provided has all the SVG functions as well as the CSS functions:
+
+* translate(x,[y])
+* translateX(x)
+* translateY(y)
+* scale(x,[y])
+* scaleX(x)
+* scaleY(y)
+* skew(x,[y])
+* skewX(x)
+* skewY(y)
+
+Since we have compatibility with CSS for the SVG 2.0 spec compatibility we can perform length translations:
+(Note this converts based on the default PPI of 96)
+
+    >>> Point(0,0) * Matrix("Translate(1cm,1cm)")
+    Point(37.795296,37.795296)
+
+We can also rotate by `turns`, `grad`, `deg`, `rad` which are permitted CSS angles:
+    
+    >>> Point(10,0) * Matrix("Rotate(1turn)")
+    Point(10,-0)
+    >>> Point(10,0) * Matrix("Rotate(400grad)")
+    Point(10,-0)
+    >>> Point(10,0) * Matrix("Rotate(360deg)")
+    Point(10,-0)
+    
 A large goal of this project is to provide a more robust modifications of Path objects including matrix transformations. This is done by three major shifts from `svg.path`s methods. 
 
 * Points are not stored as complex numbers. These are stored as Point objects, which have backwards compatability with complex numbers, without the data actually being backed by a `complex`.
@@ -320,15 +376,44 @@ Or modify an svg path.
     >>> str(Path("M0,0L100,100") * Matrix.rotate(30))
     'M 0,0 L 114.228,-83.378'
     
-### Transform Parsing
+The Matrix objects can be used to modify points:
 
-Within the SVG node schema where objects svg nodes are dictonaries. The `transform` tags within objects are combined together. This means that if you get a the 'd' object from an end-node in the SVG you can choose to apply the transformations. This list of transformations complies with the SVG spec. They merely aren't applied until requested.
+    >>> Point(100,100) * Matrix("scale(2)")
+    Point(200,200)
+    
+    >>> Point(100,100) * (Matrix("scale(2)") * Matrix("Translate(40,40)"))
+    Point(240,240)
+    
+Do note that the order of operations for matricies matters:
+
+    >>> Point(100,100) * (Matrix("Translate(40,40)") * Matrix("scale(2)"))
+    Point(280,280)
+    
+The first version is:
+ 
+    >>> (Matrix("scale(2)") * Matrix("Translate(40,40)"))
+    Matrix(2.000000, 0.000000, 0.000000, 2.000000, 40.000000, 40.000000)
+
+The second is:
+
+    >>>> (Matrix("Translate(40,40)") * Matrix("scale(2)"))
+    Matrix(2.000000, 0.000000, 0.000000, 2.000000, 80.000000, 80.000000)
+    
+This is:
+
+    >>>> Point(100,100) * Matrix("Matrix(2,0,0,2,80,80)")
+    Point(280,280)
+
+
+### SVG Transform Parsing
+
+Within the SVG.nodes() schema where objects svg nodes are dictonaries. The `transform` tags within objects are combined together. This means that if you get a the `d` object from an end-node in the SVG you can choose to apply the transformations. This list of transformations complies with the SVG spec. They merely applied automatically in the call for nodes().
 
     >>> node = { 'd': "M0,0 100,0, 0,100 z", 'transform': "scale(0.5)"}
     >>> print(Path(node['d']) * Matrix(node['transform']))
     M 0,0 L 50,0 L 0,50 Z
 
-### Real Size scaling
+### SVG Viewport Scaling, Unit Scaling
 
 There is need in many applications to append a transformation for the viewbox, height, width. So as to prevent a variety of errors where the expected size is far vastly different from the actual size. If we have a viewbox of "0 0 100 100" but the height and width show that to be 50cm wide, then a path "M25,50L75,50" within that viewbox has a real size of length of 25cm which can be quite different from 50 (unitless value).
 
@@ -338,9 +423,9 @@ This can be easily invoked calling the `nodes` generator on the SVG object. If c
 
 The `parse_viewbox_transform` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values.
 
-## Distance
+## CSS Distance
 
-The conversion of to distances to utilizes another parser element `Distance` It's a minor element and is a backed by a `float`. As such you can call Distance.mm(25) and it will convert 25mm to pixels with the default 96 pixels per inch. It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`. You can also parse an element like the string '25mm' calling Distance.parse('25mm') and get the expected results. You can also call Distance.parse('25mm').as_inch which will return  25mm in inches.
+The conversion of distances to utilizes another element `Distance` It's a minor element and is a backed by a `float`. As such you can call Distance.mm(25) and it will convert 25mm to pixels with the default 96 pixels per inch. It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`. You can also parse an element like the string '25mm' calling Distance.parse('25mm') and get the expected results. You can also call `Distance.parse('25mm').as_inch` which will return  25mm in inches.
 
     >>> Distance.parse('25mm').as_inch
     0.9842524999999999
@@ -361,6 +446,11 @@ Angle is backed by a 'float' and contains all the CSS angle values. 'deg', 'rad'
     >>> Angle.degrees(360).as_radians
     Angle(6.283185307180)
 
+The Angle element is used automatically with the Skew and Rotate for matrix. 
+
+    >>> Point(100,100) * Matrix("SkewX(0.05turn)")
+    Point(132.491969623291,100)
+
 ## Point
 
 Point is used in all the SVG path segment objects. With regard to `svg.path` it is not back by, but implements all the same functionality as a `complex` and will take a complex as an input. So older `svg.path` code will remain valid. While also allowing for additional functionality like finding a distance.
@@ -369,6 +459,18 @@ Point is used in all the SVG path segment objects. With regard to `svg.path` it 
     100.0
 
 The class supports `complex` subscriptable elements, .x and .y methods, and .imag and .real. As well as providing several of these indexing methods.
+
+It includes a number of point funcitons like:
+* `move_towards(point,float)`: Move this point towards the other point. with an amount [0,1]
+* `distance_to(point)`: Calculate the Euclidean distance to the other point.
+* `angle_to(point)`: Calculate the angle to the given point.
+* `polar_to(angle,distance)`:  Return a point via polar coords at the angle and distance.
+* `reflected_across(poiint)`: Returns a point reflected across another point. (Smooth bezier curves use this).
+
+This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by 5cm.
+
+    >>> Point(0).polar_to(Angle.turns(0.125), Distance.cm(5))
+    Point(133.626550492764,133.626550492764)
 
 
 
