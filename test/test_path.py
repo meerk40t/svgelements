@@ -30,21 +30,6 @@ class TestPath(unittest.TestCase):
         path.smooth_cubic((13, 45), (16, 16), (34, 56), "z")
         self.assertEqual(path.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 20,33 25,25 100,100 S 13,45 16,16 S 34,56 4,4 Z")
 
-    def test_angle(self):
-        self.assertEqual(Angle.degrees(90).as_turns, 0.25)
-        self.assertEqual(Angle.degrees(180).as_turns, 0.50)
-        self.assertEqual(Angle.degrees(360).as_turns, 1.0)
-        self.assertEqual(Angle.degrees(720).as_turns, 2.0)
-        self.assertEqual(Angle.radians(tau).as_turns, 1.0)
-        self.assertEqual(Angle.radians(tau / 50.0).as_turns, 1.0 / 50.0)
-        self.assertEqual(Angle.gradians(100).as_turns, 0.25)
-        self.assertEqual(Angle.turns(100).as_turns, 100)
-        self.assertEqual(Angle.gradians(100).as_gradians, 100)
-        self.assertEqual(Angle.degrees(100).as_degrees, 100)
-        self.assertEqual(Angle.radians(100).as_radians, 100)
-        self.assertEqual(Angle.parse("90deg").as_radians, tau / 4.0)
-        self.assertEqual(Angle.parse("90turn").as_radians, tau * 90)
-
     def test_convex_hull(self):
         pts = (3, 4), (4, 6), (18, -2), (9, 0)
         hull = [e for e in Point.convex_hull(pts)]
@@ -104,9 +89,7 @@ class TestPath(unittest.TestCase):
 
         p = Path("M1,1 L5,5M2,1 L6,5zM3,1 L7,5")
         subpaths = list(p.as_subpaths())
-        print(subpaths[1])
         subpaths[1].reverse()
-        print(subpaths[1])
         self.assertEqual("M 6,5 L 2,1 Z", str(subpaths[1]))
         self.assertEqual("M 1,1 L 5,5 M 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
 
