@@ -1,3 +1,5 @@
+before_install:
+  - pip install scipy
 language: python
 python:
   - 2.7
