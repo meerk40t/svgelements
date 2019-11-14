@@ -243,18 +243,6 @@ class TestElementArcLength(unittest.TestCase):
         ellipse2 *= matrix
         self.assertEqual(ellipse, ellipse2)
 
-
-    def test_arc_len_r0_exact(self):
-        """Test error vs. random arc"""
-        arc = Arc(Point(13.152548373912, 38.873772319489),
-                  Point(14.324014604836, 24.436855715076),
-                  Point(-14.750000067599, 25.169681093411),
-                  Point(-43.558410063178, 28.706909065029),
-                  Point(-19.42967575562, -12.943218880396),
-                  5.89788464227)
-        length = arc._exact_length()
-        self.assertAlmostEqual(198.3041678406902, length, places=3)
-
     def test_arc_len_integral(self):
         """Test error vs. random arc"""
         error = 0
@@ -272,7 +260,7 @@ class TestElementArcLength(unittest.TestCase):
         error = 0
         for i in range(5):
             arc = get_random_arc()
-            length = arc._line_length()
+            length = arc._line_length(error=4e-06, min_depth=4)
             exact = arc._exact_length()
             c = length - exact
             error += c

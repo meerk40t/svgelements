@@ -73,6 +73,10 @@ SVG_ATTR_POINTS = 'points'
 SVG_ATTR_PRESERVEASPECTRATIO = 'preserveAspectRatio'
 SVG_ATTR_X = 'x'
 SVG_ATTR_Y = 'y'
+SVG_ATTR_X0 = 'x0'
+SVG_ATTR_Y0 = 'y0'
+SVG_ATTR_X1 = 'x1'
+SVG_ATTR_Y1 = 'y1'
 SVG_ATTR_TAG = 'tag'
 SVG_TRANSFORM_MATRIX = 'matrix'
 SVG_TRANSFORM_TRANSLATE = 'translate'
@@ -115,63 +119,6 @@ REGEX_FLOAT = re.compile(PATTERN_FLOAT)
 REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT))
 REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
 REGEX_TRANSFORM_PARAMETER = re.compile('(%s)%s(%s)?' % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS))
-
-
-# Leaf node to pathd values.
-
-def path2pathd(path):
-    return path.get(SVG_ATTR_DATA, '')
-
-
-def polyline2pathd(polyline, is_polygon=False):
-    """converts the string from a polyline parameters to a string for a
-    Path object d-attribute"""
-    polyline_d = polyline.get(SVG_ATTR_POINTS, None)
-    if polyline_d is None:
-        return ''
-    points = REGEX_COORD_PAIR.findall(polyline_d)
-    closed = (float(points[0][0]) == float(points[-1][0]) and
-              float(points[0][1]) == float(points[-1][1]))
-
-    # The `parse_path` call ignores redundant 'z' (closure) commands
-    # e.g. `parse_path('M0 0L100 100Z') == parse_path('M0 0L100 100L0 0Z')`
-    # This check ensures that an n-point polygon is converted to an n-Line path.
-    if is_polygon and closed:
-        points.append(points[0])
-
-    d = 'M' + 'L'.join('{0} {1}'.format(x, y) for x, y in points)
-    if is_polygon or closed:
-        d += 'z'
-    return d
-
-
-def polygon2pathd(polyline):
-    """converts the string from a polygon parameters to a string
-    for a Path object d-attribute.
-    Note:  For a polygon made from n points, the resulting path will be
-    composed of n lines (even if some of these lines have length zero).
-    """
-    return polyline2pathd(polyline, True)
-
-
-def rect2pathd(rect):
-    """Converts an SVG-rect element to a Path d-string.
-
-    The rectangle will start at the (x,y) coordinate specified by the
-    rectangle object and proceed counter-clockwise."""
-    x0, y0 = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
-    w, h = float(rect.get(SVG_ATTR_WIDTH, 0)), float(rect.get(SVG_ATTR_HEIGHT, 0))
-    x1, y1 = x0 + w, y0
-    x2, y2 = x0 + w, y0 + h
-    x3, y3 = x0, y0 + h
-
-    d = ("M{} {} L {} {} L {} {} L {} {} z"
-         "".format(x0, y0, x1, y1, x2, y2, x3, y3))
-    return d
-
-
-def line2pathd(l):
-    return 'M' + l['x1'] + ' ' + l['y1'] + 'L' + l['x2'] + ' ' + l['y2']
 
 
 # PathTokens class.
@@ -460,11 +407,18 @@ def parse_viewbox_transform(svg_node, ppi=96.0, viewbox=None):
             # return "scale(%f, %f) translate(%f, %f)" % (scale_x, scale_y, translate_x, translate_y)
 
 
+def number_str(s):
+    s = "%.12f" % (s)
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
+    return s
+
+
 class Distance(float):
     """CSS Distance defines as used in SVG"""
 
     def __repr__(self):
-        return "Distance(%.12f)" % self
+        return "Distance(%s)" % number_str(self)
 
     @classmethod
     def parse(cls, distance_str, ppi=96.0):
@@ -554,10 +508,9 @@ class Color(int):
 
     @classmethod
     def rgb(cls, r, g, b):
-        return cls(int(0xFF000000 |
-                       ((r & 255) << 16) |
-                       ((g & 255) << 8) |
-                       (b & 255)))
+        r <<= 16
+        g <<= 8
+        return cls(0xFFFFFF ^ ~r ^ ~g ^ ~b)
 
     @classmethod
     def parse_color_lookup(cls, v):
@@ -868,11 +821,11 @@ class Color(int):
         if size == 8:
             return cls(int(h[:8], 16))
         elif size == 6:
-            return cls(int(h[:6], 16))
+            return cls(int('ff' + h[:6], 16))
         elif size == 4:
-            return cls(int(h[3] + h[3] + h[2] + h[2] + h[1] + h[1] + h[0] + h[0], 16))
+            return cls(int(h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3], 16))
         elif size == 3:
-            return cls(int(h[2] + h[2] + h[1] + h[1] + h[0] + h[0], 16))
+            return cls(int('ff' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2], 16))
         return Color.rgb(0, 0, 0)
 
     @classmethod
@@ -1486,6 +1439,15 @@ class Matrix:
         self.f = (0 * self.c - self.a * self.f) * inverse_det
         # self.i = (self.a * self.d - self.c * self.c) * inverse_det
 
+    def vector(self):
+        """
+        provide the matrix suitable for multiplying vectors. This will be the matrix with the same rotation and scale
+        aspects but with no translation. This matrix is for multiplying vector elements where the position doesn't
+        matter but the scaling and rotation do.
+        :return:
+        """
+        return Matrix(self.a, self.b, self.c, self.d, 0.0, 0.0)
+
     def post_cat(self, *components):
         mx = Matrix(*components)
         self.__imatmul__(mx)
@@ -1719,8 +1681,122 @@ class Shape:
 
 
 class Rect(Shape):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                rect = args[0]
+                self.x, self.y = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
+                self.w, self.h = float(rect.get(SVG_ATTR_WIDTH, 0)), float(rect.get(SVG_ATTR_HEIGHT, 0))
+                self.rx, self.ry = float(rect.get(SVG_ATTR_RADIUS_X, 0)), float(rect.get(SVG_ATTR_RADIUS_Y, 0))
+                return
+            elif isinstance(args[0], Rect):
+                s = args[0]
+                self.x = s.x
+                self.y = s.y
+                self.w = s.w
+                self.h = s.h
+                self.rx = s.rx
+                self.ry = s.ry
+                return
+        if arg_length >= 1:
+            self.x = args[0]
+        elif 'x' in kwargs:
+            self.x = kwargs['x']
+        else:
+            self.x = 0
+
+        if arg_length >= 2:
+            self.y = args[1]
+        elif 'y' in kwargs:
+            self.y = kwargs['y']
+        else:
+            self.y = 0
+
+        if arg_length >= 3:
+            self.w = args[2]
+        elif 'w' in kwargs:
+            self.w = kwargs['w']
+        else:
+            self.w = 0
+
+        if arg_length >= 4:
+            self.h = args[3]
+        elif 'h' in kwargs:
+            self.h = kwargs['h']
+        else:
+            self.h = 0
+
+        if arg_length >= 5:
+            self.rx = args[4]
+        elif 'rx' in kwargs:
+            self.rx = kwargs['rx']
+        else:
+            self.rx = 0
+
+        if arg_length >= 6:
+            self.ry = args[5]
+        elif 'ry' in kwargs:
+            self.ry = kwargs['ry']
+        else:
+            self.ry = 0
+
+    def __repr__(self):
+        return 'Rect(x=%.15f, y=%.15f, w=%.15f, h=%.15f, rx=%.15f, ry=%.15f)' % (
+            self.x, self.y, self.w, self.h, self.rx, self.ry)
+
+    def __copy__(self):
+        return Rect(self.x, self.y, self.w, self.h, self.rx, self.ry)
+
+    def __eq__(self, other):
+        if not isinstance(other, Rect):
+            return NotImplemented
+        return self.x == other.x and \
+               self.y == other.y and \
+               self.w == other.w and \
+               self.h == other.h and \
+               self.rx == other.rx and \
+               self.ry == other.ry
+
+    def __ne__(self, other):
+        if not isinstance(other, (Rect)):
+            return NotImplemented
+        return not self == other
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            position = Point(self.x, self.y)
+            rounded = Point(self.rx, self.ry)
+            end_position = Point(self.x + self.w, self.y + self.h)
+            position *= other
+            rounded *= other.vector()
+            end_position *= other
+            self.x = position[0]
+            self.y = position[1]
+            self.w = end_position[0] - self.x
+            self.h = end_position[1] - self.y
+            self.rx = rounded[0]
+            self.ry = rounded[1]
+        return self
+
+    def d(self):
+        """Converts an SVG-rect element to a Path d-string.
+
+        The rectangle will start at the (x,y) coordinate specified by the
+        rectangle object and proceed counter-clockwise."""
+        x1, y1 = self.x + self.w, self.y
+        x2, y2 = self.x + self.w, self.y + self.h
+        x3, y3 = self.x, self.y + self.h
+
+        d = ("M{} {} L {} {} L {} {} L {} {} z"
+             "".format(self.x, self.y, x1, y1, x2, y2, x3, y3))
+        return d
 
 
 class Ellipse(Shape):
@@ -1959,18 +2035,200 @@ class Circle(Ellipse):
 
 
 class SimpleLine(Shape):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                rect = args[0]
+                self.start = Point(float(rect.get(SVG_ATTR_X0, 0)), float(rect.get(SVG_ATTR_Y0, 0)))
+                self.end = Point(float(rect.get(SVG_ATTR_X1, 0)), float(rect.get(SVG_ATTR_Y1, 0)))
+            elif isinstance(args[0], SimpleLine):
+                s = args[0]
+                self.start = Point(s.start)
+                self.end = Point(s.end)
+            return
+        if arg_length == 4:
+            self.start = Point(args[0], args[1])
+            self.end = Point(args[2], args[3])
+            return
+
+        if arg_length >= 1:
+            self.start = Point(args[0])
+        elif 'x0' in kwargs and 'y0' in kwargs:
+            self.start = Point(kwargs['x0'], kwargs['y0'])
+        else:
+            self.start = Point(0, 0)
+
+        if arg_length >= 2:
+            self.end = Point(args[1])
+        elif 'x1' in kwargs and 'y1' in kwargs:
+            self.end = Point(kwargs['x1'], kwargs['y1'])
+        else:
+            self.end = Point(0, 0)
+
+        if 'start' in kwargs:
+            self.start = Point(kwargs['start'])
+        if 'end' in kwargs:
+            self.end = Point(kwargs['end'])
+
+    def __repr__(self):
+        return 'SimpleLine(start=%s, end=%s)' % (repr(self.start), repr(self.end))
+
+    def __copy__(self):
+        return SimpleLine(self.start, self.end)
+
+    def __eq__(self, other):
+        if not isinstance(other, (SimpleLine, Line)):
+            return NotImplemented
+        return self.start == other.start and self.end == other.end
+
+    def __ne__(self, other):
+        if not isinstance(other, (SimpleLine, Line)):
+            return NotImplemented
+        return not self == other
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            self.start *= other
+            self.end *= other
+        return self
+
+    def d(self):
+        return 'M %s L %s' % (self.start, self.end)
 
 
-class PolyLine(Shape):
-    def __init__(self):
+class Polyline(Shape):
+    def __init__(self, *args, **kwargs):
         Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                polyline = args[0]
+                polyline_d = polyline.get(SVG_ATTR_POINTS, None)
+                if polyline_d is None:
+                    self.points = list()
+                else:
+                    findall = REGEX_COORD_PAIR.findall(polyline_d)
+                    self.points = [Point(float(j), float(k)) for j, k in findall]
+            elif isinstance(args[0], Polyline):
+                s = args[0]
+                self.points = map(Point, s.points)
+                return
+        else:
+            self.points = map(Point, zip(*[iter(args)] * 2))
+
+    def __repr__(self):
+        print(self.points)
+        s = ", ".join(map(str, self.points))
+        return 'Polyline(%s)' % (s)
+
+    def __copy__(self):
+        return Polyline(self.points)
+
+    def __eq__(self, other):
+        if not isinstance(other, Polyline):
+            return
+        if len(self.points) != len(other.points):
+            return False
+        for s, o in zip(self.points, other.points):
+            if not s == o:
+                return False
+        return True
+
+    def __ne__(self, other):
+        if not isinstance(other, Polyline):
+            return NotImplemented
+        return not self == other
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            for p in self.points:
+                p *= other
+        return self
+
+    def d(self):
+        """converts the string from a polygon parameters to a string
+        for a Path object d-attribute.
+        Note:  For a polygon made from n points, the resulting path will be
+        composed of n lines (even if some of these lines have length zero).
+        """
+        s = ", ".join(map(str, self.points))
+        d = 'M %s' % (s)
+        return d
 
 
 class Polygon(Shape):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                polygon = args[0]
+                polygon_d = polygon.get(SVG_ATTR_POINTS, None)
+                if polygon_d is None:
+                    self.points = list()
+                else:
+                    findall = REGEX_COORD_PAIR.findall(polygon_d)
+                    self.points = [Point(float(j), float(k)) for j, k in findall]
+            elif isinstance(args[0], Polyline):
+                s = args[0]
+                self.points = map(Point, s.points)
+                return
+        else:
+            self.points = map(Point, zip(*[iter(args)] * 2))
+
+    def __repr__(self):
+        print(self.points)
+        s = ", ".join(map(str, self.points))
+        return 'Polygon(%s)' % (s)
+
+    def __copy__(self):
+        return Polygon(self.points)
+
+    def __eq__(self, other):
+        if not isinstance(other, Polygon):
+            return
+        if len(self.points) != len(other.points):
+            return False
+        for s, o in zip(self.points, other.points):
+            if not s == o:
+                return False
+        return True
+
+    def __ne__(self, other):
+        if not isinstance(other, Polygon):
+            return NotImplemented
+        return not self == other
+
+    def __imul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            for p in self.points:
+                p *= other
+        return self
+
+    def d(self):
+        """converts the string from a polygon parameters to a string
+        for a Path object d-attribute.
+        Note:  For a polygon made from n points, the resulting path will be
+        composed of n lines (even if some of these lines have length zero).
+        """
+        s = ", ".join(map(str, self.points))
+        d = 'M %sz' % (s)
+        return d
 
 
 class PathSegment:
