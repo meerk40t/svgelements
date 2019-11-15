@@ -1227,6 +1227,9 @@ class Angle(float):
     def as_turns(self):
         return self / tau
 
+    def is_orthogonal (self):
+        return (self % (tau/4)) == 0
+
 
 class Matrix:
     """"
@@ -1685,6 +1688,15 @@ class Shape:
     def __init__(self):
         pass
 
+    def __mul__(self, other):
+        if isinstance(other, (Matrix, str)):
+            n = copy(self)
+            n *= other
+            return n
+        return NotImplemented
+
+    __rmul__ = __mul__
+
 
 class Rect(Shape):
     def __init__(self, *args, **kwargs):
@@ -1697,15 +1709,15 @@ class Rect(Shape):
             if isinstance(args[0], dict):
                 rect = args[0]
                 self.x, self.y = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
-                self.w, self.h = float(rect.get(SVG_ATTR_WIDTH, 0)), float(rect.get(SVG_ATTR_HEIGHT, 0))
+                self.width, self.height = float(rect.get(SVG_ATTR_WIDTH, 0)), float(rect.get(SVG_ATTR_HEIGHT, 0))
                 self.rx, self.ry = float(rect.get(SVG_ATTR_RADIUS_X, 0)), float(rect.get(SVG_ATTR_RADIUS_Y, 0))
                 return
             elif isinstance(args[0], Rect):
                 s = args[0]
                 self.x = s.x
                 self.y = s.y
-                self.w = s.w
-                self.h = s.h
+                self.width = s.w
+                self.height = s.h
                 self.rx = s.rx
                 self.ry = s.ry
                 return
@@ -1724,18 +1736,18 @@ class Rect(Shape):
             self.y = 0
 
         if arg_length >= 3:
-            self.w = args[2]
+            self.width = args[2]
         elif 'w' in kwargs:
-            self.w = kwargs['w']
+            self.width = kwargs['w']
         else:
-            self.w = 0
+            self.width = 0
 
         if arg_length >= 4:
-            self.h = args[3]
+            self.height = args[3]
         elif 'h' in kwargs:
-            self.h = kwargs['h']
+            self.height = kwargs['h']
         else:
-            self.h = 0
+            self.height = 0
 
         if arg_length >= 5:
             self.rx = args[4]
@@ -1752,19 +1764,23 @@ class Rect(Shape):
             self.ry = 0
 
     def __repr__(self):
-        return 'Rect(x=%.15f, y=%.15f, w=%.15f, h=%.15f, rx=%.15f, ry=%.15f)' % (
-            self.x, self.y, self.w, self.h, self.rx, self.ry)
+        if self.rx == 0 and self.ry == 0:
+            return 'Rect(x=%s, y=%s, w=%s, h=%s)' % (
+                number_str(self.x), number_str(self.y), number_str(self.width), number_str(self.height))
+        return 'Rect(x=%s, y=%s, w=%s, h=%s, rx=%s, ry=%s)' % (
+            number_str(self.x), number_str(self.y), number_str(self.width), number_str(self.height),
+            number_str(self.rx), number_str(self.ry))
 
     def __copy__(self):
-        return Rect(self.x, self.y, self.w, self.h, self.rx, self.ry)
+        return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry)
 
     def __eq__(self, other):
         if not isinstance(other, Rect):
             return NotImplemented
         return self.x == other.x and \
                self.y == other.y and \
-               self.w == other.w and \
-               self.h == other.h and \
+               self.width == other.width and \
+               self.height == other.height and \
                self.rx == other.rx and \
                self.ry == other.ry
 
@@ -1777,16 +1793,27 @@ class Rect(Shape):
         if isinstance(other, str):
             other = Matrix(other)
         if isinstance(other, Matrix):
-            position = Point(self.x, self.y)
             rounded = Point(self.rx, self.ry)
-            end_position = Point(self.x + self.w, self.y + self.h)
-            position *= other
+            top_left = Point(self.x, self.y)
+            top_right = Point(self.x + self.width, self.y)
+            bottom_left = Point(self.x, self.y + self.height)
+            bottom_right = Point(self.x + self.width, self.y + self.height)
+            top_left *= other
+            top_right *= other
+            bottom_left *= other
+            bottom_right *= other
             rounded *= other.vector()
-            end_position *= other
-            self.x = position[0]
-            self.y = position[1]
-            self.w = end_position[0] - self.x
-            self.h = end_position[1] - self.y
+            if top_left.angle_to(top_right).is_orthogonal():
+                # still a rect
+                pass
+            min_x = min(top_left[0], top_right[0], bottom_left[0], bottom_right[0])
+            min_y = min(top_left[1], top_right[1], bottom_left[1], bottom_right[1])
+            max_x = max(top_left[0], top_right[0], bottom_left[0], bottom_right[0])
+            max_y = max(top_left[1], top_right[1], bottom_left[1], bottom_right[1])
+            self.x = min_x
+            self.y = min_y
+            self.width = max_x - self.x
+            self.height = max_y - self.y
             self.rx = rounded[0]
             self.ry = rounded[1]
         return self
@@ -1796,9 +1823,9 @@ class Rect(Shape):
 
         The rectangle will start at the (x,y) coordinate specified by the
         rectangle object and proceed counter-clockwise."""
-        x1, y1 = self.x + self.w, self.y
-        x2, y2 = self.x + self.w, self.y + self.h
-        x3, y3 = self.x, self.y + self.h
+        x1, y1 = self.x + self.width, self.y
+        x2, y2 = self.x + self.width, self.y + self.height
+        x3, y3 = self.x, self.y + self.height
 
         d = ("M{} {} L {} {} L {} {} L {} {} z"
              "".format(self.x, self.y, x1, y1, x2, y2, x3, y3))
@@ -1846,29 +1873,29 @@ class Ellipse(Shape):
         if arg_length >= 2:
             self.rx = float(args[1])
         elif 'rx' in kwargs:
-            self.rx = Point(kwargs['rx'])
+            self.rx = float(kwargs['rx'])
         elif 'r' in kwargs:
-            self.rx = Point(kwargs['r'])
+            self.rx = float(kwargs['r'])
         else:
             self.rx = 1
         if arg_length >= 3:
             self.ry = float(args[2])
         elif 'ry' in kwargs:
-            self.ry = Point(kwargs['ry'])
+            self.ry = float(kwargs['ry'])
         elif 'r' in kwargs:
-            self.ry = Point(kwargs['r'])
+            self.ry = float(kwargs['r'])
         else:
             self.ry = self.rx
         if arg_length >= 4:
             self.rotation = float(args[3])
         elif 'rotation' in kwargs:
-            self.rotation = Point(kwargs['rotation'])
+            self.rotation = float(kwargs['rotation'])
         else:
             self.rotation = 0.0
 
     def __repr__(self):
-        return 'Ellipse(center=%s, rx=%.15f, ry=%.15f, rotation=%.15f)' % (
-            repr(self.center), self.rx, self.ry, self.rotation)
+        return 'Ellipse(center=%s, rx=%s, ry=%s, rotation=%s)' % (
+            repr(self.center), number_str(self.rx), number_str(self.ry), number_str(self.rotation))
 
     def __copy__(self):
         return Ellipse(self.center, self.rx, self.ry, self.rotation)
@@ -1895,8 +1922,10 @@ class Ellipse(Shape):
             self.rx = ellipse.rx
             self.ry = ellipse.ry
             self.rotation = ellipse.rotation
-            if isinstance(self, Circle) and self.rx != self.ry:
+            if isinstance(self, Circle) and abs(self.rx - self.ry) > 1e-14:
                 return Ellipse(self)
+            if isinstance(self, Ellipse) and abs(self.rx - self.ry) < 1e-14:
+                return Circle(self)
         return self
 
     def d(self):
@@ -2033,8 +2062,8 @@ class Circle(Ellipse):
         Ellipse.__init__(self, *args, **kwargs)
 
     def __repr__(self):
-        return 'Circle(center=%s, r=%.15f, rotation=%.15f)' % (
-            repr(self.center), self.rx, self.rotation)
+        return 'Circle(center=%s, r=%s, rotation=%s)' % (
+            repr(self.center), number_str(self.rx), number_str(self.rotation))
 
     def __copy__(self):
         return Circle(center=self.center, r=self.rx, rotation=self.rotation)
@@ -2132,7 +2161,6 @@ class Polyline(Shape):
             self.points = list(map(Point, zip(*[iter(args)] * 2)))
 
     def __repr__(self):
-        print(self.points)
         s = ", ".join(map(str, self.points))
         return 'Polyline(%s)' % (s)
 
@@ -2191,12 +2219,12 @@ class Polygon(Shape):
             elif isinstance(args[0], Polyline):
                 s = args[0]
                 self.points = list(map(Point, s.points))
-                return
+            elif isinstance(args[0], (list, tuple)):
+                self.points = list(map(Point, args[0]))
         else:
             self.points = list(map(Point, zip(*[iter(args)] * 2)))
 
     def __repr__(self):
-        print(self.points)
         s = ", ".join(map(str, self.points))
         return 'Polygon(%s)' % (s)
 
@@ -3505,6 +3533,9 @@ class Arc(PathSegment):
         return ellipse_part_integral(start_angle, end_angle, self.rx, self.ry)
 
     def _exact_length(self):
+        """scipy is not a dependency. However, if scipy exists this function will find the
+        exact arc length. By default .length() delegates to here and on failure uses the
+        fallback method."""
         from scipy.special import ellipeinc
         a = self.rx
         b = self.ry

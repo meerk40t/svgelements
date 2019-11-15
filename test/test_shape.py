@@ -94,3 +94,23 @@ class TestElementShape(unittest.TestCase):
         self.assertNotEqual(e, e3)
         polygon_d = e.d()
         self.assertEqual(Path(polygon_d), "M0,100 50,25 50,75 100,0z")
+
+    def test_circle_ellipse_equal(self):
+        self.assertTrue(Ellipse(center=(0, 0), rx=10, ry=10) == Circle(center="0,0", r=10.0))
+
+    def test_scale_circle_to_ellipse(self):
+        self.assertTrue(isinstance(Circle(center="0,0", r=10.0) * "scale(2,1)", Ellipse))
+
+    def test_transform_circle_to_ellipse(self):
+        c = Circle(center="0,0", r=10.0)
+        p = c * Matrix.skew_x(Angle.degrees(50))
+        self.assertTrue(isinstance(p, Ellipse))
+        p = c * "translate(10,1)"
+        self.assertTrue(isinstance(p, Circle))
+        p = c * "scale(10,1)"
+        self.assertFalse(isinstance(p, Circle))
+        p = c * "rotate(10deg)"
+        self.assertTrue(isinstance(p, Circle))
+        p = c * "skewy(10)"
+        self.assertFalse(isinstance(p, Circle))
+        self.assertTrue(isinstance(Circle(), Ellipse))
