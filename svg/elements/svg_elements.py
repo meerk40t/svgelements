@@ -3491,7 +3491,7 @@ class Arc(PathSegment):
         return self.point_at_t(t)
 
     def _integral_length(self):
-        def ellipse_part_integral(t1, t2, a, b, n=10000):
+        def ellipse_part_integral(t1, t2, a, b, n=100000):
             # function to integrate
             def f(t):
                 return sqrt(1 - (1 - a ** 2 / b ** 2) * sin(t) ** 2)
@@ -3505,10 +3505,7 @@ class Arc(PathSegment):
         return ellipse_part_integral(start_angle, end_angle, self.rx, self.ry)
 
     def _exact_length(self):
-        try:
-            from scipy.special import ellipeinc
-        except ImportError:
-            return self._integral_length()
+        from scipy.special import ellipeinc
         a = self.rx
         b = self.ry
         phi = self.get_start_t()
@@ -3535,7 +3532,10 @@ class Arc(PathSegment):
 
         if d < ERROR:  # This is a circle.
             return abs(self.rx * self.sweep)
-        return self._integral_length()
+        try:
+            return self._exact_length()
+        except ImportError:
+            return self._line_length(error, min_depth)
 
     def _svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
         """Parameterization with complex radius and having rotation factors."""
@@ -4590,19 +4590,19 @@ class SVG:
                 elif SVG_TAG_GROUP == tag:
                     continue
                 elif SVG_TAG_PATH == tag:
-                    values[SVG_ATTR_DATA] = path2pathd(values)
+                    pass
                 elif SVG_TAG_CIRCLE == tag:
                     values[SVG_ATTR_DATA] = Circle(values).d()
                 elif SVG_TAG_ELLIPSE == tag:
                     values[SVG_ATTR_DATA] = Ellipse(values).d()
                 elif SVG_TAG_LINE == tag:
-                    values[SVG_ATTR_DATA] = line2pathd(values)
+                    values[SVG_ATTR_DATA] = SimpleLine(values).d()
                 elif SVG_TAG_POLYLINE == tag:
-                    values[SVG_ATTR_DATA] = polyline2pathd(values)
+                    values[SVG_ATTR_DATA] = Polyline(values).d()
                 elif SVG_TAG_POLYGON == tag:
-                    values[SVG_ATTR_DATA] = polygon2pathd(values)
+                    values[SVG_ATTR_DATA] = Polygon(values).d()
                 elif SVG_TAG_RECT == tag:
-                    values[SVG_ATTR_DATA] = rect2pathd(values)
+                    values[SVG_ATTR_DATA] = Rect(values).d()
                 elif SVG_TAG_IMAGE == tag:  # Has no pathd data, but yields as element.
                     if XLINK_HREF in values:
                         image = values[XLINK_HREF]

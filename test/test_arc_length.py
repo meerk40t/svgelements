@@ -214,22 +214,6 @@ class TestElementArcLength(unittest.TestCase):
         length = arc._integral_length()
         self.assertAlmostEqual(198.3041678406902, length, places=3)
 
-    def test_arc_len_circle_shortcut(self):
-        """Test error vs. circles"""
-        for i in range(1000):
-            arc = get_random_circle_arc()
-            chord = abs(arc.sweep * arc.rx)
-            length = arc.length()
-            self.assertAlmostEqual(chord, length)
-
-    def test_arc_len_circle_int(self):
-        """Test error vs. circles, arc_length"""
-        for i in range(1000):
-            arc = get_random_circle_arc()
-            chord = abs(arc.sweep * arc.rx)
-            length = arc._integral_length()
-            self.assertAlmostEqual(chord, length)
-
     def test_arc_len_straight(self):
         """Test error at extreme eccentricities"""
         self.assertAlmostEqual(Arc(0, 1, 1e-10, 0, 1, 0, (0, 2e-10))._line_length(), 2, places=15)
@@ -243,26 +227,121 @@ class TestElementArcLength(unittest.TestCase):
         ellipse2 *= matrix
         self.assertEqual(ellipse, ellipse2)
 
-    def test_arc_len_integral(self):
-        """Test error vs. random arc"""
+    def test_arc_len_circle_shortcut(self):
+        """Known chord vs. shortcut"""
         error = 0
-        for i in range(5):
+        for i in range(1000):
+            arc = get_random_circle_arc()
+            chord = abs(arc.sweep * arc.rx)
+            length = arc.length()
+            c = abs(length - chord)
+            error += c
+            self.assertAlmostEqual(chord, length)
+        print("Average chord vs shortcut-length: %g" % (error / 1000))
+
+    def test_arc_len_circle_int(self):
+        """Known chord vs integral"""
+        n = 10
+        error = 0
+        for i in range(n):
+            arc = get_random_circle_arc()
+            chord = abs(arc.sweep * arc.rx)
+            length = arc._integral_length()
+            c = abs(length - chord)
+            error += c
+            self.assertAlmostEqual(chord, length)
+        print("Average chord vs integral: %g" % (error / n))
+
+    def test_arc_len_circle_exact(self):
+        """Known chord vs exact"""
+        n = 1000
+        error = 0
+        for i in range(n):
+            arc = get_random_circle_arc()
+            chord = abs(arc.sweep * arc.rx)
+            length = arc._exact_length()
+            c = abs(length - chord)
+            error += c
+            self.assertAlmostEqual(chord, length)
+        print("Average chord vs exact: %g" % (error / n))
+
+    def test_arc_len_circle_line(self):
+        """Known chord vs line"""
+        n = 5
+        error = 0
+        for i in range(n):
+            arc = get_random_circle_arc()
+            chord = abs(arc.sweep * arc.rx)
+            length = arc._line_length()
+            c = abs(length - chord)
+            error += c
+            self.assertAlmostEqual(chord, length)
+        print("Average chord vs line: %g" % (error / n))
+
+    def test_arc_len_flat_line(self):
+        """Known flat vs line"""
+        n = 100
+        error = 0
+        for i in range(n):
+            flat = 1 + random() * 50
+            arc = Arc(0, flat, 1e-10, 0, 1, 0, (0, 2e-10))
+            flat = 2*flat
+            length = arc._line_length()
+            c = abs(length - flat)
+            error += c
+            self.assertAlmostEqual(flat, length)
+        print("Average flat vs line: %g" % (error / n))
+
+    def test_arc_len_flat_integral(self):
+        """Known flat vs integral"""
+        n = 100
+        error = 0
+        for i in range(n):
+            flat = 1 + random() * 50
+            arc = Arc(0, flat, 1e-10, 0, 1, 0, (0, 2e-10))
+            flat = 2*flat
+            length = arc._integral_length()
+            c = abs(length - flat)
+            error += c
+            self.assertAlmostEqual(flat, length)
+        print("Average flat vs integral: %g" % (error / n))
+
+    def test_arc_len_flat_exact(self):
+        """Known flat vs exact"""
+        n = 1000
+        error = 0
+        for i in range(n):
+            flat = 1 + random() * 50
+            arc = Arc(0, flat, 1e-10, 0, 1, 0, (0, 2e-10))
+            flat = 2*flat
+            length = arc._exact_length()
+            c = abs(length - flat)
+            error += c
+            self.assertAlmostEqual(flat, length)
+        print("Average flat vs line: %g" % (error / n))
+
+    def test_arc_len_random_int(self):
+        """Test error vs. random arc"""
+        n = 5
+        error = 0
+        for i in range(n):
             arc = get_random_arc()
             length = arc._integral_length()
             exact = arc._exact_length()
-            c = length - exact
+            c = abs(length - exact)
             error += c
             self.assertAlmostEqual(exact, length, places=1)
-        print("Average arc-integral error: %g" % (error / 5))
+        print("Average arc-integral error: %g" % (error / n))
 
-    def test_arc_len_lines(self):
+    def test_arc_len_random_lines(self):
         """Test error vs. random arc"""
+        n = 5
         error = 0
         for i in range(5):
             arc = get_random_arc()
-            length = arc._line_length(error=4e-06, min_depth=4)
+            length = arc._line_length()
             exact = arc._exact_length()
-            c = length - exact
+            c = abs(length - exact)
             error += c
             self.assertAlmostEqual(exact, length, places=1)
-        print("Average arc-line error: %g" % (error / 5))
+        print("Average arc-line error: %g" % (error / n))
