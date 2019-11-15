@@ -1,5 +1,6 @@
 before_install:
-  - pip install scipy
+  - pip install scipy 
+  - pypy3 -mpip install scipy
 language: python
 python:
   - 2.7
