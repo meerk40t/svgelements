@@ -139,7 +139,6 @@ class TestPathMatrix(unittest.TestCase):
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
         path *= matrix
-        print(path.d())
         self.assertEqual("M 0,-8.81635 L 0,91.1837 L 100,108.816 L 100,8.81635 L 0,-8.81635 Z", path.d())
 
     def test_matrix_repr_rotate(self):

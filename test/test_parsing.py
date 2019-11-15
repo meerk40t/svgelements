@@ -4,8 +4,6 @@ import unittest
 from svg.elements import *
 
 
-def parse_path(pathd):
-    return Path(pathd)
 
 
 class TestParser(unittest.TestCase):
