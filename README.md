@@ -425,6 +425,120 @@ This can be easily invoked calling the `nodes` generator on the SVG object. If c
 
 The `parse_viewbox_transform` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values.
 
+## SVG Shapes
+
+One of the elements within SVG are the shapes. While all of these can be converted to paths. They can serve some usages in their original form. There are methods to deform a rectangle that simple don't exist in the path form of that object.
+* Rect
+* Ellipse
+* Circle
+* Line (SimpleLine)
+* Polyline
+* Polygon
+
+The Line shape is converted into a shape called SimpleLine to not interfere with the Line(PathSegment).
+
+### Rect
+
+Rectangles are defined by x,y and height and width. Within SVG there are also rounded corners defined with `rx` and `ry`. 
+
+    >>> Rect(10,10,8,4).d()
+    'M10 10 L 18 10 L 18 14 L 10 14 z'
+
+Much like all the paths these shapes also contain a .d() function that produces the path data for them. This could then be wrapped into a Path().
+
+    >>> print(Path(Rect(10,10,8,4).d()) * "rotate(0.5turns)")
+    M -10,-10 L -18,-10 L -18,-14 L -10,-14 Z
+
+Matrices can be applied to Rect objects directly.
+
+    >>> from svg.elements import *
+    >>> Rect(10,10,8,4) * "rotate(0.5turns)"
+    Rect(x=-18, y=-14, w=8, h=4)
+    
+    >>> Rect(10,10,8,4) * "rotate(0.25turns)"
+    Rect(x=-14, y=10, w=4, h=8)
+
+With a caveat that rectangles only actually make sense when parallel so the results can be strange:
+
+    >>> Rect(10,10,8,4) * "rotate(14deg)"
+    Rect(x=6.316050724365, y=12.122176218757, w=8.730053392607, h=5.816558069901)
+    
+ This also works with `rx` and `ry`:
+ 
+    >>> Rect(10,10,8,4, 2, 1) * "rotate(0.25turns)"
+    Rect(x=-14, y=10, w=4, h=8, rx=-1, ry=2)
+
+and:
+
+    >>> Rect(10,10,8,4, 2, 1) * "rotate(14deg)"
+    Rect(x=6.316050724365, y=12.122176218757, w=8.730053392607, h=5.816558069901, rx=1.698669556952, ry=1.454139517475)
+
+And the matrix forms should work correctly with most matrices:
+
+    >>> Rect(10,10,8,4, 2, 1) * "translate(50)"
+    Rect(x=60, y=10, w=8, h=4, rx=2, ry=1)
+    
+If you want a form that deforms the rectangle-ness of the shape you'll be better off just converting it to a Path.
+
+### Ellipse & Circle
+
+Ellipses and Circles are different shapes but since a circle is a particular kind of Ellipse much of the functionality here is duplicated.
+
+While the objects are different they can be checked for equivolency:
+
+    >>> Ellipse(center=(0,0), rx=10, ry=10) == Circle(center="0,0", r=10.0)
+    True
+
+Also, when circles are changed with a matrix they become ellipses:
+
+    >>> Circle(center="0,0", r=10.0) * "scale(2,1)"
+    Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0)
+
+And they will become a circle again if they are a circle:
+
+    >>> Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0) * "scale(0.5,1)"
+    Circle(center=Point(0,0), r=10, rotation=0)
+    
+They won't change if they don't deform.
+
+    >>> Circle(center="0,0", r=10.0) * "rotate(20deg)"
+    Circle(center=Point(0,0), r=10, rotation=0.349065850399)
+
+However, currently the rotations aren't taken into account for the path transformations.
+
+    >>>(Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0) * "rotate(45)").d()
+    'M -20.000000, 0.000000 a20.000000,10.000000 0 1,0 40.000000,0 a20.000000,10.000000 0 1,0 -40.000000,0'
+
+# SimpleLine
+
+SimpleLine is renamed from the SVG form of `Line` since we already have `Line` objects as `PathSegments`. 
+
+    >>> s = SimpleLine(0,0,200,200)
+    >>> s
+    SimpleLine(start=Point(0,0), end=Point(200,200))
+    >>> s *= "rotate(45)"
+    >>> s
+    SimpleLine(start=Point(0,0), end=Point(0,282.842712474619))
+    >>> s.d()
+    'M 0,0 L 2.84217E-14,282.843'
+
+
+# Polyline and Polygon
+
+The difference here is polylines are not closed while Polygons are closed.
+
+    >>> p = Polygon(0,0, 100,0, 100,100, 0,100)
+    >>> p *= "scale(2)"
+    >>> p.d()
+    'M 0,0, 200,0, 200,200, 0,200z'
+
+and the same for Polyline:
+
+    >>> p = Polyline(0,0, 100,0, 100,100, 0,100)
+    >>> p *= "scale(2)"
+    >>> p.d()
+    'M 0,0, 200,0, 200,200, 0,200'
+
 ## CSS Distance
 
 The conversion of distances to utilizes another element `Distance` It's a minor element and is a backed by a `float`. As such you can call Distance.mm(25) and it will convert 25mm to pixels with the default 96 pixels per inch. It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`. You can also parse an element like the string '25mm' calling Distance.parse('25mm') and get the expected results. You can also call `Distance.parse('25mm').as_inch` which will return  25mm in inches.
