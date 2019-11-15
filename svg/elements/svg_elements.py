@@ -3535,7 +3535,7 @@ class Arc(PathSegment):
         try:
             return self._exact_length()
         except ImportError:
-            return self._line_length(error, min_depth)
+            return self._line_length(error=error, min_depth=min_depth)
 
     def _svg_complex_parameterize(self, start, radius, rotation, arc, sweep, end):
         """Parameterization with complex radius and having rotation factors."""
