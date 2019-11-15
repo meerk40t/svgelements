@@ -29,3 +29,16 @@ class TestElementAngle(unittest.TestCase):
         self.assertEqual(Angle.degrees(0), Angle.degrees(1080))
         self.assertNotEqual(Angle.degrees(0), Angle.degrees(180))
         self.assertEqual(Angle.degrees(0), Angle.turns(5))
+
+    def test_orth(self):
+        self.assertTrue(Angle.degrees(0).is_orthogonal())
+        self.assertTrue(Angle.degrees(90).is_orthogonal())
+        self.assertTrue(Angle.degrees(180).is_orthogonal())
+        self.assertTrue(Angle.degrees(270).is_orthogonal())
+        self.assertTrue(Angle.degrees(360).is_orthogonal())
+
+        self.assertFalse(Angle.degrees(1).is_orthogonal())
+        self.assertFalse(Angle.degrees(91).is_orthogonal())
+        self.assertFalse(Angle.degrees(181).is_orthogonal())
+        self.assertFalse(Angle.degrees(271).is_orthogonal())
+        self.assertFalse(Angle.degrees(361).is_orthogonal())
