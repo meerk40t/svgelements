@@ -1,17 +1,9 @@
+before_install:
+  - pip install scipy
 language: python
-jobs:
-  include:
-    - name "2.7"
-      before_install: pip install scipy
-      python: 2.7
-    - name "3.6"
-      before_install: pip install scipy
-      python: 3.5
-    - name "3.7"
-      before_install: pip install scipy
-      python: 3.7
-    - name "pypy"
-      before_install: pypy3 -mpip install scipy
-      python: pypy
+python:
+  - 2.7
+  - 3.6
+  - 3.7
 script:
   - python -m unittest discover test
