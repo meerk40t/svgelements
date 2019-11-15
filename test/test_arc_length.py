@@ -253,7 +253,7 @@ class TestElementArcLength(unittest.TestCase):
             c = length - exact
             error += c
             self.assertAlmostEqual(exact, length, places=1)
-        print(error / 5)
+        print("Average arc-integral error: %g" % (error / 5))
 
     def test_arc_len_lines(self):
         """Test error vs. random arc"""
@@ -265,4 +265,4 @@ class TestElementArcLength(unittest.TestCase):
             c = length - exact
             error += c
             self.assertAlmostEqual(exact, length, places=1)
-        print(error / 5)
+        print("Average arc-line error: %g" % (error / 5))

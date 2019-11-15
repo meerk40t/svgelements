@@ -488,6 +488,12 @@ class Color(int):
     def __repr__(self):
         return "Color(%d)" % self
 
+    def __eq__(self, other):
+        return (self ^ other) & 0xFFFFFFFF == 0
+
+    def __ne__(self, other):
+        return not self == other
+
     @classmethod
     def parse(cls, color_string):
         """Parse SVG color, will return a set value."""
@@ -2120,10 +2126,10 @@ class Polyline(Shape):
                     self.points = [Point(float(j), float(k)) for j, k in findall]
             elif isinstance(args[0], Polyline):
                 s = args[0]
-                self.points = map(Point, s.points)
+                self.points = list(map(Point, s.points))
                 return
         else:
-            self.points = map(Point, zip(*[iter(args)] * 2))
+            self.points = list(map(Point, zip(*[iter(args)] * 2)))
 
     def __repr__(self):
         print(self.points)
@@ -2184,10 +2190,10 @@ class Polygon(Shape):
                     self.points = [Point(float(j), float(k)) for j, k in findall]
             elif isinstance(args[0], Polyline):
                 s = args[0]
-                self.points = map(Point, s.points)
+                self.points = list(map(Point, s.points))
                 return
         else:
-            self.points = map(Point, zip(*[iter(args)] * 2))
+            self.points = list(map(Point, zip(*[iter(args)] * 2)))
 
     def __repr__(self):
         print(self.points)
