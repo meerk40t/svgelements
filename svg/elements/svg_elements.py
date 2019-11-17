@@ -485,8 +485,11 @@ class Distance(float):
 
 class Color(int):
 
+    def __str__(self):
+        return self.hex
+
     def __repr__(self):
-        return "Color(%d)" % self
+        return "Color(%s)" % (self.hex)
 
     def __eq__(self, other):
         return (self ^ other) & 0xFFFFFFFF == 0
@@ -1214,7 +1217,7 @@ class Angle(float):
 
     @property
     def as_positive_degrees(self):
-        v = self * 360.0 / tau
+        v = self.as_degrees
         while v < 0:
             v += 360.0
         return v
@@ -3425,19 +3428,17 @@ class Arc(PathSegment):
                 self.prx = Point(self.center[0] + radius_e, self.center[1])
                 self.pry = Point(self.center[0], self.center[1] + radius_e)
             if self.sweep is None and self.start is not None and self.end is not None:
-                start_angle = self.get_start_t()
-                end_angle = self.get_end_t()
-                self.sweep = end_angle - start_angle
+                start_t = self.get_start_t()
+                end_t = self.get_end_t()
+                self.sweep = end_t - start_t
             if self.sweep is not None and self.start is not None and self.end is None:
-                start_angle = Point.angle(self.center, self.start)
-                end_angle = start_angle + self.sweep
-                r = Point.distance(self.center, self.start)
-                self.end = Point.polar(self.center, end_angle, r)
+                start_t = self.get_start_t()
+                end_t = start_t + self.sweep
+                self.end = self.point_at_t(end_t)
             if self.sweep is not None and self.start is None and self.end is not None:
-                end_angle = Point.angle(self.center, self.end)
-                start_angle = end_angle - self.sweep
-                r = Point.distance(self.center, self.end)
-                self.start = Point.polar(self.center, start_angle, r)
+                end_t = self.get_end_t()
+                start_t = end_t - self.sweep
+                self.end = self.point_at_t(start_t)
         else:  # center is None
             pass
 
@@ -3499,7 +3500,7 @@ class Arc(PathSegment):
     @property
     def theta(self):
         """legacy property"""
-        return self.get_start_angle().as_positive_degrees
+        return Angle.radians(self.get_start_t()).as_positive_degrees
 
     @property
     def delta(self):
