@@ -28,15 +28,15 @@ class TestElementArcLength(unittest.TestCase):
     def test_arc_angle_point(self):
         for i in range(1000):
             ellipse = Ellipse((0, 0), 2, 1)
-            point = random() * tau / 2 - tau / 4
+            angle = random() * tau / 2 - tau / 4
 
-            p = ellipse.point_at_angle(point)
+            p = ellipse.point_at_angle(angle)
             a = ellipse.angle_at_point(p)
-            self.assertAlmostEqual(point, a)
+            self.assertAlmostEqual(angle, a)
 
     def test_arc_angle_point_rotated(self):
         for i in range(1000):
-            ellipse = Ellipse((0, 0), 2, 1, Angle.degrees(45))
+            ellipse = Ellipse((0, 0), 2, 1, "rotate(45deg)")
             angle = random() * tau / 2 - tau / 4
 
             p = ellipse.point_at_angle(angle)
@@ -81,7 +81,7 @@ class TestElementArcLength(unittest.TestCase):
 
     def test_arc_angles_rotated(self):
         for i in range(1000):
-            ellipse = Ellipse((0, 0), 2, 1, Angle.degrees(90))
+            ellipse = Ellipse((0, 0), 2, 1, "rotate(90deg)")
             start = random() * tau / 2 - tau / 4
             end = random() * tau / 2 - tau / 4
 
@@ -103,7 +103,7 @@ class TestElementArcLength(unittest.TestCase):
 
     def test_arc_t_rotated(self):
         for i in range(1000):
-            ellipse = Ellipse((0, 0), 2, 1, Angle.degrees(90))
+            ellipse = Ellipse((0, 0), 2, 1,  "rotate(90deg)")
             start = random() * tau / 2 - tau / 4
             end = random() * tau / 2 - tau / 4
 
@@ -232,10 +232,13 @@ class TestElementArcLength(unittest.TestCase):
         self.assertEqual(Arc(0, 1, 1e-10, 0, 1, 0, (0, 2e-10))._exact_length(), 2)
 
     def test_unit_matrix(self):
-        ellipse = Ellipse("20,20", 4, 8, Angle.turns(.45))
+        ellipse = Ellipse("20,20", 4, 8, "rotate(45deg)")
         matrix = ellipse.unit_matrix()
         ellipse2 = Circle()
         ellipse2 *= matrix
+        p1 = ellipse.point_at_t(1)
+        p2 = ellipse2.point_at_t(1)
+        self.assertEqual(p1, p2)
         self.assertEqual(ellipse, ellipse2)
 
     def test_arc_len_circle_shortcut(self):

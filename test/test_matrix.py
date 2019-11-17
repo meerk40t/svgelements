@@ -146,52 +146,46 @@ class TestPathMatrix(unittest.TestCase):
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (0, 1, -1, 0, 0, 0)
-        self.assertEqual(v, repr(Matrix.rotate(radians(90))))
+        self.assertEqual(Matrix(0, 1, -1, 0, 0, 0), Matrix.rotate(radians(90)))
 
     def test_matrix_repr_scale(self):
         """
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (2, 0, 0, 2, 0, 0)
-        self.assertEqual(v, repr(Matrix.scale(2)))
+        self.assertEqual(Matrix(2, 0, 0, 2, 0, 0), Matrix.scale(2))
 
     def test_matrix_repr_hflip(self):
         """
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (-1, 0, 0, 1, 0, 0)
-        self.assertEqual(v, repr(Matrix.scale(-1, 1)))
+        self.assertEqual(Matrix(-1, 0, 0, 1, 0, 0), Matrix.scale(-1, 1))
 
     def test_matrix_repr_vflip(self):
         """
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (1, 0, 0, -1, 0, 0)
-        self.assertEqual(v, repr(Matrix.scale(1, -1)))
+        self.assertEqual(Matrix(1, 0, 0, -1, 0, 0), Matrix.scale(1, -1))
 
     def test_matrix_repr_post_cat(self):
         """
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (2, 0, 0, 2, -20, -20)
         m = Matrix.scale(2)
         m.post_cat(Matrix.translate(-20, -20))
-        self.assertEqual(v, repr(m))
+        self.assertEqual(Matrix(2, 0, 0, 2, -20, -20), m)
 
     def test_matrix_repr_pre_cat(self):
         """
         [a c e]
         [b d f]
         """
-        v = "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % (2, 0, 0, 2, -20, -20)
         m = Matrix.translate(-20, -20)
         m.pre_cat(Matrix.scale(2))
-        self.assertEqual(v, repr(m))
+        self.assertEqual(Matrix(2, 0, 0, 2, -20, -20), m)
 
     def test_matrix_point_rotated_by_matrix(self):
         matrix = Matrix()
@@ -274,3 +268,7 @@ class TestPathMatrix(unittest.TestCase):
             p = Matrix()
             p.pre_skew_y(a, tx, ty)
             self.assertEqual(p, q)
+
+    def test_matrix_eval_repr(self):
+        self.assertTrue(Matrix("rotate(20)") == eval(repr(Matrix("rotate(20)"))))
+        self.assertFalse(Matrix("rotate(20)") != eval(repr(Matrix("rotate(20)"))))

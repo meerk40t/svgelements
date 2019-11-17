@@ -49,7 +49,7 @@ class TestElementShape(unittest.TestCase):
             'cy': "33.33"
         }
         e = Ellipse(values)
-        e2 = Ellipse((22.4, 33.33), 4, 8, 0)
+        e2 = Ellipse((22.4, 33.33), 4, 8)
         self.assertEqual(e, e2)
         e3 = Ellipse()
         self.assertNotEqual(e, e3)
@@ -98,19 +98,17 @@ class TestElementShape(unittest.TestCase):
     def test_circle_ellipse_equal(self):
         self.assertTrue(Ellipse(center=(0, 0), rx=10, ry=10) == Circle(center="0,0", r=10.0))
 
-    def test_scale_circle_to_ellipse(self):
-        self.assertTrue(isinstance(Circle(center="0,0", r=10.0) * "scale(2,1)", Ellipse))
-
     def test_transform_circle_to_ellipse(self):
         c = Circle(center="0,0", r=10.0)
         p = c * Matrix.skew_x(Angle.degrees(50))
-        self.assertTrue(isinstance(p, Ellipse))
+        p.reify()
         p = c * "translate(10,1)"
-        self.assertTrue(isinstance(p, Circle))
+        p.reify()
         p = c * "scale(10,1)"
-        self.assertFalse(isinstance(p, Circle))
+        p.reify()
         p = c * "rotate(10deg)"
-        self.assertTrue(isinstance(p, Circle))
+        p.reify()
         p = c * "skewy(10)"
-        self.assertFalse(isinstance(p, Circle))
-        self.assertTrue(isinstance(Circle(), Ellipse))
+        p.reify()
+        self.assertFalse(isinstance(Circle(), Ellipse))
+        self.assertFalse(isinstance(Ellipse(), Circle))
