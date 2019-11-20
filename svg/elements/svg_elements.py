@@ -77,6 +77,8 @@ SVG_ATTR_X0 = 'x0'
 SVG_ATTR_Y0 = 'y0'
 SVG_ATTR_X1 = 'x1'
 SVG_ATTR_Y1 = 'y1'
+SVG_ATTR_X2 = 'x2'
+SVG_ATTR_Y2 = 'y2'
 SVG_ATTR_TAG = 'tag'
 SVG_TRANSFORM_MATRIX = 'matrix'
 SVG_TRANSFORM_TRANSLATE = 'translate'
@@ -479,20 +481,20 @@ class Distance(float):
         return float(self) / ppi
 
 
-# SVG Color Parsing
-
-# defining predefined colors permitted by svg: https://www.w3.org/TR/SVG11/types.html#ColorKeywords
-
 class Color(int):
+    """
+    SVG Color Parsing
+    defining predefined colors permitted by svg: https://www.w3.org/TR/SVG11/types.html#ColorKeywords
+    """
 
     def __str__(self):
         return self.hex
 
     def __repr__(self):
-        return "Color(%s)" % (self.hex)
+        return "Color.parse(\"%s\")" % (self.hex)
 
     def __eq__(self, other):
-        return (self ^ other) & 0xFFFFFFFF == 0
+        return other is not None and (self ^ other) & 0xFFFFFFFF == 0
 
     def __ne__(self, other):
         return not self == other
@@ -830,11 +832,14 @@ class Color(int):
         if size == 8:
             return cls(int(h[:8], 16))
         elif size == 6:
-            return cls(int('ff' + h[:6], 16))
+            s = 'ff{0}'.format(h[:6])
+            return cls(int(s, 16))
         elif size == 4:
-            return cls(int(h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3], 16))
+            s = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]
+            return cls(int(s, 16))
         elif size == 3:
-            return cls(int('ff' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2], 16))
+            s = 'ff{0}{0}{1}{1}{2}{2}'.format(h[0], h[1], h[2])
+            return cls(int(s, 16))
         return Color.rgb(0, 0, 0)
 
     @classmethod
@@ -870,8 +875,6 @@ class Color(int):
     def hex(self):
         return '#%02x%02x%02x' % (self.red, self.green, self.blue)
 
-
-# Path and Relevant Subobjects
 
 class Point:
     """Point is a general subscriptable point class with .x and .y as well as [0] and [1]
@@ -1230,8 +1233,8 @@ class Angle(float):
     def as_turns(self):
         return self / tau
 
-    def is_orthogonal (self):
-        return (self % (tau/4)) == 0
+    def is_orthogonal(self):
+        return (self % (tau / 4)) == 0
 
 
 class Matrix:
@@ -1273,14 +1276,13 @@ class Matrix:
             self.f = components[5]
 
     def __ne__(self, other):
-        return other is None or \
-               not isinstance(other, Matrix) or \
-               self.a != other.a or self.b != other.b or \
-               self.c != other.c or self.d != other.d or \
-               self.e != other.e or self.f != other.f
+        return not self.__eq__(other)
 
     def __eq__(self, other):
-        return not self.__ne__(other)
+        return other is not None and isinstance(other, Matrix) and \
+               abs(self.a - other.a) < 1e-12 and abs(self.b - other.b) < 1e-12 and \
+               abs(self.c - other.c) < 1e-12 and abs(self.d - other.d) < 1e-12 and \
+               abs(self.e - other.e) < 1e-12 and abs(self.f - other.f) < 1e-12
 
     def __len__(self):
         return 6
@@ -1332,8 +1334,10 @@ class Matrix:
             self.f = value
 
     def __repr__(self):
-        return "Matrix(%3f, %3f, %3f, %3f, %3f, %3f)" % \
-               (self.a, self.b, self.c, self.d, self.e, self.f)
+        return "Matrix(%s, %s, %s, %s, %s, %s)" % \
+               (number_str(self.a), number_str(self.b),
+                number_str(self.c), number_str(self.d),
+                number_str(self.e), number_str(self.f))
 
     def __copy__(self):
         return Matrix(self.a, self.b, self.c, self.d, self.e, self.f)
@@ -1459,6 +1463,9 @@ class Matrix:
         :return:
         """
         return Matrix(self.a, self.b, self.c, self.d, 0.0, 0.0)
+
+    def is_identity(self):
+        return self.a == 1 and self.b == 0 and self.c == 0 and self.d == 1 and self.e == 0 and self.f == 0
 
     def post_cat(self, *components):
         mx = Matrix(*components)
@@ -1687,9 +1694,9 @@ class Matrix:
         return r0[0], r1[0], r0[1], r1[1], r0[2], r1[2]
 
 
-class Shape:
+class Transformable:
     def __init__(self):
-        pass
+        self.transform = Matrix()
 
     def __mul__(self, other):
         if isinstance(other, (Matrix, str)):
@@ -1700,576 +1707,147 @@ class Shape:
 
     __rmul__ = __mul__
 
-
-class Rect(Shape):
-    def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
-        arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
-
-        if count_args == 1:
-            if isinstance(args[0], dict):
-                rect = args[0]
-                self.x, self.y = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
-                self.width, self.height = float(rect.get(SVG_ATTR_WIDTH, 0)), float(rect.get(SVG_ATTR_HEIGHT, 0))
-                self.rx, self.ry = float(rect.get(SVG_ATTR_RADIUS_X, 0)), float(rect.get(SVG_ATTR_RADIUS_Y, 0))
-                return
-            elif isinstance(args[0], Rect):
-                s = args[0]
-                self.x = s.x
-                self.y = s.y
-                self.width = s.w
-                self.height = s.h
-                self.rx = s.rx
-                self.ry = s.ry
-                return
-        if arg_length >= 1:
-            self.x = args[0]
-        elif 'x' in kwargs:
-            self.x = kwargs['x']
-        else:
-            self.x = 0
-
-        if arg_length >= 2:
-            self.y = args[1]
-        elif 'y' in kwargs:
-            self.y = kwargs['y']
-        else:
-            self.y = 0
-
-        if arg_length >= 3:
-            self.width = args[2]
-        elif 'w' in kwargs:
-            self.width = kwargs['w']
-        else:
-            self.width = 0
-
-        if arg_length >= 4:
-            self.height = args[3]
-        elif 'h' in kwargs:
-            self.height = kwargs['h']
-        else:
-            self.height = 0
-
-        if arg_length >= 5:
-            self.rx = args[4]
-        elif 'rx' in kwargs:
-            self.rx = kwargs['rx']
-        else:
-            self.rx = 0
-
-        if arg_length >= 6:
-            self.ry = args[5]
-        elif 'ry' in kwargs:
-            self.ry = kwargs['ry']
-        else:
-            self.ry = 0
-
-    def __repr__(self):
-        if self.rx == 0 and self.ry == 0:
-            return 'Rect(x=%s, y=%s, w=%s, h=%s)' % (
-                number_str(self.x), number_str(self.y), number_str(self.width), number_str(self.height))
-        return 'Rect(x=%s, y=%s, w=%s, h=%s, rx=%s, ry=%s)' % (
-            number_str(self.x), number_str(self.y), number_str(self.width), number_str(self.height),
-            number_str(self.rx), number_str(self.ry))
-
-    def __copy__(self):
-        return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry)
-
-    def __eq__(self, other):
-        if not isinstance(other, Rect):
-            return NotImplemented
-        return self.x == other.x and \
-               self.y == other.y and \
-               self.width == other.width and \
-               self.height == other.height and \
-               self.rx == other.rx and \
-               self.ry == other.ry
-
-    def __ne__(self, other):
-        if not isinstance(other, (Rect)):
-            return NotImplemented
-        return not self == other
-
     def __imul__(self, other):
         if isinstance(other, str):
             other = Matrix(other)
         if isinstance(other, Matrix):
-            rounded = Point(self.rx, self.ry)
-            top_left = Point(self.x, self.y)
-            top_right = Point(self.x + self.width, self.y)
-            bottom_left = Point(self.x, self.y + self.height)
-            bottom_right = Point(self.x + self.width, self.y + self.height)
-            top_left *= other
-            top_right *= other
-            bottom_left *= other
-            bottom_right *= other
-            rounded *= other.vector()
-            if top_left.angle_to(top_right).is_orthogonal():
-                # still a rect
-                pass
-            min_x = min(top_left[0], top_right[0], bottom_left[0], bottom_right[0])
-            min_y = min(top_left[1], top_right[1], bottom_left[1], bottom_right[1])
-            max_x = max(top_left[0], top_right[0], bottom_left[0], bottom_right[0])
-            max_y = max(top_left[1], top_right[1], bottom_left[1], bottom_right[1])
-            self.x = min_x
-            self.y = min_y
-            self.width = max_x - self.x
-            self.height = max_y - self.y
-            self.rx = rounded[0]
-            self.ry = rounded[1]
+            self.transform *= other
         return self
 
-    def d(self):
-        """Converts an SVG-rect element to a Path d-string.
-
-        The rectangle will start at the (x,y) coordinate specified by the
-        rectangle object and proceed counter-clockwise."""
-        x1, y1 = self.x + self.width, self.y
-        x2, y2 = self.x + self.width, self.y + self.height
-        x3, y3 = self.x, self.y + self.height
-
-        d = ("M{} {} L {} {} L {} {} L {} {} z"
-             "".format(self.x, self.y, x1, y1, x2, y2, x3, y3))
-        return d
+    @property
+    def rotation(self):
+        prx = Point(1, 0)
+        prx *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.angle_to(prx)
 
 
-class Ellipse(Shape):
-    def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
-        arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
+class GraphicObject(Transformable):
+    def __init__(self):
+        Transformable.__init__(self)
+        self.stroke = None
+        self.fill = None
 
-        if count_args == 1:
-            if isinstance(args[0], dict):
-                ellipse = args[0]
-                cx = ellipse.get(SVG_ATTR_CENTER_X, None)
-                cy = ellipse.get(SVG_ATTR_CENTER_Y, None)
-                rx = ellipse.get(SVG_ATTR_RADIUS_X, None)
-                ry = ellipse.get(SVG_ATTR_RADIUS_Y, None)
-                r = ellipse.get(SVG_ATTR_RADIUS, None)
 
-                self.center = Point(float(cx), float(cy))
-                self.rotation = 0.0
-                if r is not None:
-                    self.rx = self.ry = float(r)
-                else:
-                    self.rx = float(rx)
-                    self.ry = float(ry)
-                return
-            elif isinstance(args[0], (Ellipse, Circle)):
-                s = args[0]
-                self.center = Point(s.center)
-                self.rx = s.rx
-                self.ry = s.ry
-                self.rotation = s.rotation
-                return
+class Shape(GraphicObject):
+    """
+    SVG Shapes are highly several SVG items defined in SVG 1.1 9.1
+    https://www.w3.org/TR/SVG11/shapes.html
 
-        if arg_length >= 1:
-            self.center = Point(args[0])
-        elif 'center' in kwargs:
-            self.center = Point(kwargs['center'])
-        else:
-            self.center = Point(0, 0)
-        if arg_length >= 2:
-            self.rx = float(args[1])
-        elif 'rx' in kwargs:
-            self.rx = float(kwargs['rx'])
-        elif 'r' in kwargs:
-            self.rx = float(kwargs['r'])
-        else:
-            self.rx = 1
-        if arg_length >= 3:
-            self.ry = float(args[2])
-        elif 'ry' in kwargs:
-            self.ry = float(kwargs['ry'])
-        elif 'r' in kwargs:
-            self.ry = float(kwargs['r'])
-        else:
-            self.ry = self.rx
-        if arg_length >= 4:
-            self.rotation = float(args[3])
-        elif 'rotation' in kwargs:
-            self.rotation = float(kwargs['rotation'])
-        else:
-            self.rotation = 0.0
+    These shapes are circle, ellipse, line, polyline, polygon, and path.
 
-    def __repr__(self):
-        return 'Ellipse(center=%s, rx=%s, ry=%s, rotation=%s)' % (
-            repr(self.center), number_str(self.rx), number_str(self.ry), number_str(self.rotation))
+    SVGText is not according to SVG spec a shape, but is a subclass here.
+    """
 
-    def __copy__(self):
-        return Ellipse(self.center, self.rx, self.ry, self.rotation)
+    def __init__(self):
+        Transformable.__init__(self)
+        GraphicObject.__init__(self)
 
     def __eq__(self, other):
-        if not isinstance(other, (Circle, Ellipse)):
+        if not isinstance(other, Shape):
             return NotImplemented
-        return self.center == other.center and self.rx == other.rx and \
-               self.ry == other.ry and self.rotation == other.rotation
-
-    def __ne__(self, other):
-        if not isinstance(other, (Circle, Ellipse)):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            arc = self.arc_t(0, tau)
-            arc *= other
-            ellipse = arc.get_ellipse()
-            self.center = ellipse.center
-            self.rx = ellipse.rx
-            self.ry = ellipse.ry
-            self.rotation = ellipse.rotation
-            if isinstance(self, Circle) and abs(self.rx - self.ry) > 1e-14:
-                return Ellipse(self)
-            if isinstance(self, Ellipse) and abs(self.rx - self.ry) < 1e-14:
-                return Circle(self)
-        return self
-
-    def d(self):
-        """converts the parameters from an ellipse or a circle to a string for a
-        Path object d-attribute"""
-        cx = self.center[0]
-        cy = self.center[1]
-        rx = self.rx
-        ry = self.ry
-        return 'M %f, %f a%f,%f 0 1,0 %f,0 a%f,%f 0 1,0 %f,0' % (cx - rx, cy, rx, ry, 2 * rx, rx, ry, -2 * rx)
-
-    def unit_matrix(self):
-        """
-        return the unit matrix which could would transform the unit circle into this ellipse.
-        One of the valid parameterizations for ellipses is they are all affine transforms of the unit circle.
-        This provides exactly such a matrix.
-
-        :return: matrix
-        """
-        m = Matrix()
-        m.post_scale(self.rx, self.ry)
-        m.post_rotate(self.rotation)
-        m.post_translate(self.center[0], self.center[1])
-        return m
-
-    def arc_t(self, t0, t1):
-        """
-        return the arc found between the given values of t on the ellipse.
-
-        :param t0: t start
-        :param t1: t end
-        :return: arc
-        """
-        return Arc(self.point_at_t(t0),
-                   self.point_at_t(t1),
-                   self.center,
-                   rx=self.rx, ry=self.ry, rotation=self.rotation, sweep=t1 - t0)
-
-    def arc_angle(self, a0, a1):
-        """
-        return the arc found between the given angles on the ellipse.
-
-        :param a0: start angle
-        :param a1: end angle
-        :return: arc
-        """
-        return Arc(self.point_at_angle(a0),
-                   self.point_at_angle(a1),
-                   self.center,
-                   rx=self.rx, ry=self.ry,
-                   rotation=self.rotation)
-
-    def point_at_angle(self, angle):
-        """
-        find the point on the ellipse from the center at the given angle.
-        Note: For non-circular arcs this is different than point(t).
-
-        :param angle: angle from center to find point
-        :return: point found
-        """
-        angle -= self.rotation
-        a = self.rx
-        b = self.ry
-        if a == b:
-            return self.point_at_t(angle)
-        if abs(angle) > tau / 4:
-            t = atan2(a * tan(angle), b) + tau / 2
-        else:
-            t = atan2(a * tan(angle), b)
-
-        return self.point_at_t(t)
-
-    def angle_at_point(self, p):
-        """
-        find the angle to the point.
-
-        :param p: point
-        :return: angle to given point.
-        """
-        return self.center.angle_to(p)
-
-    def t_at_point(self, p):
-        """
-        find the t parameter to at the point.
-
-        :param p: point
-        :return: t parameter to the given point.
-        """
-        angle = self.angle_at_point(p)
-        angle -= self.rotation
-        a = self.rx
-        b = self.ry
-        if abs(angle) > tau / 4:
-            return atan2(a * tan(angle), b) + tau / 2
-        else:
-            return atan2(a * tan(angle), b)
-
-    def point_at_t(self, t):
-        """
-        find the point that corresponds to given value t.
-        Where t=0 is the first point and t=tau is the final point.
-
-        In the case of a circle: t = angle.
-
-        :param t:
-        :return:
-        """
-        rotation = self.rotation
-        a = self.rx
-        b = self.ry
-        cx = self.center[0]
-        cy = self.center[1]
-        cosTheta = cos(rotation)
-        sinTheta = sin(rotation)
-        cosT = cos(t)
-        sinT = sin(t)
-        px = cx + a * cosT * cosTheta - b * sinT * sinTheta
-        py = cy + a * cosT * sinTheta + b * sinT * cosTheta
-        return Point(px, py)
-
-    def point(self, position):
-        """
-        find the point that corresponds to given value [0,1].
-        Where t=0 is the first point and t=1 is the final point.
-
-        :param position:
-        :return: point at t
-        """
-        return self.point_at_t(tau * position)
-
-
-class Circle(Ellipse):
-    def __init__(self, *args, **kwargs):
-        Ellipse.__init__(self, *args, **kwargs)
-
-    def __repr__(self):
-        return 'Circle(center=%s, r=%s, rotation=%s)' % (
-            repr(self.center), number_str(self.rx), number_str(self.rotation))
-
-    def __copy__(self):
-        return Circle(center=self.center, r=self.rx, rotation=self.rotation)
-
-
-class SimpleLine(Shape):
-    def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
-        arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
-
-        if count_args == 1:
-            if isinstance(args[0], dict):
-                rect = args[0]
-                self.start = Point(float(rect.get(SVG_ATTR_X0, 0)), float(rect.get(SVG_ATTR_Y0, 0)))
-                self.end = Point(float(rect.get(SVG_ATTR_X1, 0)), float(rect.get(SVG_ATTR_Y1, 0)))
-            elif isinstance(args[0], SimpleLine):
-                s = args[0]
-                self.start = Point(s.start)
-                self.end = Point(s.end)
-            return
-        if arg_length == 4:
-            self.start = Point(args[0], args[1])
-            self.end = Point(args[2], args[3])
-            return
-
-        if arg_length >= 1:
-            self.start = Point(args[0])
-        elif 'x0' in kwargs and 'y0' in kwargs:
-            self.start = Point(kwargs['x0'], kwargs['y0'])
-        else:
-            self.start = Point(0, 0)
-
-        if arg_length >= 2:
-            self.end = Point(args[1])
-        elif 'x1' in kwargs and 'y1' in kwargs:
-            self.end = Point(kwargs['x1'], kwargs['y1'])
-        else:
-            self.end = Point(0, 0)
-
-        if 'start' in kwargs:
-            self.start = Point(kwargs['start'])
-        if 'end' in kwargs:
-            self.end = Point(kwargs['end'])
-
-    def __repr__(self):
-        return 'SimpleLine(start=%s, end=%s)' % (repr(self.start), repr(self.end))
-
-    def __copy__(self):
-        return SimpleLine(self.start, self.end)
-
-    def __eq__(self, other):
-        if not isinstance(other, (SimpleLine, Line)):
-            return NotImplemented
-        return self.start == other.start and self.end == other.end
-
-    def __ne__(self, other):
-        if not isinstance(other, (SimpleLine, Line)):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            self.start *= other
-            self.end *= other
-        return self
-
-    def d(self):
-        return 'M %s L %s' % (self.start, self.end)
-
-
-class Polyline(Shape):
-    def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
-        arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
-        if count_args == 1:
-            if isinstance(args[0], dict):
-                polyline = args[0]
-                polyline_d = polyline.get(SVG_ATTR_POINTS, None)
-                if polyline_d is None:
-                    self.points = list()
-                else:
-                    findall = REGEX_COORD_PAIR.findall(polyline_d)
-                    self.points = [Point(float(j), float(k)) for j, k in findall]
-            elif isinstance(args[0], Polyline):
-                s = args[0]
-                self.points = list(map(Point, s.points))
-                return
-        else:
-            self.points = list(map(Point, zip(*[iter(args)] * 2)))
-
-    def __repr__(self):
-        s = ", ".join(map(str, self.points))
-        return 'Polyline(%s)' % (s)
-
-    def __copy__(self):
-        return Polyline(self.points)
-
-    def __eq__(self, other):
-        if not isinstance(other, Polyline):
-            return
-        if len(self.points) != len(other.points):
+        if self.fill != other.fill or self.stroke != other.stroke:
             return False
-        for s, o in zip(self.points, other.points):
-            if not s == o:
-                return False
-        return True
+        first = self
+        if not isinstance(first, Path):
+            first = Path(first)
+        second = other
+        if not isinstance(second, Path):
+            second = Path(second)
+        return first == second
 
     def __ne__(self, other):
-        if not isinstance(other, Polyline):
+        if not isinstance(other, Shape):
             return NotImplemented
         return not self == other
 
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            for p in self.points:
-                p *= other
+    def __iadd__(self, other):
+        if isinstance(other, Shape):
+            return Path(self) + Path(other)
+        return NotImplemented
+
+    __add__ = __iadd__
+
+    def d(self, relative=False):
+        pass
+
+    def reify(self):
+        """
+        Realizes the transform to the shape properties. Such that the properties become actualized and the transform
+        simplifies towards the identity matrix. In many cases it will become the identity matrix, but in some the
+        transformed shape cannot be represented through through the properties.
+        """
         return self
 
-    def d(self):
-        """converts the string from a polygon parameters to a string
-        for a Path object d-attribute.
-        Note:  For a polygon made from n points, the resulting path will be
-        composed of n lines (even if some of these lines have length zero).
-        """
-        s = ", ".join(map(str, self.points))
-        d = 'M %s' % (s)
-        return d
+    def bbox(self):
+        return Path(self).bbox()
 
+    def _set_shape(self, s):
+        self.transform = Matrix(s.transform)
+        self.fill = s.fill
+        self.stroke = s.stroke
 
-class Polygon(Shape):
-    def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
+    def _parse_shape(self, v):
+        if SVG_ATTR_TRANSFORM in v:
+            self.transform = Matrix(v[SVG_ATTR_TRANSFORM])
+        if SVG_ATTR_STROKE in v:
+            self.stroke = Color.parse(v[SVG_ATTR_STROKE])
+        if SVG_ATTR_FILL in v:
+            self.fill = Color.parse(v[SVG_ATTR_FILL])
+
+    def _init_shape(self, *args, **kwargs):
         arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
-        if count_args == 1:
-            if isinstance(args[0], dict):
-                polygon = args[0]
-                polygon_d = polygon.get(SVG_ATTR_POINTS, None)
-                if polygon_d is None:
-                    self.points = list()
-                else:
-                    findall = REGEX_COORD_PAIR.findall(polygon_d)
-                    self.points = [Point(float(j), float(k)) for j, k in findall]
-            elif isinstance(args[0], Polyline):
-                s = args[0]
-                self.points = list(map(Point, s.points))
-            elif isinstance(args[0], (list, tuple)):
-                self.points = list(map(Point, args[0]))
-        else:
-            self.points = list(map(Point, zip(*[iter(args)] * 2)))
+        if arg_length >= 1:
+            self.transform = Matrix(args[0])
+        elif SVG_ATTR_TRANSFORM in kwargs:
+            self.transform = Matrix(kwargs[SVG_ATTR_TRANSFORM])
+        if arg_length >= 2:
+            if args[1] is not None:
+                self.stroke = Color.parse(args[1])
+        elif SVG_ATTR_STROKE in kwargs:
+            self.stroke = Color.parse(kwargs[SVG_ATTR_STROKE])
+        if arg_length >= 3:
+            if args[2] is not None:
+                self.fill = Color.parse(args[2])
+        elif SVG_ATTR_FILL in kwargs:
+            self.fill = Color.parse(kwargs[SVG_ATTR_FILL])
 
-    def __repr__(self):
-        s = ", ".join(map(str, self.points))
-        return 'Polygon(%s)' % (s)
+    def _repr_shape(self, values):
+        if not self.transform.is_identity():
+            values.append('transform=%s' % repr(self.transform))
+        if self.stroke is not None:
+            values.append('stroke=\"%s\"' % self.stroke)
+        if self.fill is not None:
+            values.append('fill=\"%s\"' % self.fill)
 
-    def __copy__(self):
-        return Polygon(self.points)
+    def _eq_shape(self, other):
+        return self.transform == other.transform and self.fill == other.fill and self.stroke == other.stroke
 
-    def __eq__(self, other):
-        if not isinstance(other, Polygon):
-            return
-        if len(self.points) != len(other.points):
-            return False
-        for s, o in zip(self.points, other.points):
-            if not s == o:
-                return False
-        return True
-
-    def __ne__(self, other):
-        if not isinstance(other, Polygon):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            for p in self.points:
-                p *= other
-        return self
-
-    def d(self):
-        """converts the string from a polygon parameters to a string
-        for a Path object d-attribute.
-        Note:  For a polygon made from n points, the resulting path will be
-        composed of n lines (even if some of these lines have length zero).
-        """
-        s = ", ".join(map(str, self.points))
-        d = 'M %sz' % (s)
-        return d
+    def _name(self):
+        return __class__.__name__
 
 
 class PathSegment:
-    """This is the base class for all the segment within a path."""
+    """
+    Path Segments are the base class for all the segment within a Path.
+    These are defined in SVG 1.1 8.3 and SVG 2.0 9.3
+    https://www.w3.org/TR/SVG11/paths.html#PathData
+    https://www.w3.org/TR/SVG2/paths.html#PathElement
+
+    These segments define a 1:1 relationship with the path_d or path data attribute, denoted in
+    SVG by the 'd' attribute. These are moveto, closepath, lineto, and the curves which are cubic
+    bezier curves, quadratic bezier curves, and elliptical arc. These are classed as Move, Close,
+    Line, CubicBezier, QuadraticBezier, and Arc. And in path_d are denoted as M, Z, L, C, Q, A.
+
+    There are lowercase versions of these commands. And for C, and Q there are S and T which are
+    smooth versions. For lines there are also V and H commands which denote vertical and horizontal
+    versions of the line command.
+
+    The major difference between paths in 1.1 and 2.0 is the use of Z to truncate a command to close.
+    "M0,0C 0,100 100,0 z is valid in 2.0 since the last z replaces the 0,0. These are read by
+    svg.elements but they are not written.
+    """
 
     def __init__(self):
         self.start = None
@@ -2553,6 +2131,8 @@ class Close(PathSegment):
 
 
 class Line(PathSegment):
+    """Represents line commands."""
+
     def __init__(self, start, end):
         PathSegment.__init__(self)
         self.end = None
@@ -2672,6 +2252,8 @@ class Line(PathSegment):
 
 
 class QuadraticBezier(PathSegment):
+    """Represents Quadratic Bezier commands."""
+
     def __init__(self, start, control, end):
         PathSegment.__init__(self)
         self.end = None
@@ -2930,6 +2512,8 @@ class QuadraticBezier(PathSegment):
 
 
 class CubicBezier(PathSegment):
+    """Represents Cubic Bezier commands."""
+
     def __init__(self, start, control1, control2, end):
         PathSegment.__init__(self)
         self.end = None
@@ -3308,7 +2892,10 @@ class CubicBezier(PathSegment):
 
 class Arc(PathSegment):
     def __init__(self, *args, **kwargs):
-        """Arc objects can take different parameters to create arcs.
+        """
+        Represents Arc commands.
+
+        Arc objects can take different parameters to create arcs.
         Since we expect taking in SVG parameters. We accept SVG parameterization which is:
         start, rx, ry, rotation, arc_flag, sweep_flag, end.
 
@@ -3318,27 +2905,28 @@ class Arc(PathSegment):
         If points are modified by an affine transformation, the arc is transformed.
         There is a special case for when the scale factor inverts, it inverts the sweep.
 
-        Note: t-values are not angle from center in ellipical arcs. These are the same thing in
+        Note: t-values are not angles from center in ellipical arcs. These are the same thing in
         circular arcs. But, here t is a parameterization around the ellipse, as if it were a circle.
-        The position on the arc is (a * cos(t), b * sin(t)). If a was 0 for example. The positions
-        would all fall on the x-axis. And the angle from center would all be either 0 or tau/2.
-        However, since t is the parameterization we can conceptualize it as a position on a circle
-        which is then scaled and rotated by a matrix.
+        The position on the arc is (a * cos(t), b * sin(t)). If r-major was 0 for example. The
+        positions would all fall on the x-axis. And the angle from center would all be either 0 or
+        tau/2. However, since t is the parameterization we can conceptualize it as a position on a
+        circle which is then scaled and rotated by a matrix.
+
+        prx is the point at t 0 in the ellipse.
+        pry is the point at t tau/4 in the ellipse.
+        prx -> center -> pry should form a right triangle.
+
+        The rotation can be defined as the angle from center to prx. Since prx is located at
+        t(0) it's deviation can only be the result of a rotation.
 
         Sweep is a value in t.
-
-        prx is the point at angle 0 of the non-rotated ellipse.
-        pry is the point at angle tau/4 of the non-rotated ellipse.
-        The theta-rotation can be defined as the angle from center to prx
-
         The sweep angle can be a value greater than tau and less than -tau.
-        However if this is the case conversion back to Path.d() is expected to fail.
-
-        prx -> center -> pry should form a right triangle.
-        angle(center,end) - angle(center, start) should equal sweep or mod thereof.
-
-        start and end should fall on the ellipse defined by prx, pry and center.
+        However if this is the case, conversion back to Path.d() is expected to fail.
+        We can denote these arc events but not as a single command.
+        should equal sweep or mod thereof.
+        start_t + sweep = end_t
         """
+
         PathSegment.__init__(self)
         self.start = None
         self.end = None
@@ -3782,8 +3370,6 @@ class Arc(PathSegment):
         :return: t parameter of start point.
         """
         return self.t_at_point(self.point_at_angle(self.get_end_angle()))
-        # angle = self.get_end_angle()
-        # return self.point_at_angle(angle)
 
     def point_at_angle(self, angle):
         """
@@ -3894,10 +3480,15 @@ class Arc(PathSegment):
                 yield value
 
 
-class Path(MutableSequence):
-    """A Path is a sequence of path segments"""
+class Path(Shape, MutableSequence):
+    """
+    A Path is a Mutable sequence of path segments
+
+    It is a generalized shape which can map out all the other shapes.
+    """
 
     def __init__(self, *segments):
+        Shape.__init__(self)
         self._length = None
         self._lengths = None
         if len(segments) == 1:
@@ -3905,11 +3496,15 @@ class Path(MutableSequence):
                 self._segments = []
                 self._segments.extend(map(copy, list(segments[0])))
                 return
-            elif isinstance(segments[0], str):
+            if isinstance(segments[0], Shape):
+                self._segments = list()
+                self.parse(segments[0].d())
+                return
+            if isinstance(segments[0], str):
                 self._segments = list()
                 self.parse(segments[0])
                 return
-            elif isinstance(segments[0], list):
+            if isinstance(segments[0], list):
                 self._segments = segments[0]
                 return
         self._segments = list(segments)
@@ -3933,6 +3528,8 @@ class Path(MutableSequence):
             self.parse(other)
         elif isinstance(other, (Path, Subpath)):
             self._segments.extend(map(copy, list(other)))
+        elif isinstance(other, Shape):
+            self.parse(other.d())
         elif isinstance(other, PathSegment):
             self.append(other)
         else:
@@ -4100,11 +3697,6 @@ class Path(MutableSequence):
 
     def move(self, *points):
         end_pos = points[0]
-        # if len(self._segments) > 0:
-        #     if isinstance(self._segments[-1], Move):
-        #         # If there was just a move command update that.
-        #         self._segments[-1].end = Point(end_pos)
-        #         return
         start_pos = self.current_point
         self.append(Move(start_pos, end_pos))
         if len(points) > 1:
@@ -4343,6 +3935,14 @@ class Path(MutableSequence):
         ymax = max(ymaxs)
         return xmin, ymin, xmax, ymax
 
+    def reify(self):
+        """
+        Realizes the transform to the shape properties.
+
+        Paths do not permit the matrix to be non-identity.
+        """
+        return self
+
     @staticmethod
     def svg_d(segments, relative=False):
         if len(segments) == 0:
@@ -4383,10 +3983,813 @@ class Path(MutableSequence):
         return Path.svg_d(self._segments, relative)
 
 
+class Rect(Shape):
+    """
+    SVG Rect shapes are defined in SVG2 10.2
+    https://www.w3.org/TR/SVG2/shapes.html#RectElement
+
+    These have geometric properties x, y, width, height, rx, ry
+
+    Rect(x, y, width, height)
+    Rect(x, y, width, height, rx, ry)
+    Rect(x, y, width, height, rx, ry, matrix)
+    Rect(x, y, width, height, rx, ry, matrix, stroke, fill)
+
+    Rect(dict): dictionary values read from svg.
+    """
+
+    def __init__(self, *args, **kwargs):
+        Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                rect = args[0]
+                self.x, self.y = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
+                self.width, self.height = float(rect.get(SVG_ATTR_WIDTH, 1)), float(rect.get(SVG_ATTR_HEIGHT, 1))
+                self.rx, self.ry = float(rect.get(SVG_ATTR_RADIUS_X, 0)), float(rect.get(SVG_ATTR_RADIUS_Y, 0))
+                self._parse_shape(rect)
+                return
+            elif isinstance(args[0], Rect):
+                s = args[0]
+                self.x = s.x
+                self.y = s.y
+                self.width = s.w
+                self.height = s.h
+                self.rx = s.rx
+                self.ry = s.ry
+                self._set_shape(s)
+                return
+
+        if arg_length >= 1:
+            self.x = args[0]
+        elif 'x' in kwargs:
+            self.x = kwargs['x']
+        else:
+            self.x = 0
+
+        if arg_length >= 2:
+            self.y = args[1]
+        elif 'y' in kwargs:
+            self.y = kwargs['y']
+        else:
+            self.y = 0
+
+        if arg_length >= 3:
+            self.width = args[2]
+        elif 'width' in kwargs:
+            self.width = kwargs['width']
+        else:
+            self.width = 1
+
+        if arg_length >= 4:
+            self.height = args[3]
+        elif 'height' in kwargs:
+            self.height = kwargs['height']
+        else:
+            self.height = 1
+
+        if arg_length >= 5:
+            self.rx = args[4]
+        elif 'rx' in kwargs:
+            self.rx = kwargs['rx']
+        else:
+            self.rx = 0
+
+        if arg_length >= 6:
+            self.ry = args[5]
+        elif 'ry' in kwargs:
+            self.ry = kwargs['ry']
+        else:
+            self.ry = 0
+        self._init_shape(*args[6:], **kwargs)
+
+    def __repr__(self):
+        values = []
+        if self.x != 0:
+            values.append('x=%s' % number_str(self.x))
+        if self.y != 0:
+            values.append('y=%s' % number_str(self.y))
+        if self.width != 0:
+            values.append('width=%s' % number_str(self.width))
+        if self.height != 0:
+            values.append('height=%s' % number_str(self.height))
+        if self.rx != 0:
+            values.append('rx=%s' % number_str(self.rx))
+        if self.ry != 0:
+            values.append('ry=%s' % number_str(self.ry))
+        self._repr_shape(values)
+        params = ", ".join(values)
+        return "Rect(%s)" % params
+
+    def __copy__(self):
+        return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry, self.transform, self.stroke, self.fill)
+
+    @property
+    def implicit_position(self):
+        point = Point(self.x, self.y)
+        point *= self.transform
+        return point
+
+    @property
+    def implicit_x(self):
+        return self.implicit_position[0]
+
+    @property
+    def implicit_y(self):
+        return self.implicit_position[1]
+
+    @property
+    def implicit_width(self):
+        p = Point(self.width, 0)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
+
+    @property
+    def implicit_height(self):
+        p = Point(0, self.height)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
+
+    @property
+    def implicit_rx(self):
+        p = Point(self.rx, 0)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
+
+    @property
+    def implicit_ry(self):
+        p = Point(0, self.ry)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
+
+    def d(self, relative=False):
+        """
+        Rect decomposition is given in SVG 2.0 10.2
+
+        Rect:
+        * perform an absolute moveto operation to location (x,y);
+        * perform an absolute horizontal lineto with parameter x+width;
+        * perform an absolute vertical lineto parameter y+height;
+        * perform an absolute horizontal lineto parameter x;
+        * perform an absolute vertical lineto parameter y
+        * ( close the path)
+
+        Rounded Rect:
+        rx and ry are used as the equivalent parameters to the elliptical arc command,
+        the x-axis-rotation and large-arc-flag are set to zero, the sweep-flag is set to one
+
+        * perform an absolute moveto operation to location (x+rx,y);
+        * perform an absolute horizontal lineto with parameter x+width-rx;
+        * perform an absolute elliptical arc operation to coordinate (x+width,y+ry)
+        * perform an absolute vertical lineto parameter y+height-ry;
+        * perform an absolute elliptical arc operation to coordinate (x+width-rx,y+height)
+        * perform an absolute horizontal lineto parameter x+rx;
+        * perform an absolute elliptical arc operation to coordinate (x,y+height-ry)
+        * perform an absolute vertical lineto parameter y+ry
+        * perform an absolute elliptical arc operation with a segment-completing close path operation
+
+        :param relative: provides a relative path.
+        :return: path_d of shape.
+        """
+
+        x = self.x
+        y = self.y
+        width = self.width
+        height = self.height
+        rx = self.rx
+        ry = self.ry
+        n = number_str
+        if rx == ry == 0:
+            path_d = "M %s,%s H %s V %s H %s V %s z" % (
+                n(x),
+                n(y),
+                n(x + width),
+                n(y + height),
+                n(x),
+                n(y)
+            )
+        else:
+            arc = "%s %s 0 0 1" % (n(rx), n(ry))
+            path_d = "M %s,%s H %s A %s %s,%s V %s A %s %s,%s H %s A %s %s,%s V %s A %s z" % (
+                n(x+rx),
+                n(y),
+                n(x + width - rx),
+                arc,
+                n(x + width),
+                n(y + ry),
+                n(y + height - ry),
+                arc,
+                n(x + width - rx),
+                n(y + height),
+                n(x + rx),
+                arc,
+                n(x),
+                n(y + height - ry),
+                n(y + ry),
+                arc
+            )
+        if self.transform.is_identity():
+            if not relative:
+                return path_d
+            else:
+                return Path(path_d).d(relative)
+        else:
+            return (Path(path_d) * self.transform).d(relative)
+
+    def reify(self):
+        """
+        Realizes the transform to the shape properties.
+
+        If the realized shape can be properly represented as a rectangle with an identity matrix
+        it will be, otherwise the properties will approximate the implied values.
+
+        :return:
+        """
+        x = self.implicit_x
+        y = self.implicit_y
+        width = self.implicit_width
+        height = self.implicit_height
+        rx = self.implicit_rx
+        ry = self.implicit_ry
+        rotation = self.rotation
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.rx = rx
+        self.ry = ry
+        self.transform = Matrix.rotate(rotation)
+        return self
+
+
+class _RoundShape(Shape):
+
+    def __init__(self, *args, **kwargs):
+        Shape.__init__(self)
+        arg_length = len(args)
+
+        if arg_length == 1:
+            if isinstance(args[0], dict):
+                ellipse = args[0]
+                cx = ellipse.get(SVG_ATTR_CENTER_X, None)
+                cy = ellipse.get(SVG_ATTR_CENTER_Y, None)
+                rx = ellipse.get(SVG_ATTR_RADIUS_X, None)
+                ry = ellipse.get(SVG_ATTR_RADIUS_Y, None)
+                r = ellipse.get(SVG_ATTR_RADIUS, None)
+                if r is not None:
+                    self.rx = self.ry = float(r)
+                else:
+                    if rx is None:
+                        self.rx = 1
+                    else:
+                        self.rx = float(rx)
+                    if ry is None:
+                        self.ry = 1
+                    else:
+                        self.ry = float(ry)
+
+                self.center = Point(float(cx), float(cy))
+                self._parse_shape(ellipse)
+                return
+            elif isinstance(args[0], _RoundShape):
+                s = args[0]
+                self.center = Point(s.center)
+                self.rx = s.rx
+                self.ry = s.ry
+                self._set_shape(s)
+                return
+
+        if arg_length >= 1:
+            self.center = Point(args[0])
+        elif 'center' in kwargs:
+            self.center = Point(kwargs['center'])
+        else:
+            self.center = Point(0, 0)
+        if arg_length >= 2:
+            self.rx = float(args[1])
+        elif 'rx' in kwargs:
+            self.rx = float(kwargs['rx'])
+        elif 'r' in kwargs:
+            self.rx = float(kwargs['r'])
+        else:
+            self.rx = 1
+        if arg_length >= 3:
+            self.ry = float(args[2])
+        elif 'ry' in kwargs:
+            self.ry = float(kwargs['ry'])
+        elif 'r' in kwargs:
+            self.ry = float(kwargs['r'])
+        else:
+            self.ry = self.rx
+        self._init_shape(*args[3:], **kwargs)
+
+    def __repr__(self):
+        values = []
+        if self.center is not None:
+            values.append('center=%s' % repr(self.center))
+        if abs(self.rx - self.ry) < 1e-12:
+            values.append('r=%s' % number_str(self.rx))
+        else:
+            if self.rx != 0:
+                values.append('rx=%s' % number_str(self.rx))
+            if self.ry != 0:
+                values.append('ry=%s' % number_str(self.ry))
+        self._repr_shape(values)
+        params = ", ".join(values)
+        name = self._name()
+        return "%s(%s)" % (name, params)
+
+    @property
+    def implicit_rx(self):
+        prx = Point(self.rx, 0)
+        prx *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(prx)
+
+    @property
+    def implicit_ry(self):
+        pry = Point(0, self.ry)
+        pry *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(pry)
+
+    implicit_r = implicit_rx
+
+    @property
+    def implicit_center(self):
+        center = Point(self.center)
+        center *= self.transform
+        return center
+
+    def d(self, relative=False):
+        """
+        SVG path decomposition is given in SVG 2.0 10.3, 10.4.
+
+        A move-to command to the point cx+rx,cy;
+        arc to cx,cy+ry;
+        arc to cx-rx,cy;
+        arc to cx,cy-ry;
+        arc with a segment-completing close path operation.
+
+        Converts the parameters from an ellipse or a circle to a string for a
+        Path object d-attribute"""
+        path = Path()
+        path.move((self.point_at_t(0)))
+        steps = 4
+        step_size = tau / steps
+        t_start = 0
+        t_end = step_size
+        for i in range(steps):
+            path += self.arc_t(t_start, t_end)
+            t_start = t_end
+            t_end += step_size
+        path.closed()
+        return path.d(relative=relative)
+
+    def reify(self):
+        """
+        Realizes the transform to the shape properties.
+        """
+        matrix = self.transform
+        self.center *= matrix
+        radius = Point(self.rx, self.ry)
+        radius *= matrix.vector()
+        self.rx = radius[0]
+        self.ry = radius[1]
+        self.transform = Matrix.rotate(self.rotation)
+        return self
+
+    def unit_matrix(self):
+        """
+        return the unit matrix which could would transform the unit circle into this ellipse.
+
+        One of the valid parameterizations for ellipses is that they are all affine transforms of the unit circle.
+        This provides exactly such a matrix.
+
+        :return: matrix
+        """
+        m = Matrix()
+        m.post_scale(self.implicit_rx, self.implicit_ry)
+        m.post_rotate(self.rotation)
+        center = self.implicit_center
+        m.post_translate(center[0], center[1])
+        return m
+
+    def arc_t(self, t0, t1):
+        """
+        return the arc found between the given values of t on the ellipse.
+
+        :param t0: t start
+        :param t1: t end
+        :return: arc
+        """
+        return Arc(self.point_at_t(t0),
+                   self.point_at_t(t1),
+                   self.center,
+                   rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=t1 - t0)
+
+    def arc_angle(self, a0, a1):
+        """
+        return the arc found between the given angles on the ellipse.
+
+        :param a0: start angle
+        :param a1: end angle
+        :return: arc
+        """
+        return Arc(self.point_at_angle(a0),
+                   self.point_at_angle(a1),
+                   self.center,
+                   rx=self.implicit_rx, ry=self.implicit_ry,
+                   rotation=self.rotation)
+
+    def point_at_angle(self, angle):
+        """
+        find the point on the ellipse from the center at the given angle.
+        Note: For non-circular arcs this is different than point(t).
+
+        :param angle: angle from center to find point
+        :return: point found
+        """
+        angle -= self.rotation
+        a = self.implicit_rx
+        b = self.implicit_ry
+        if a == b:
+            return self.point_at_t(angle)
+        if abs(angle) > tau / 4:
+            t = atan2(a * tan(angle), b) + tau / 2
+        else:
+            t = atan2(a * tan(angle), b)
+        return self.point_at_t(t)
+
+    def angle_at_point(self, p):
+        """
+        find the angle to the point.
+
+        :param p: point
+        :return: angle to given point.
+        """
+        return self.implicit_center.angle_to(p)
+
+    def t_at_point(self, p):
+        """
+        find the t parameter to at the point.
+
+        :param p: point
+        :return: t parameter to the given point.
+        """
+        angle = self.angle_at_point(p)
+        angle -= self.rotation
+        a = self.implicit_rx
+        b = self.implicit_ry
+        if abs(angle) > tau / 4:
+            return atan2(a * tan(angle), b) + tau / 2
+        else:
+            return atan2(a * tan(angle), b)
+
+    def point_at_t(self, t):
+        """
+        find the point that corresponds to given value t.
+        Where t=0 is the first point and t=tau is the final point.
+
+        In the case of a circle: t = angle.
+
+        :param t:
+        :return:
+        """
+        rotation = self.rotation
+        a = self.implicit_rx
+        b = self.implicit_ry
+        center = self.implicit_center
+        cx = center[0]
+        cy = center[1]
+        cosTheta = cos(rotation)
+        sinTheta = sin(rotation)
+        cosT = cos(t)
+        sinT = sin(t)
+        px = cx + a * cosT * cosTheta - b * sinT * sinTheta
+        py = cy + a * cosT * sinTheta + b * sinT * cosTheta
+        return Point(px, py)
+
+    def point(self, position):
+        """
+        find the point that corresponds to given value [0,1].
+        Where t=0 is the first point and t=1 is the final point.
+
+        :param position:
+        :return: point at t
+        """
+        return self.point_at_t(tau * position)
+
+
+class Ellipse(_RoundShape):
+    """
+    SVG Ellipse shapes are defined in SVG2 10.4
+    https://www.w3.org/TR/SVG2/shapes.html#EllipseElement
+
+    These have geometric properties cx, cy, rx, ry
+    """
+
+    def __init__(self, *args, **kwargs):
+        _RoundShape.__init__(self, *args, **kwargs)
+
+    def __copy__(self):
+        return Ellipse(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill)
+
+    def _name(self):
+        return __class__.__name__
+
+
+class Circle(_RoundShape):
+    """
+    SVG Circle shapes are defined in SVG2 10.3
+    https://www.w3.org/TR/SVG2/shapes.html#CircleElement
+
+    These have geometric properties cx, cy, r
+    """
+
+    def __init__(self, *args, **kwargs):
+        _RoundShape.__init__(self, *args, **kwargs)
+
+    def __copy__(self):
+        return Circle(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill)
+
+    def _name(self):
+        return __class__.__name__
+
+
+class SimpleLine(Shape):
+    """
+    SVG Line shapes are defined in SVG2 10.5
+    https://www.w3.org/TR/SVG2/shapes.html#LineElement
+
+    These have geometric properties x1, y1, x2, y2
+
+    These are called Line in SVG but that name is used for Line(PathSegment)
+    """
+
+    def __init__(self, *args, **kwargs):
+        Shape.__init__(self)
+        arg_length = len(args)
+        kwarg_length = len(kwargs)
+        count_args = arg_length + kwarg_length
+
+        if count_args == 1:
+            if isinstance(args[0], dict):
+                values = args[0]
+                self.start = Point(float(values.get(SVG_ATTR_X1, 0)), float(values.get(SVG_ATTR_Y1, 0)))
+                self.end = Point(float(values.get(SVG_ATTR_X2, 0)), float(values.get(SVG_ATTR_Y2, 0)))
+                self._parse_shape(values)
+            elif isinstance(args[0], SimpleLine):
+                s = args[0]
+                self.start = Point(s.start)
+                self.end = Point(s.end)
+                self._set_shape(s)
+            return
+        if arg_length >= 4 and isinstance(args[0], (float, int)):
+            self.start = Point(args[0], args[1])
+            self.end = Point(args[2], args[3])
+            self._init_shape(*args[4:], **kwargs)
+            return
+        if arg_length >= 1:
+            self.start = Point(args[0])
+        elif SVG_ATTR_X1 in kwargs and SVG_ATTR_Y1 in kwargs:
+            self.start = Point(kwargs[SVG_ATTR_X1], kwargs[SVG_ATTR_Y1])
+        else:
+            self.start = Point(0, 0)
+        if arg_length >= 2:
+            self.end = Point(args[1])
+        elif SVG_ATTR_X2 in kwargs and SVG_ATTR_Y2 in kwargs:
+            self.end = Point(kwargs[SVG_ATTR_X2], kwargs[SVG_ATTR_Y2])
+        else:
+            self.end = Point(0, 0)
+        self._init_shape(*args[2:], **kwargs)
+        if 'start' in kwargs:
+            self.start = Point(kwargs['start'])
+        if 'end' in kwargs:
+            self.end = Point(kwargs['end'])
+
+    def __repr__(self):
+        values = []
+        if self.start is not None:
+            values.append('start=%s' % repr(self.start))
+        if self.end is not None:
+            values.append('end=%s' % repr(self.end))
+        self._repr_shape(values)
+        params = ", ".join(values)
+        return "SimpleLine(%s)" % params
+
+    def __copy__(self):
+        return SimpleLine(self.start, self.end, self.transform, self.stroke, self.fill)
+
+    @property
+    def implicit_x1(self):
+        return self.implicit_start[0]
+
+    @property
+    def implicit_y1(self):
+        return self.implicit_start[1]
+
+    @property
+    def implicit_start(self):
+        point = Point(self.start)
+        point *= self.transform
+        return point
+
+    @property
+    def implicit_x2(self):
+        return self.implicit_end[0]
+
+    @property
+    def implicit_y2(self):
+        return self.implicit_end[1]
+
+    @property
+    def implicit_end(self):
+        point = Point(self.end)
+        point *= self.transform
+        return point
+
+    def d(self, relative=False):
+        """
+        SVG path decomposition is given in SVG 2.0 10.5.
+
+        perform an absolute moveto operation to absolute location (x1,y1)
+        perform an absolute lineto operation to absolute location (x2,y2)
+
+        :returns Path_d path for line.
+        """
+        start = Point(self.start)
+        end = Point(self.end)
+        start *= self.transform
+        end *= self.transform
+        return 'M %s L %s' % (start, end)
+
+    def reify(self):
+        """Realizes the transform to the shape properties."""
+        matrix = self.transform
+        self.start *= matrix
+        self.end *= matrix
+        matrix.reset()
+        return self
+
+
+class _Polyshape(Shape):
+    """Base form of Polygon and Polyline since the objects are nearly the same."""
+
+    def __init__(self, *args, **kwargs):
+        Shape.__init__(self)
+        arg_length = len(args)
+        if arg_length == 0:
+            self._init_points(kwargs)
+            self._init_shape(*args[:], **kwargs)
+        else:
+            if isinstance(args[0], dict):
+                self._init_points(args[0])
+                self._parse_shape(args[0])
+            elif isinstance(args[0], Polyline):
+                s = args[0]
+                self._init_points(s.points)
+                self._set_shape(s)
+            elif isinstance(args[0], (float, int, list, tuple, Point, str, complex)):
+                self._init_points(args)
+            else:
+                self.points = list()
+
+    def _init_points(self, points):
+        if points is None:
+            self.points = list()
+            return
+        if isinstance(points, (dict)):
+            if SVG_ATTR_POINTS in points:
+                points = points[SVG_ATTR_POINTS]
+            else:
+                self.points = list()
+                return
+        try:
+            if len(points) == 1:
+                points = points[0]
+        except TypeError:
+            pass
+        if isinstance(points, (str)):
+            findall = REGEX_COORD_PAIR.findall(points)
+            self.points = [Point(float(j), float(k)) for j, k in findall]
+        elif isinstance(points, (list, tuple)):
+            if len(points) == 0:
+                self.points = list()
+            else:
+                first_point = points[0]
+                if isinstance(first_point, (float, int)):
+                    self.points = list(map(Point, zip(*[iter(points)] * 2)))
+                elif isinstance(first_point, (list, tuple, complex, str, Point)):
+                    self.points = list(map(Point, points))
+        else:
+            self.points = list()
+
+    def __repr__(self):
+        values = []
+        if self.points is not None:
+            s = ", ".join(map(str, self.points))
+            values.append('points=(%s)' % repr(s))
+        self._repr_shape(values)
+        params = ", ".join(values)
+        name = self._name()
+        return "%s(%s)" % (name, params)
+
+    def __len__(self):
+        return len(self.points)
+
+    def __getitem__(self, item):
+        return self.points[item]
+
+    def d(self, relative=False):
+        """
+        Polyline and Polygon decomposition is given in SVG2. 10.6 and 10.7
+
+        * perform an absolute moveto operation to the first coordinate pair in the list of points
+        * for each subsequent coordinate pair, perform an absolute lineto operation to that coordinate pair.
+        * (Polygon-only) perform a closepath command
+
+        Note:  For a polygon/polyline made from n points, the resulting path will
+        be composed of n lines (even if some of these lines have length zero).
+
+        :param relative: provides a relative path.
+        :return: path_d of shape.
+        """
+
+        if len(self.points) == 0:
+            return ''
+        if self.transform.is_identity():
+            s = ", L ".join(map(str, self.points))
+        else:
+            s = ", L ".join(map(str, map(self.transform.point_in_matrix_space, map(Point, self.points))))
+        if isinstance(self, Polygon):
+            return 'M %s Z' % (s)
+        return 'M %s' % (s)
+
+    def reify(self):
+        """Realizes the transform to the shape properties."""
+        matrix = self.transform
+        for p in self:
+            p *= matrix
+        matrix.reset()
+        return self
+
+
+class Polyline(_Polyshape):
+    """
+    SVG Polyline shapes are defined in SVG2 10.6
+    https://www.w3.org/TR/SVG2/shapes.html#PolylineElement
+
+    These have geometric properties points
+    """
+
+    def __init__(self, *args, **kwargs):
+        _Polyshape.__init__(self, *args, **kwargs)
+
+    def __copy__(self):
+        return Polyline(*self.points)
+
+    def _name(self):
+        return __class__.__name__
+
+
+class Polygon(_Polyshape):
+    """
+    SVG Polygon shapes are defined in SVG2 10.7
+    https://www.w3.org/TR/SVG2/shapes.html#PolygonElement
+
+    These have geometric properties points
+    """
+
+    def __init__(self, *args, **kwargs):
+        _Polyshape.__init__(self, *args, **kwargs)
+
+    def __copy__(self):
+        return Polygon(*self.points)
+
+    def _name(self):
+        return __class__.__name__
+
+
 class Subpath:
-    """Subpath is a Path-backed window implementation. It does not store a list of segments but rather
-    stores a Path, start position, end position. When a function is called on a subpath, the result of those events
-    occurs is performed on the backing Path. When the backing Path is modified the behavior is undefined."""
+    """
+    Subpath is a Path-backed window implementation. It does not store a list of segments but rather
+    stores a Path, start position, end position. When a function is called on a subpath, the result of
+    those events is performed on the backing Path. When the backing Path is modified the behavior is
+     undefined."""
 
     def __init__(self, path, start, end):
         self._path = path
@@ -4498,7 +4901,7 @@ class Subpath:
     def __eq__(self, other):
         if isinstance(other, str):
             return self.__eq__(Path(other))
-        if not isinstance(other, Path, Subpath):
+        if not isinstance(other, (Path, Subpath)):
             return NotImplemented
         if len(self) != len(other):
             return False
@@ -4531,7 +4934,7 @@ class Subpath:
         return Path.svg_d(segments, relative)
 
     def _reverse_segments(self, start, end):
-        """Reverses segments within between the given indexes in the subpath space."""
+        """Reverses segments between the given indexes in the subpath space."""
         while start <= end:
             start_segment = self[start]
             end_segment = self[end]
@@ -4567,9 +4970,39 @@ class Subpath:
         return self
 
 
+class SVGText(GraphicObject):
+    """
+    SVG Text are defined in SVG 2.0 Chapter 11
+
+    This is a stub element.
+    """
+
+    def __init__(self, text):
+        GraphicObject.__init__(self)
+        self.text = text
+
+
+class SVGImage(Transformable):
+    """
+    SVG Images are defined in SVG 2.0 12.3
+
+    This class is called SVG Image rather than image as a guard against many Image objects
+    which are quite useful and would be ideal for reading the linked or contained data.
+
+    This is a stub element.
+    """
+
+    def __init__(self, image):
+        Transformable.__init__(self)
+        self.image = image
+
+
 class SVG:
-    """Main svg parsing of files. The file currently only supports nodes which are dictionary objects with
-    svg attributes. These can then be converted into various elements through the various parsing methods."""
+    """
+    SVG Document parsing.
+    This currently only supports nodes which are dictionary objects with svg attributes.
+    These can then be converted into various elements through the various parsing methods.
+    """
 
     def __init__(self, f):
         self.f = f
@@ -4579,7 +5012,16 @@ class SVG:
         """Parses the SVG file.
         Style elements are split into their proper values.
         Transform elements are concatenated and unparsed.
-        Leaf node elements are turned into pathd values."""
+        Shape leaf node elements are turned into pathd values.
+
+        Text, Image, Desc nodes are yielded and contain no 'd' property.
+        def elements are not processed.
+        use elements are not processed.
+        switch elements are not processed.
+        title elements are not processed.
+        metadata elements are not processed.
+        foreignObject elements are not processed.
+        """
 
         f = self.f
         stack = []
@@ -4635,7 +5077,7 @@ class SVG:
                     values[SVG_ATTR_DATA] = Polygon(values).d()
                 elif SVG_TAG_RECT == tag:
                     values[SVG_ATTR_DATA] = Rect(values).d()
-                elif SVG_TAG_IMAGE == tag:  # Has no pathd data, but yields as element.
+                elif SVG_TAG_IMAGE == tag:
                     if XLINK_HREF in values:
                         image = values[XLINK_HREF]
                     elif SVG_HREF in values:

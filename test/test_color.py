@@ -8,6 +8,9 @@ from svg.elements import *
 class TestElementColor(unittest.TestCase):
 
     def test_color(self):
-        c = 0
-        self.assertEqual(Color.parse('red'), Color.parse('#F00'))
+        r0 = Color.parse('red')
+        r1 = Color.parse('#F00')
+        r2 = Color.parse('#FF0000')
+        self.assertEqual(r0, r1)
+        self.assertEqual(r0, r2)
 
