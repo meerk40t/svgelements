@@ -281,7 +281,7 @@ class TestElementArcLength(unittest.TestCase):
 
     def test_arc_len_circle_line(self):
         """Known chord vs line"""
-        n = 5
+        n = 2
         error = 0
         for i in range(n):
             arc = get_random_circle_arc()
