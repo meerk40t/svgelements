@@ -1,6 +1,8 @@
 # svg.elements
-Parsing for SVG File, Path, Matrix, Angle, Distance, Color, Point and other SVG Elements. The SVG spec defines not only paths by a variety of classes. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these elements.
 
+Parsing for SVG File, Path, Matrix, Angle, Distance, Color, Point and other SVG Elements. The SVG spec defines not only paths by a variety of elements. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these.
+
+This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatible.
 
 # Installing
 `pip install svg.elements`
@@ -17,7 +19,7 @@ None.
 
 `svg.elements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
 
-# Goals/Philsophy
+# Goals
 
 The goal of this project is to provide svg spec-like objects and structures. The svg standard 1.1 and elements of 2.0 will
 be used to provide much of the decisions making for implementation objects. If there is a question on
@@ -29,13 +31,110 @@ The primary goal is to make a more robust version of `svg.path` including other 
 
 >An SVG interpreter is a program which can parse and process SVG document fragments. Examples of SVG interpreters are server-side transcoding tools or optimizers (e.g., a tool which converts SVG content into modified SVG content) or analysis tools (e.g., a tool which extracts the text content from SVG content, or a validity checker).
 
-For real world functionality we must correctly and reasonably provide the ability to do transcoding of svg as well as accessing and modifying content.
+Real world functionality demands we must correctly and reasonably provide the ability to do transcoding of svg as well as accessing and modifying content.
 
-This project began as part of `meerK40t` which does svg loading of files for laser cutting. It attempts to more fully map out the svg spec, objects, and paths, while remaining easy to use and highly backwards compatible.
+# Philosophy
+
+We remain nominally backwards compatable with `svg.path` with a number of breaking changes. However, because  `svg.elements` permit a lot of leeway in what is accepted and how it's accepted, there is still a huge degree of compatability not that project but with a huge number of projects seen and unseen. And we shall provide a lot of versitility in how we interact with the data and how the data types interact with each other.
+
+# Overview
+
+The versitility provided is largely through expansive and highly intuitive dunder methods. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add shapes, paths, pathsegments, subpaths together. And even non-declared but functionally understandable parsable elements are automagically parsed.
+
+## Point
+
+Where a Point is needed we can use many compatible objects:
+* Point(x,y)
+* (x,y)
+* [x,y]
+* "x, y"
+* x + yj (complex number)
+* a class with .x and .y as methods.
+
+    >>> Point(10,10) * "rotate(90)"
+    Point(-10,10)
+
+## Matrix
+
+Where a Matrix is needed:
+* Matrix.scale(s)
+* Matrix.scale(sx,sy)
+* Matrix.scale(sx,sy,px,py)
+* Matrix.rotate(angle)
+* Matrix.rotate(angle, px, py
+* Matrix.skew_x(angle)
+* Matrix.skew_x(angle, px, py)
+* Matrix.skew_y(angle)
+* Matrix.skew_y(angle, px, py)
+* Matrix.translate(tx)
+* Matrix.translate(tx, ty)
+* Transform string values.
+    * "scale(s)"
+    * "scale(sx,sy)"
+    * "translate(20,20) scale(2)"
+    * "rotate(0.25 turns)"
+    * Any valid SVG or CSS transform string will be accepted as a matrix.
+    
+    >>> Matrix("rotate(100grad)")
+    Matrix(0, 1, -1, 0, 0, 0)
+    
+
+## Path
+
+Where a Path is needed:
+* Path() object
+* String path_d value.
+
+    >>> Path() + "M0,0z"
+    Path(Move(end=Point(0,0)), Close(start=Point(0,0), end=Point(0,0)))
+
+
+Where an Angle is needed:
+* Angle.degrees(degree_angle)
+* Angle.radians(radians_angle)
+* Angle.turns(turns)
+* Angle.gradians(gradian_angles)
+* CSS angle string.
+    * "20deg"
+    * "0.3turns"
+    * "1rad"
+    * "100grad"
+    
+    >>> Point(0,100) * "rotate(1turn)"
+    Point(0,100)
+    >>> Point(0,100) * "rotate(0.5turn)"
+    Point(-0,-100)
+    
+
+## Color
+
+Where a Color is needed:
+* SVG color names: "red", "blue", "dark grey", etc.
+* 3 digit hex: "#F00"
+* 4 digit hex: "#FF00"
+* 6 digit hex: "#FF0000"
+* 8 digit hex: "#FFFF0000"
+* "RGB(r,g,b)"
+* "RGB(r%, g%, b%)"
+
+    >>> Circle(stroke="yellow")
+    Circle(center=Point(0,0), r=1, stroke="#ffff00")
+
+## Distance
+
+Where a distance is needed:
+* "20cm"
+* "200mm"
+* "3in"
+* Distance.mm(200)
+
+    >>> Point(0,0) * "translate(20mm, 2cm)"
+    Point(75.590592,75.590592)
+    >>> Distance.inch(3).as_mm
+    76.19995885202222
+
 
 # Example Usages
-
-The usability has greatly increased with dunder methods and various extensions. Points, PathSegments, Paths can be multiplied by a matrix. Functionally understandable parsable elements are parsed and used.
 
 Parse an svg file:
 
@@ -63,7 +162,7 @@ Rotate a PathSegment with an implied parsed matrix:
     Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924))
 
 Rotate a Partial Path with an implied matrix:
-(Note: The SVG does not allow us to specify a start point for the invalid path)
+(Note: The SVG does not allow us to specify a start point for this invalid path)
 
     >>> Path("L 40,40") * "Rotate(45)"
     Path(Line(end=Point(0,56.568542494924)))
@@ -94,7 +193,7 @@ Combine individual PathSegments together:
     >>> Move((2,2)) + Close()
     Path(Move(end=Point(2,2)), Close())
 
-Write that as SVG text:
+Write that as SVG path_d object:
 
     >>> print(Move((2,2)) + Close())
     M 2,2 Z
@@ -442,43 +541,54 @@ The Line shape is converted into a shape called SimpleLine to not interfere with
 Rectangles are defined by x,y and height and width. Within SVG there are also rounded corners defined with `rx` and `ry`. 
 
     >>> Rect(10,10,8,4).d()
-    'M10 10 L 18 10 L 18 14 L 10 14 z'
+    'M 10,10 H 18 V 14 H 10 V 10 z'
 
 Much like all the paths these shapes also contain a .d() function that produces the path data for them. This could then be wrapped into a Path().
 
     >>> print(Path(Rect(10,10,8,4).d()) * "rotate(0.5turns)")
     M -10,-10 L -18,-10 L -18,-14 L -10,-14 Z
+    
+Or simply passed to the Path:
+
+    >>> print(Path(Rect(10,10,8,4)) * "rotate(0.5turns)")
+    M -10,-10 L -18,-10 L -18,-14 L -10,-14 L -10,-10 Z
+
+Or simply multiplied by the matrix itself:
+
+    >>> print(Rect(10,10,8,4) * "rotate(0.5turns)")
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0))
+
+And you can equally decompose that Shape:
+
+    >>> (Rect(10,10,8,4) * "rotate(0.5turns)").d()
+    'M -10,-10 L -18,-10 L -18,-14 L -10,-14 L -10,-10 Z'
+
 
 Matrices can be applied to Rect objects directly.
 
     >>> from svg.elements import *
     >>> Rect(10,10,8,4) * "rotate(0.5turns)"
-    Rect(x=-18, y=-14, w=8, h=4)
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0))
     
     >>> Rect(10,10,8,4) * "rotate(0.25turns)"
-    Rect(x=-14, y=10, w=4, h=8)
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(0, 1, -1, 0, 0, 0))
 
 With a caveat that rectangles only actually make sense when parallel so the results can be strange:
 
     >>> Rect(10,10,8,4) * "rotate(14deg)"
-    Rect(x=6.316050724365, y=12.122176218757, w=8.730053392607, h=5.816558069901)
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(0.970295726276, 0.2419218956, -0.2419218956, 0.970295726276, 0, 0))
     
  This also works with `rx` and `ry`:
+ (Note: the path will now contain Arcs)
  
-    >>> Rect(10,10,8,4, 2, 1) * "rotate(0.25turns)"
-    Rect(x=-14, y=10, w=4, h=8, rx=-1, ry=2)
+    >>> (Rect(10,10,8,4, 2, 1) * "rotate(0.25turns)").d()
+    'M -10,12 L -10,16 A 2,1 90 0,1 -11,18 L -13,18 A 2,1 90 0,1 -14,16 L -14,12 A 2,1 90 0,1 -13,10 L -11,10 A 2,1 90 0,1 -10,12 Z'
 
-and:
+You can also decompose the shapes in relative modes:
 
-    >>> Rect(10,10,8,4, 2, 1) * "rotate(14deg)"
-    Rect(x=6.316050724365, y=12.122176218757, w=8.730053392607, h=5.816558069901, rx=1.698669556952, ry=1.454139517475)
+    >>> (Rect(10,10,8,4, 2, 1) * "rotate(0.25turns)").d(relative=True)
+    'm -10,12 l 1.77636E-15,4 a 2,1 90 0,1 -1,2 l -2,0 a 2,1 90 0,1 -1,-2 l -1.77636E-15,-4 a 2,1 90 0,1 1,-2 l 2,0 a 2,1 90 0,1 1,2 z'
 
-And the matrix forms should work correctly with most matrices:
-
-    >>> Rect(10,10,8,4, 2, 1) * "translate(50)"
-    Rect(x=60, y=10, w=8, h=4, rx=2, ry=1)
-    
-If you want a form that deforms the rectangle-ness of the shape you'll be better off just converting it to a Path.
 
 ### Ellipse & Circle
 
@@ -489,25 +599,6 @@ While the objects are different they can be checked for equivolency:
     >>> Ellipse(center=(0,0), rx=10, ry=10) == Circle(center="0,0", r=10.0)
     True
 
-Also, when circles are changed with a matrix they become ellipses:
-
-    >>> Circle(center="0,0", r=10.0) * "scale(2,1)"
-    Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0)
-
-And they will become a circle again if they are a circle:
-
-    >>> Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0) * "scale(0.5,1)"
-    Circle(center=Point(0,0), r=10, rotation=0)
-    
-They won't change if they don't deform.
-
-    >>> Circle(center="0,0", r=10.0) * "rotate(20deg)"
-    Circle(center=Point(0,0), r=10, rotation=0.349065850399)
-
-However, currently the rotations aren't taken into account for the path transformations.
-
-    >>>(Ellipse(center=Point(0,0), rx=20, ry=10, rotation=0) * "rotate(45)").d()
-    'M -20.000000, 0.000000 a20.000000,10.000000 0 1,0 40.000000,0 a20.000000,10.000000 0 1,0 -40.000000,0'
 
 # SimpleLine
 
@@ -530,14 +621,19 @@ The difference here is polylines are not closed while Polygons are closed.
     >>> p = Polygon(0,0, 100,0, 100,100, 0,100)
     >>> p *= "scale(2)"
     >>> p.d()
-    'M 0,0, 200,0, 200,200, 0,200z'
+    'M 0,0, L 200,0, L 200,200, L 0,200 Z'
 
 and the same for Polyline:
 
     >>> p = Polyline(0,0, 100,0, 100,100, 0,100)
     >>> p *= "scale(2)"
     >>> p.d()
-    'M 0,0, 200,0, 200,200, 0,200'
+    'M 0,0, L 200,0, L 200,200, L 0,200'
+    
+You can just append a "z" to the polyline path though. 
+
+    >>> Path(Polyline((20,0), (10,10), 0)) + "z" == Polygon("20,0 10,10 0,0")
+    True
 
 ## CSS Distance
 
