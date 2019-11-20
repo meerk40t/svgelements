@@ -1762,6 +1762,13 @@ class Shape(GraphicObject):
             return NotImplemented
         return not self == other
 
+    def __iadd__(self, other):
+        if isinstance(other, Shape):
+            return Path(self) + Path(other)
+        return NotImplemented
+
+    __add__ = __iadd__
+
     def d(self, relative=False):
         pass
 
@@ -1772,6 +1779,9 @@ class Shape(GraphicObject):
         transformed shape cannot be represented through through the properties.
         """
         return self
+
+    def bbox(self):
+        return Path(self).bbox()
 
     def _set_shape(self, s):
         self.transform = Matrix(s.transform)
@@ -4128,11 +4138,11 @@ class Rect(Shape):
         Rect decomposition is given in SVG 2.0 10.2
 
         Rect:
-        * perform an absolute moveto operation to location (x+rx,y);
-        * perform an absolute horizontal lineto with parameter x+width-rx;
-        * perform an absolute vertical lineto parameter y+height-ry;
-        * perform an absolute horizontal lineto parameter x+rx;
-        * perform an absolute vertical lineto parameter y+ry
+        * perform an absolute moveto operation to location (x,y);
+        * perform an absolute horizontal lineto with parameter x+width;
+        * perform an absolute vertical lineto parameter y+height;
+        * perform an absolute horizontal lineto parameter x;
+        * perform an absolute vertical lineto parameter y
         * ( close the path)
 
         Rounded Rect:
@@ -4172,7 +4182,7 @@ class Rect(Shape):
         else:
             arc = "%s %s 0 0 1" % (n(rx), n(ry))
             path_d = "M %s,%s H %s A %s %s,%s V %s A %s %s,%s H %s A %s %s,%s V %s A %s z" % (
-                n(x),
+                n(x+rx),
                 n(y),
                 n(x + width - rx),
                 arc,
@@ -4190,7 +4200,10 @@ class Rect(Shape):
                 arc
             )
         if self.transform.is_identity():
-            return path_d
+            if not relative:
+                return path_d
+            else:
+                return Path(path_d).d(relative)
         else:
             return (Path(path_d) * self.transform).d(relative)
 
