@@ -1771,7 +1771,7 @@ class Shape(GraphicObject):
         simplifies towards the identity matrix. In many cases it will become the identity matrix, but in some the
         transformed shape cannot be represented through through the properties.
         """
-        pass
+        return self
 
     def _set_shape(self, s):
         self.transform = Matrix(s.transform)
@@ -3925,6 +3925,14 @@ class Path(Shape, MutableSequence):
         ymax = max(ymaxs)
         return xmin, ymin, xmax, ymax
 
+    def reify(self):
+        """
+        Realizes the transform to the shape properties.
+
+        Paths do not permit the matrix to be non-identity.
+        """
+        return self
+
     @staticmethod
     def svg_d(segments, relative=False):
         if len(segments) == 0:
@@ -4209,6 +4217,7 @@ class Rect(Shape):
         self.rx = rx
         self.ry = ry
         self.transform = Matrix.rotate(rotation)
+        return self
 
 
 class _RoundShape(Shape):
@@ -4348,6 +4357,7 @@ class _RoundShape(Shape):
         self.rx = radius[0]
         self.ry = radius[1]
         self.transform = Matrix.rotate(self.rotation)
+        return self
 
     def unit_matrix(self):
         """
@@ -4620,6 +4630,7 @@ class SimpleLine(Shape):
         self.start *= matrix
         self.end *= matrix
         matrix.reset()
+        return self
 
 
 class _Polyshape(Shape):
@@ -4721,6 +4732,7 @@ class _Polyshape(Shape):
         for p in self:
             p *= matrix
         matrix.reset()
+        return self
 
 
 class Polyline(_Polyshape):
