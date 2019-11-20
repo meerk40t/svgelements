@@ -67,7 +67,8 @@ class TestElementShape(unittest.TestCase):
         e3 = Circle()
         self.assertNotEqual(e, e3)
         circle_d = e.d()
-        self.assertEqual(Path(circle_d), 'M 18.4, 33.33 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0')
+        self.assertEqual(Path(circle_d),
+                'M26.4,33.33A4,4 0 0,1 22.4,37.33 A4,4 0 0,1 18.4,33.33 A4,4 0 0,1 22.4,29.33 A4,4 0 0,1 26.4,33.33Z')
 
     def test_polyline_dict(self):
         values = {
@@ -112,3 +113,27 @@ class TestElementShape(unittest.TestCase):
         p.reify()
         self.assertFalse(isinstance(Circle(), Ellipse))
         self.assertFalse(isinstance(Ellipse(), Circle))
+
+    def test_circle_decomp(self):
+        circle = Circle()
+        c = Path(circle.d())
+        self.assertEqual(c, "M 1,0 A 1,1 0 0,1 0,1 A 1,1 0 0,1 -1,0 A 1,1 0 0,1 0,-1 A 1,1 0 0,1 1,0 Z")
+        circle *= "scale(2,1)"
+        c = Path(circle.d())
+        self.assertEqual(c, "M 2,0 A 2,1 0 0,1 0,1 A 2,1 0 0,1 -2,0 A 2,1 0 0,1 0,-1 A 2,1 0 0,1 2,0 Z")
+        circle *= "scale(0.5,1)"
+        c = Path(circle.d())
+        self.assertEqual(c, "M 1,0 A 1,1 0 0,1 0,1 A 1,1 0 0,1 -1,0 A 1,1 0 0,1 0,-1 A 1,1 0 0,1 1,0 Z")
+
+    def test_circle_implicit(self):
+        circle = Circle()
+        circle *= "translate(40,40) rotate(15deg) scale(2,1.5)"
+        self.assertAlmostEqual(circle.implicit_rx, 2.0)
+        self.assertAlmostEqual(circle.implicit_ry, 1.5)
+        self.assertAlmostEqual(circle.rotation, Angle.degrees(15))
+        self.assertEqual(circle.implicit_center, (40,40))
+
+    def test_circle_equals_tranformed_circle(self):
+        circle1 = Circle(r=2)
+        circle2 = Circle() * "scale(2)"
+        self.assertEqual(circle1, circle2)

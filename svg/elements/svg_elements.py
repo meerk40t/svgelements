@@ -1734,6 +1734,24 @@ class Shape(GraphicObject):
         Transformable.__init__(self)
         GraphicObject.__init__(self)
 
+    def __eq__(self, other):
+        if not isinstance(other, Shape):
+            return NotImplemented
+        if self.fill != other.fill or self.stroke != other.stroke:
+            return False
+        first = self
+        if not isinstance(first, Path):
+            first = Path(first)
+        second = other
+        if not isinstance(second, Path):
+            second = Path(second)
+        return first == second
+
+    def __ne__(self, other):
+        if not isinstance(other, Shape):
+            return NotImplemented
+        return not self == other
+
     def d(self, relative=False):
         pass
 
@@ -3454,11 +3472,15 @@ class Path(Shape, MutableSequence):
                 self._segments = []
                 self._segments.extend(map(copy, list(segments[0])))
                 return
-            elif isinstance(segments[0], str):
+            if isinstance(segments[0], Shape):
+                self._segments = list()
+                self.parse(segments[0].d())
+                return
+            if isinstance(segments[0], str):
                 self._segments = list()
                 self.parse(segments[0])
                 return
-            elif isinstance(segments[0], list):
+            if isinstance(segments[0], list):
                 self._segments = segments[0]
                 return
         self._segments = list(segments)
@@ -4031,27 +4053,13 @@ class Rect(Shape):
     def __copy__(self):
         return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry, self.transform, self.stroke, self.fill)
 
-    def __eq__(self, other):
-        if not isinstance(other, Rect):
-            return NotImplemented
-        return self.x == other.x and \
-               self.y == other.y and \
-               self.width == other.width and \
-               self.height == other.height and \
-               self.rx == other.rx and \
-               self.ry == other.ry and \
-               self._eq_shape(other)
-
-    def __ne__(self, other):
-        if not isinstance(other, (Rect)):
-            return NotImplemented
-        return not self == other
-
     def d(self, relative=False):
         """Converts an SVG-rect element to a Path d-string.
 
         The rectangle will start at the (x,y) coordinate specified by the
         rectangle object and proceed counter-clockwise."""
+
+        # TODO: Must be rewritten to account for the transform. Also, must abide by the 2.0 SVG shape conversion.
         x1, y1 = self.x + self.width, self.y
         x2, y2 = self.x + self.width, self.y + self.height
         x3, y3 = self.x, self.y + self.height
@@ -4066,6 +4074,7 @@ class Rect(Shape):
         this will be a malformed.
         :return:
         """
+        # TODO: Must be rewritten to preserve the matrix values that are not permitted.
         matrix = self.transform
         rounded = Point(self.rx, self.ry)
         top_left = Point(self.x, self.y)
@@ -4096,9 +4105,8 @@ class _RoundShape(Shape):
         Shape.__init__(self)
         arg_length = len(args)
         kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
 
-        if count_args == 1:
+        if arg_length == 1:
             if isinstance(args[0], dict):
                 ellipse = args[0]
                 cx = ellipse.get(SVG_ATTR_CENTER_X, None)
@@ -4163,18 +4171,6 @@ class _RoundShape(Shape):
         name = self._name()
         return "%s(%s)" % (name, params)
 
-    def __eq__(self, other):
-        if not isinstance(other, _RoundShape):
-            return NotImplemented
-        return self.center == other.center and self.rx == other.rx and \
-               self.ry == other.ry and self.rotation == other.rotation and \
-               self._eq_shape(other)
-
-    def __ne__(self, other):
-        if not isinstance(other, _RoundShape):
-            return NotImplemented
-        return not self == other
-
     def _name(self):
         return __class__.__name__
 
@@ -4195,27 +4191,69 @@ class _RoundShape(Shape):
         origin *= self.transform
         return origin.angle_to(prx)
 
+    @property
+    def implicit_rx(self):
+        prx = Point(self.rx, 0)
+        prx *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(prx)
+
+    @property
+    def implicit_ry(self):
+        pry = Point(0, self.ry)
+        pry *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(pry)
+
+    implicit_r = implicit_rx
+
+    @property
+    def implicit_center(self):
+        center = Point(self.center)
+        center *= self.transform
+        return center
+
     def d(self, relative=False):
-        """converts the parameters from an ellipse or a circle to a string for a
+        """
+        SVG path decomposition is given in SVG 2.0 10.3, 10.4.
+
+        A move-to command to the point cx+rx,cy;
+        arc to cx,cy+ry;
+        arc to cx-rx,cy;
+        arc to cx,cy-ry;
+        arc with a segment-completing close path operation.
+
+        Converts the parameters from an ellipse or a circle to a string for a
         Path object d-attribute"""
-        cx = self.center[0]
-        cy = self.center[1]
-        rx = self.rx
-        ry = self.ry
-        return 'M %f, %f a%f,%f 0 1,0 %f,0 a%f,%f 0 1,0 %f,0' % (cx - rx, cy, rx, ry, 2 * rx, rx, ry, -2 * rx)
+        path = Path()
+        path.move((self.point_at_t(0)))
+        steps = 4
+        step_size = tau / steps
+        t_start = 0
+        t_end = step_size
+        for i in range(steps):
+            path += self.arc_t(t_start, t_end)
+            t_start = t_end
+            t_end += step_size
+        path.closed()
+        return path.d(relative=relative)
 
     def unit_matrix(self):
         """
         return the unit matrix which could would transform the unit circle into this ellipse.
-        One of the valid parameterizations for ellipses is they are all affine transforms of the unit circle.
+
+        One of the valid parameterizations for ellipses is that they are all affine transforms of the unit circle.
         This provides exactly such a matrix.
 
         :return: matrix
         """
         m = Matrix()
-        m.post_cat(self.transform)
-        m.post_scale(self.rx, self.ry)
-        m.post_translate(self.center[0], self.center[1])
+        m.post_scale(self.implicit_rx, self.implicit_ry)
+        m.post_rotate(self.rotation)
+        center = self.implicit_center
+        m.post_translate(center[0], center[1])
         return m
 
     def arc_t(self, t0, t1):
@@ -4229,7 +4267,7 @@ class _RoundShape(Shape):
         return Arc(self.point_at_t(t0),
                    self.point_at_t(t1),
                    self.center,
-                   rx=self.rx, ry=self.ry, rotation=self.rotation, sweep=t1 - t0)
+                   rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=t1 - t0)
 
     def arc_angle(self, a0, a1):
         """
@@ -4242,7 +4280,7 @@ class _RoundShape(Shape):
         return Arc(self.point_at_angle(a0),
                    self.point_at_angle(a1),
                    self.center,
-                   rx=self.rx, ry=self.ry,
+                   rx=self.implicit_rx, ry=self.implicit_ry,
                    rotation=self.rotation)
 
     def point_at_angle(self, angle):
@@ -4254,8 +4292,8 @@ class _RoundShape(Shape):
         :return: point found
         """
         angle -= self.rotation
-        a = self.rx
-        b = self.ry
+        a = self.implicit_rx
+        b = self.implicit_ry
         if a == b:
             return self.point_at_t(angle)
         if abs(angle) > tau / 4:
@@ -4271,7 +4309,7 @@ class _RoundShape(Shape):
         :param p: point
         :return: angle to given point.
         """
-        return self.center.angle_to(p)
+        return self.implicit_center.angle_to(p)
 
     def t_at_point(self, p):
         """
@@ -4282,8 +4320,8 @@ class _RoundShape(Shape):
         """
         angle = self.angle_at_point(p)
         angle -= self.rotation
-        a = self.rx
-        b = self.ry
+        a = self.implicit_rx
+        b = self.implicit_ry
         if abs(angle) > tau / 4:
             return atan2(a * tan(angle), b) + tau / 2
         else:
@@ -4299,12 +4337,19 @@ class _RoundShape(Shape):
         :param t:
         :return:
         """
-        p = Point(cos(t), sin(t))
-        p *= self.transform
-        p[0] *= self.rx
-        p[1] *= self.ry
-        p += self.center
-        return p
+        rotation = self.rotation
+        a = self.implicit_rx
+        b = self.implicit_ry
+        center = self.implicit_center
+        cx = center[0]
+        cy = center[1]
+        cosTheta = cos(rotation)
+        sinTheta = sin(rotation)
+        cosT = cos(t)
+        sinT = sin(t)
+        px = cx + a * cosT * cosTheta - b * sinT * sinTheta
+        py = cy + a * cosT * sinTheta + b * sinT * cosTheta
+        return Point(px, py)
 
     def point(self, position):
         """
@@ -4417,26 +4462,12 @@ class SimpleLine(Shape):
     def __copy__(self):
         return SimpleLine(self.start, self.end, self.transform, self.stroke, self.fill)
 
-    def __eq__(self, other):
-        if not isinstance(other, (SimpleLine, Line)):
-            return NotImplemented
-        return self.start == other.start and self.end == other.end and self._eq_shape(other)
-
-    def __ne__(self, other):
-        if not isinstance(other, (SimpleLine, Line)):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            self.start *= other
-            self.end *= other
-        return self
-
     def d(self, relative=False):
-        return 'M %s L %s' % (self.start, self.end)
+        start = self.start
+        end = self.end
+        start *= self.transform
+        end *= self.transform
+        return 'M %s L %s' % (start, end)
 
 
 class _Polyshape(Shape):
@@ -4482,31 +4513,6 @@ class _Polyshape(Shape):
     def __copy__(self):
         return Polyline(self.points)
 
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return
-        if len(self.points) != len(other.points):
-            return False
-        if not self._eq_shape(other):
-            return False
-        for s, o in zip(self.points, other.points):
-            if not s == o:
-                return False
-        return True
-
-    def __ne__(self, other):
-        if not isinstance(other, Polyline):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            for p in self.points:
-                p *= other
-        return self
-
 
 class Polyline(_Polyshape):
     """
@@ -4525,7 +4531,12 @@ class Polyline(_Polyshape):
         Note:  For a polygon made from n points, the resulting path will be
         composed of n lines (even if some of these lines have length zero).
         """
-        s = ", ".join(map(str, self.points))
+        if len(self.points) == 0:
+            return ''
+        if self.transform.is_identity():
+            s = ", ".join(map(str, self.points))
+        else:
+            s = ", ".join(map(str, map(self.transform.point_in_matrix_space, map(Point, self.points))))
         d = 'M %s' % (s)
         return d
 
@@ -4550,7 +4561,12 @@ class Polygon(_Polyshape):
         Note:  For a polygon made from n points, the resulting path will be
         composed of n lines (even if some of these lines have length zero).
         """
-        s = ", ".join(map(str, self.points))
+        if len(self.points) == 0:
+            return ''
+        if self.transform.is_identity():
+            s = ", ".join(map(str, self.points))
+        else:
+            s = ", ".join(map(str, map(self.transform.point_in_matrix_space, map(Point, self.points))))
         d = 'M %sz' % (s)
         return d
 

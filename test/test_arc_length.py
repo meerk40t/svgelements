@@ -308,7 +308,7 @@ class TestElementArcLength(unittest.TestCase):
 
     def test_arc_len_flat_integral(self):
         """Known flat vs integral"""
-        n = 100
+        n = 10
         error = 0
         for i in range(n):
             flat = 1 + random() * 50
