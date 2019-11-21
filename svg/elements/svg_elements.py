@@ -431,17 +431,17 @@ class Distance(float):
         if not isinstance(distance_str, str):
             return float(distance_str)
         if distance_str.endswith('mm'):
-            return Distance.mm(float(distance_str[:-2]))
+            return Distance.mm(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('cm'):
-            return Distance.cm(float(distance_str[:-2]))
+            return Distance.cm(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('in'):
-            return Distance.inch(float(distance_str[:-2]))
+            return Distance.inch(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('px'):
-            return Distance.px(float(distance_str[:-2]))
+            return Distance.px(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('pt'):
-            return Distance.pt(float(distance_str[:-2]))
+            return Distance.pt(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('pc'):
-            return Distance.pc(float(distance_str[:-2]))
+            return Distance.pc(float(distance_str[:-2]), ppi=ppi)
         return float(distance_str)
 
     @classmethod
