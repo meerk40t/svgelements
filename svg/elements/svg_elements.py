@@ -3486,29 +3486,40 @@ class Path(Shape, MutableSequence):
     A Path is a Mutable sequence of path segments
 
     It is a generalized shape which can map out all the other shapes.
+
+    Each PathSegment object maps a particular command. Each one exists only once in each path and every point contained
+    within the object is also unique. We attempt to internally maintain some validity. Each end point should link
+    to the following segments start point. And each close point should connect from the preceding segments endpoint to
+    the last Move command.
+
+    These are soft checks made only at the time of addition and some manipulations. Modifying the points of the segments
+    can and will cause path invalidity. Some invalid operations are permitted such as arcs longer than tau radians or
+    beginning sequences without a move. The expectation is that these will eventually be used as part of a valid path
+    so these fragment paths are permitted.
     """
 
     def __init__(self, *segments):
         Shape.__init__(self)
         self._length = None
         self._lengths = None
-        if len(segments) == 1:
+        if len(segments) != 1:
+            self._segments = list(segments)
+        else:
             if isinstance(segments[0], Subpath):
                 self._segments = []
                 self._segments.extend(map(copy, list(segments[0])))
-                return
-            if isinstance(segments[0], Shape):
+            elif isinstance(segments[0], Shape):
                 self._segments = list()
                 self.parse(segments[0].d())
-                return
-            if isinstance(segments[0], str):
+            elif isinstance(segments[0], str):
                 self._segments = list()
                 self.parse(segments[0])
-                return
-            if isinstance(segments[0], list):
+            elif isinstance(segments[0], list):
                 self._segments = segments[0]
-                return
-        self._segments = list(segments)
+                # We have no guarantee of the validity of the source data
+                self.validate_connections()
+            else:
+                self._segments = list(segments)
 
     def __copy__(self):
         return Path(*map(copy, self._segments))
@@ -3516,26 +3527,87 @@ class Path(Shape, MutableSequence):
     def __getitem__(self, index):
         return self._segments[index]
 
-    def __setitem__(self, index, value):
-        self._segments[index] = value
+    def _validate_subpath(self, index):
+        """ensure the subpath containing this index is valid."""
+        for j in range(index, len(self._segments)):
+            close_search = self._segments[j]
+            if isinstance(close_search, Move):
+                return  # Not a closed path, subpath is valid.
+            if isinstance(close_search, Close):
+                for k in range(index, -1, -1):
+                    move_search = self._segments[k]
+                    if isinstance(move_search, Move):
+                        self._segments[j].end = Point(move_search.end)
+                        return
+                self._segments[index].end = Point(self._segments[0].end)
+                return
+
+    def _validate_move(self, index):
+        """ensure the next closed point from this index points to a valid location."""
+        for i in range(index, len(self._segments)):
+            segment = self._segments[i]
+            if isinstance(segment, Move):
+                return # Not a closed path, the move is valid.
+            if isinstance(segment, Close):
+                segment.end = Point(self._segments[index].end)
+                return
+
+    def _validate_close(self, index):
+        """ensure the close element at this position correctly links to the previous move"""
+        for i in range(index, -1, -1):
+            segment = self._segments[i]
+            if isinstance(segment, Move):
+                self._segments[index].end = Point(segment.end)
+                return
+        self._segments[index].end = Point(self._segments[0].end)
+        # If move is never found, just the end point of the first element.
+
+    def _validate_connection(self, index):
+        """
+        Validates the connection at the index.
+        Connection 0 is the connection between getitem(0) and getitem(1)
+        """
+        if index < 0 or index + 1 >= len(self._segments):
+            return  # This connection doesn't exist.
+        first = self._segments[index]
+        second = self._segments[index + 1]
+        if first.end is not None and second.start is None:
+            second.start = Point(first.end)
+        elif first.end is None and second.start is not None:
+            first.end = Point(second.start)
+        elif first.end != second.start:
+            second.start = Point(first.end)
+
+    def __setitem__(self, index, new_element):
+        original_element = self._segments[index]
+        self._segments[index] = new_element
         self._length = None
+        self._validate_connection(index - 1)
+        self._validate_connection(index)
+        if isinstance(original_element, Move):
+            self._validate_move(index)
+        if isinstance(new_element, Close):
+            self._validate_close(index)
 
     def __delitem__(self, index):
+        original_element = self._segments[index]
         del self._segments[index]
         self._length = None
+        self._validate_connection(index)
+        if isinstance(original_element, (Close,Move)):
+            self._validate_subpath(index)
 
     def __iadd__(self, other):
         if isinstance(other, str):
             self.parse(other)
         elif isinstance(other, (Path, Subpath)):
-            self._segments.extend(map(copy, list(other)))
+            self.extend(map(copy, list(other)))
         elif isinstance(other, Shape):
             self.parse(other.d())
         elif isinstance(other, PathSegment):
             self.append(other)
         else:
             return NotImplemented
-        self.validate_connections()
         return self
 
     def __add__(self, other):
@@ -3547,12 +3619,10 @@ class Path(Shape, MutableSequence):
         if isinstance(other, str):
             path = Path(other)
             path.extend(map(copy, self._segments))
-            path.validate_connections()
             return path
         elif isinstance(other, PathSegment):
             path = copy(self)
             path.insert(0, other)
-            path.validate_connections()
             return path
         else:
             return NotImplemented
@@ -3606,16 +3676,13 @@ class Path(Shape, MutableSequence):
 
     def validate_connections(self):
         """
-        Validate path connections. This will scan path connections and link any adjacent elements together by replacing
-        any None points or causing the start position of the next element to equal the end position of the previous.
-        This should only be needed when combining paths and elements together. Close elements are always connected to
-        the last Move element or to the end position of the first element in the list. The start element of the first
-        segment may or may not be None. But, will not be regarded as important.
+        Force validate all connections.
 
-        This does not guarantee that the SVG path is valid. It may still have no initial Move element, multiple Close
-        elements, Arcs that cannot be denoted by SVG or segments that do not exist in SVG.
-
-        There is no need to call this directly as it will be invoked on any changes to Path.
+        This will scan path connections and link any adjacent elements together by replacing any None points or causing
+        the start position of the next element to equal the end position of the previous. This should only be needed
+        when combining paths and elements together. Close elements are always connected to the last Move element or to
+        the end position of the first element in the list. The start element of the first segment may or may not be
+        None.
         """
         zpoint = None
         last_segment = None
@@ -3836,7 +3903,6 @@ class Path(Shape, MutableSequence):
     def _calc_lengths(self, error=ERROR, min_depth=MIN_DEPTH):
         if self._length is not None:
             return
-
         lengths = [each.length(error=error, min_depth=min_depth) for each in self._segments]
         self._length = sum(lengths)
         self._lengths = [each / self._length for each in lengths]
@@ -3873,15 +3939,30 @@ class Path(Shape, MutableSequence):
             for e in segment.plot():
                 yield e
 
-    def insert(self, index, object):
-        self._segments.insert(index, object)
+    def append(self, value):
         self._length = None
-        self.validate_connections()
+        index = len(self._segments) - 1
+        self._segments.append(value)
+        self._validate_connection(index)
+        if isinstance(value, Close):
+            self._validate_close(index + 1)
+
+    def insert(self, index, value):
+        self._length = None
+        self._segments.insert(index, value)
+        self._validate_connection(index - 1)
+        self._validate_connection(index)
+        if isinstance(value, Move):
+            self._validate_move(index)
+        if isinstance(value, Close):
+            self._validate_close(index)
 
     def extend(self, iterable):
-        self._segments.extend(iterable)
         self._length = None
-        self.validate_connections()
+        index = len(self._segments) - 1
+        self._segments.extend(iterable)
+        self._validate_connection(index)
+        self._validate_subpath(index)
 
     def reverse(self):
         if len(self._segments) == 0:
@@ -3896,6 +3977,7 @@ class Path(Shape, MutableSequence):
             p += subpath
         self._segments = p._segments
         self._segments[0].start = prepoint
+        self.validate_connections()
         return self
 
     def subpath(self, index):
@@ -4183,7 +4265,7 @@ class Rect(Shape):
         else:
             arc = "%s %s 0 0 1" % (n(rx), n(ry))
             path_d = "M %s,%s H %s A %s %s,%s V %s A %s %s,%s H %s A %s %s,%s V %s A %s z" % (
-                n(x+rx),
+                n(x + rx),
                 n(y),
                 n(x + width - rx),
                 arc,
