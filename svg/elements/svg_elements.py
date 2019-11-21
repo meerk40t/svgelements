@@ -1105,7 +1105,8 @@ class Point:
         return Point.polar(self, angle, distance)
 
     def reflected_across(self, p):
-        m = p + p
+        m = Point(p)
+        m += p
         m -= self
         return m
 
