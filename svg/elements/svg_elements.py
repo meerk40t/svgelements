@@ -1,7 +1,10 @@
 from __future__ import division
 
 import re
-from collections import MutableSequence
+try:
+    from collections.abc import MutableSequence  # noqa
+except ImportError:
+    from collections import MutableSequence  # noqa
 from copy import copy
 from math import *
 from xml.etree.ElementTree import iterparse
@@ -3539,15 +3542,15 @@ class Path(Shape, MutableSequence):
                     if isinstance(move_search, Move):
                         self._segments[j].end = Point(move_search.end)
                         return
-                self._segments[index].end = Point(self._segments[0].end)
+                self._segments[j].end = Point(self._segments[0].end)
                 return
 
     def _validate_move(self, index):
         """ensure the next closed point from this index points to a valid location."""
-        for i in range(index, len(self._segments)):
+        for i in range(index + 1, len(self._segments)):
             segment = self._segments[i]
             if isinstance(segment, Move):
-                return # Not a closed path, the move is valid.
+                return  # Not a closed path, the move is valid.
             if isinstance(segment, Close):
                 segment.end = Point(self._segments[index].end)
                 return
@@ -3579,12 +3582,17 @@ class Path(Shape, MutableSequence):
             second.start = Point(first.end)
 
     def __setitem__(self, index, new_element):
+        if isinstance(new_element, str):
+            new_element = Path(new_element)
+            if len(new_element) == 0:
+                return
+            new_element = new_element[0]
         original_element = self._segments[index]
         self._segments[index] = new_element
         self._length = None
         self._validate_connection(index - 1)
         self._validate_connection(index)
-        if isinstance(original_element, Move):
+        if isinstance(new_element, Move):
             self._validate_move(index)
         if isinstance(new_element, Close):
             self._validate_close(index)
@@ -3593,8 +3601,8 @@ class Path(Shape, MutableSequence):
         original_element = self._segments[index]
         del self._segments[index]
         self._length = None
-        self._validate_connection(index)
-        if isinstance(original_element, (Close,Move)):
+        self._validate_connection(index-1)
+        if isinstance(original_element, (Close, Move)):
             self._validate_subpath(index)
 
     def __iadd__(self, other):
@@ -3940,6 +3948,14 @@ class Path(Shape, MutableSequence):
                 yield e
 
     def append(self, value):
+        if isinstance(value, str):
+            value = Path(value)
+            if len(value) == 0:
+                return
+            if len(value) > 1:
+                self.extend(value)
+                return
+            value = value[0]
         self._length = None
         index = len(self._segments) - 1
         self._segments.append(value)
@@ -3948,6 +3964,11 @@ class Path(Shape, MutableSequence):
             self._validate_close(index + 1)
 
     def insert(self, index, value):
+        if isinstance(value, str):
+            value = Path(value)
+            if len(value) == 0:
+                return
+            value = value[0]
         self._length = None
         self._segments.insert(index, value)
         self._validate_connection(index - 1)
@@ -3958,6 +3979,8 @@ class Path(Shape, MutableSequence):
             self._validate_close(index)
 
     def extend(self, iterable):
+        if isinstance(iterable, str):
+            iterable = Path(iterable)
         self._length = None
         index = len(self._segments) - 1
         self._segments.extend(iterable)
@@ -3965,7 +3988,7 @@ class Path(Shape, MutableSequence):
         self._validate_subpath(index)
 
     def reverse(self):
-        if len(self._segments) == 0: # M 1,0 L 22,7 Q 17,17 91,2
+        if len(self._segments) == 0:  # M 1,0 L 22,7 Q 17,17 91,2
             return
         prepoint = self._segments[0].start
         self._segments[0].start = None
@@ -5012,7 +5035,7 @@ class Subpath:
 
     def _reverse_segments(self, start, end):
         """Reverses segments between the given indexes in the subpath space."""
-        segments = self._path._segments # must avoid path validation.
+        segments = self._path._segments  # must avoid path validation.
         start = self.index_to_path_index(start)
         end = self.index_to_path_index(end)
         while start <= end:
@@ -5027,7 +5050,7 @@ class Subpath:
             end -= 1
         start = self.index_to_path_index(start)
         end = self.index_to_path_index(end)
-        self._path._validate_connection(start-1)
+        self._path._validate_connection(start - 1)
         self._path._validate_connection(end)
 
     def reverse(self):
