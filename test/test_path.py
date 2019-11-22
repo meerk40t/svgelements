@@ -97,3 +97,76 @@ class TestPath(unittest.TestCase):
         subpaths = list(p.as_subpaths())
         subpaths[1].reverse()
         self.assertEqual("M 1,1 L 5,5 M 200,200 L 100,100 L 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
+
+    def test_validation_delete(self):
+        p = Path("M1,1 M2,2 M3,3 M4,4")
+        del p[2]
+        self.assertEqual(p, "M1,1 M2,2 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2 L 3,3 L 4,4z")
+        del p[3]
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 4,4z")
+        p = Path("M0,0 L 1,1 L 2,2 M 3,3 L 4,4z")
+        del p[3]
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 4,4z")
+
+    def test_validation_insert(self):
+        p = Path("M1,1 M2,2 M4,4")
+        p.insert(2, "M3,3")
+        self.assertEqual(p, "M1,1 M2,2 M3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2 L 4,4")
+        p.insert(3, "L3,3")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4")
+
+    def test_validation_append(self):
+        p = Path("M1,1 M2,2 M3,3")
+        p.append("M4,4")
+        self.assertEqual(p, "M1,1 M2,2 M3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2 L 3,3")
+        p.append("L4,4")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4")
+        p.append("Z")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4 Z")
+
+        p = Path("M1,1 M2,2")
+        p.append("M3,3 M4,4")
+        self.assertEqual(p, "M1,1 M2,2 M3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2")
+        p.append("L 3,3 L4,4")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4")
+        p.append("Z")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4 Z")
+
+    def test_validation_extend(self):
+        p = Path("M1,1 M2,2")
+        p.extend(Path("M3,3 M4,4"))
+        self.assertEqual(p, "M1,1 M2,2 M3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2")
+        p.extend(Path("L 3,3 L4,4"))
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4")
+        p.extend(Path("Z"))
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4 Z")
+
+        p = Path("M1,1 M2,2")
+        p.extend("M3,3 M4,4")
+        self.assertEqual(p, "M1,1 M2,2 M3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2")
+        p.extend("L 3,3 L4,4")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4")
+        p.extend("Z")
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 L 3,3 L 4,4 Z")
+
+    def test_validation_setitem(self):
+        p = Path("M1,1 M2,2 M3,3 M4,4")
+        p[2] = Line(None, (3,3))
+        self.assertEqual(p, "M1,1 M2,2 L3,3 M4,4")
+        p = Path("M0,0 L 1,1 L 2,2 L 3,3 L 4,4z")
+        p[3] = Move(None, (3,3))
+        self.assertEqual(p, "M0,0 L 1,1 L 2,2 M3,3 L 4,4z")
+
+    def test_validation_setitem_str(self):
+        p = Path("M1,1 M2,2 M3,3 M4,4")
+        p[2] = "L3,3"
+        self.assertEqual(p, Path("M1,1 M2,2 L3,3 M4,4"))
+        p = Path("M0,0 L 1,1 L 2,2 L 3,3 L 4,4z")
+        p[3] = "M3,3"
+        self.assertEqual(p, Path("M0,0 L 1,1 L 2,2 M3,3 L 4,4z"))

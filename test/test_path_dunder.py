@@ -106,5 +106,7 @@ class TestPath(unittest.TestCase):
         p1 = Path("M0,0")
         p2 = Path("L7,7")
         p3 = Path("Z")
-        self.assertEqual(p1 + p2 + p3, "M0,0 7,7z")
+        q = p1 + p2 + p3
+        m = Path("M0,0 7,7z")
+        self.assertEqual(q, m)
 
