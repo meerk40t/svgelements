@@ -3965,7 +3965,7 @@ class Path(Shape, MutableSequence):
         self._validate_subpath(index)
 
     def reverse(self):
-        if len(self._segments) == 0:
+        if len(self._segments) == 0: # M 1,0 L 22,7 Q 17,17 91,2
             return
         prepoint = self._segments[0].start
         self._segments[0].start = None
@@ -3977,7 +3977,7 @@ class Path(Shape, MutableSequence):
             p += subpath
         self._segments = p._segments
         self._segments[0].start = prepoint
-        self.validate_connections()
+        # self.validate_connections()
         return self
 
     def subpath(self, index):
@@ -4886,25 +4886,13 @@ class Subpath:
         return p
 
     def __getitem__(self, index):
-        if index < 0:
-            index = self._end + index + 1
-        else:
-            index = self._start + index
-        return self._path[index]
+        return self._path[self.index_to_path_index(index)]
 
     def __setitem__(self, index, value):
-        if index < 0:
-            index = self._end + index + 1
-        else:
-            index = self._start + index
-        self._path[index] = value
+        self._path[self.index_to_path_index(index)] = value
 
     def __delitem__(self, index):
-        if index < 0:
-            index = self._end + index + 1
-        else:
-            index = self._start + index
-        del self._path[index]
+        del self._path[self.index_to_path_index(index)]
         self._end -= 1
 
     def __iadd__(self, other):
@@ -4998,6 +4986,12 @@ class Subpath:
             return NotImplemented
         return not self == other
 
+    def index_to_path_index(self, index):
+        if index < 0:
+            return self._end + index + 1
+        else:
+            return self._start + index
+
     def bbox(self):
         """returns a bounding box for the input Path"""
         segments = self._path._segments[self._start:self._end + 1]
@@ -5018,16 +5012,23 @@ class Subpath:
 
     def _reverse_segments(self, start, end):
         """Reverses segments between the given indexes in the subpath space."""
+        segments = self._path._segments # must avoid path validation.
+        start = self.index_to_path_index(start)
+        end = self.index_to_path_index(end)
         while start <= end:
-            start_segment = self[start]
-            end_segment = self[end]
+            start_segment = segments[start]
+            end_segment = segments[end]
             start_segment.reverse()
             if start_segment is not end_segment:
                 end_segment.reverse()
-                self[start] = end_segment
-                self[end] = start_segment
+                segments[start] = end_segment
+                segments[end] = start_segment
             start += 1
             end -= 1
+        start = self.index_to_path_index(start)
+        end = self.index_to_path_index(end)
+        self._path._validate_connection(start-1)
+        self._path._validate_connection(end)
 
     def reverse(self):
         size = len(self)
@@ -5050,6 +5051,7 @@ class Subpath:
                 last.start = Point(self[-2].end)
             if last.end != self[0].end:
                 last.end = Point(self[0].end)
+        # self._path.validate_connections()
         return self
 
 
