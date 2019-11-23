@@ -426,13 +426,15 @@ class Distance(float):
         return "Distance(%s)" % number_str(self)
 
     @classmethod
-    def parse(cls, distance_str, ppi=96.0):
+    def parse(cls, distance_str, ppi=96.0, default_distance=1):
         """Convert svg length to set distances.
         96 is the typical pixels per inch.
         Other values have been used."""
 
         if not isinstance(distance_str, str):
             return float(distance_str)
+        if distance_str.endswith('%'):
+            return Distance.percent(float(distance_str[:-1]), default_distance)
         if distance_str.endswith('mm'):
             return Distance.mm(float(distance_str[:-2]), ppi=ppi)
         if distance_str.endswith('cm'):
@@ -446,6 +448,10 @@ class Distance(float):
         if distance_str.endswith('pc'):
             return Distance.pc(float(distance_str[:-2]), ppi=ppi)
         return float(distance_str)
+
+    @classmethod
+    def percent(cls, value, default_distance=1):
+        return cls(value/100.0 * default_distance)
 
     @classmethod
     def mm(cls, value, ppi=96.0):
@@ -1250,7 +1256,7 @@ class Matrix:
     [b d  f]
     """
 
-    def __init__(self, *components):
+    def __init__(self, *components, **kwargs):
         self.a = 1.0
         self.b = 0.0
         self.c = 0.0
@@ -1263,7 +1269,7 @@ class Matrix:
         elif len_args == 1:
             m = components[0]
             if isinstance(m, str):
-                self.parse(m)
+                self.parse(m, **kwargs)
             else:
                 self.a = m[0]
                 self.b = m[1]
@@ -1355,7 +1361,7 @@ class Matrix:
         return "[%3f, %3f,\n %3f, %3f,   %3f, %3f]" % \
                (self.a, self.c, self.b, self.d, self.e, self.f)
 
-    def parse(self, transform_str):
+    def parse(self, transform_str, ppi=96.0, width=1, height=1):
         """Parses the svg transform string.
 
         Transforms from SVG 1.1 have a smaller complete set of operations. Whereas in SVG 2.0 they gain
@@ -1364,7 +1370,11 @@ class Matrix:
 
         CSS transforms have scalex() scaley() translatex(), translatey(), and skew() (deprecated).
         2D CSS angles haves units: "deg" tau / 360, "rad" tau/tau, "grad" tau/400, "turn" tau.
-        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%"""
+        2D CSS distances have length/percentages: "px", "cm", "mm", "in", "pt", etc. (+|-)?d+%
+
+        In the case of percentages there must be a known height and width to properly create a matrix out of that.
+
+        """
         if not transform_str:
             return
         if not isinstance(transform_str, str):
@@ -1378,12 +1388,19 @@ class Matrix:
                 params = map(float, params)
                 self.pre_cat(*params)
             elif SVG_TRANSFORM_TRANSLATE == name:
-                params = map(Distance.parse, params)
-                self.pre_translate(*params)
+                try:
+                    x_param = Distance.parse(params[0], ppi=ppi, default_distance=width)
+                except IndexError:
+                    continue
+                try:
+                    y_param = Distance.parse(params[1], ppi=ppi,  default_distance=height)
+                    self.pre_translate(x_param, y_param)
+                except IndexError:
+                    self.pre_translate(x_param)
             elif SVG_TRANSFORM_TRANSLATE_X == name:
-                self.pre_translate(Distance.parse(params[0]), 0)
+                self.pre_translate(Distance.parse(params[0], ppi=ppi,  default_distance=width), 0)
             elif SVG_TRANSFORM_TRANSLATE_Y == name:
-                self.pre_translate(0, Distance.parse(params[0]))
+                self.pre_translate(0, Distance.parse(params[0], ppi=ppi,  default_distance=height))
             elif SVG_TRANSFORM_SCALE == name:
                 params = map(float, params)
                 self.pre_scale(*params)
@@ -1393,21 +1410,53 @@ class Matrix:
                 self.pre_scale(1, float(params[0]))
             elif SVG_TRANSFORM_ROTATE == name:
                 angle = Angle.parse(params[0])
-                params = map(Distance.parse, params[1:])
-                self.pre_rotate(angle, *params)
+                try:
+                    x_param = Distance.parse(params[1],  ppi=ppi, default_distance=width)
+                except IndexError:
+                    self.pre_rotate(angle)
+                    continue
+                try:
+                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
+                    self.pre_rotate(angle, x_param, y_param)
+                except IndexError:
+                    self.pre_rotate(angle, x_param)
             elif SVG_TRANSFORM_SKEW == name:
                 angle_a = Angle.parse(params[0])
                 angle_b = Angle.parse(params[1])
-                params = map(Distance.parse, params[2:])
-                self.pre_skew(angle_a, angle_b, *params)
+                try:
+                    x_param = Distance.parse(params[2], ppi=ppi, default_distance=width)
+                except IndexError:
+                    self.pre_skew(angle_a, angle_b)
+                    continue
+                try:
+                    y_param = Distance.parse(params[3], ppi=ppi,  default_distance=height)
+                    self.pre_skew(angle_a, angle_b, x_param, y_param)
+                except IndexError:
+                    self.pre_skew(angle_a, angle_b, x_param)
             elif SVG_TRANSFORM_SKEW_X == name:
                 angle_a = Angle.parse(params[0])
-                params = map(Distance.parse, params[1:])
-                self.pre_skew_x(angle_a, *params)
+                try:
+                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
+                except IndexError:
+                    self.pre_skew_x(angle_a)
+                    continue
+                try:
+                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
+                    self.pre_skew_x(angle_a, x_param, y_param)
+                except IndexError:
+                    self.pre_skew_x(angle_a, x_param)
             elif SVG_TRANSFORM_SKEW_Y == name:
                 angle_b = Angle.parse(params[0])
-                params = map(Distance.parse, params[1:])
-                self.pre_skew_y(angle_b, *params)
+                try:
+                    x_param = Distance.parse(params[1], ppi=ppi,  default_distance=width)
+                except IndexError:
+                    self.pre_skew_y(angle_b)
+                    continue
+                try:
+                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
+                    self.pre_skew_y(angle_b,  x_param, y_param)
+                except IndexError:
+                    self.pre_skew_y(angle_b, x_param)
         return self
 
     def value_trans_x(self):

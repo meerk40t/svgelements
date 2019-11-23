@@ -15,3 +15,8 @@ class TestElementDistance(unittest.TestCase):
         self.assertNotEqual(Distance.parse("1px"), 0)
         self.assertNotEqual(Distance.parse("1pc"), 0)
         self.assertNotEqual(Distance.parse("1pt"), 0)
+        self.assertNotEqual(Distance.parse("50%", default_distance=100),0)
+
+    def test_distance_matrix(self):
+        m = Matrix("Translate(20mm,50%)", ppi=1000, width=600, height=800)
+        self.assertEqual(Matrix(1, 0, 0, 1, 787.402, 400), m)
