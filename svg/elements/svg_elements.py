@@ -310,7 +310,7 @@ class SVGPathTokens(PathTokens):
         pass
 
 
-def parse_viewbox_transform(svg_node, ppi=96.0, viewbox=None):
+def parse_viewbox_transform(svg_node, viewbox=None, ppi=96.0, width=1, height=1):
     """
     SVG 1.1 7.2, SVG 2.0 8.2 equivalent transform of an SVG viewport.
     With regards to https://github.com/w3c/svgwg/issues/215 use 8.2 version.
@@ -334,21 +334,21 @@ def parse_viewbox_transform(svg_node, ppi=96.0, viewbox=None):
     vb_width = float(vb[2])
     vb_height = float(vb[3])
     if SVG_ATTR_X in svg_node:
-        e_x = Distance.parse(svg_node[SVG_ATTR_X], ppi)
+        e_x = Distance.parse(svg_node[SVG_ATTR_X], ppi, default_distance=width)
     else:
         e_x = 0
     if SVG_ATTR_Y in svg_node:
-        e_y = Distance.parse(svg_node[SVG_ATTR_Y], ppi)
+        e_y = Distance.parse(svg_node[SVG_ATTR_Y], ppi, default_distance=height)
     else:
         e_y = 0
     if SVG_ATTR_WIDTH in svg_node:
-        e_width = Distance.parse(svg_node[SVG_ATTR_WIDTH], ppi)
+        e_width = Distance.parse(svg_node[SVG_ATTR_WIDTH], ppi, default_distance=width)
     else:
-        e_width = 100.0
+        e_width = width
     if SVG_ATTR_HEIGHT in svg_node:
-        e_height = Distance.parse(svg_node[SVG_ATTR_HEIGHT], ppi)
+        e_height = Distance.parse(svg_node[SVG_ATTR_HEIGHT], ppi, default_distance=height)
     else:
-        e_height = e_width
+        e_height = height
 
     # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
     # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
@@ -5165,7 +5165,7 @@ class SVG:
         self.f = f
 
     # SVG File Parsing
-    def nodes(self, viewport_transform=False):
+    def nodes(self, viewport_transform=False, ppi=96.0, width=1, height=1):
         """Parses the SVG file.
         Style elements are split into their proper values.
         Transform elements are concatenated and unparsed.
@@ -5210,7 +5210,7 @@ class SVG:
                     tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
                 if SVG_NAME_TAG == tag:
                     if viewport_transform:
-                        new_transform = parse_viewbox_transform(values)
+                        new_transform = parse_viewbox_transform(values, ppi=ppi, width=width, height=height)
                         values[SVG_VIEWBOX_TRANSFORM] = new_transform
                         if SVG_ATTR_TRANSFORM in attributes:
                             values[SVG_ATTR_TRANSFORM] += " " + new_transform
