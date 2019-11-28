@@ -65,6 +65,7 @@ SVG_TAG_TEXT = 'text'
 SVG_TAG_IMAGE = 'image'
 SVG_TAG_DESC = 'desc'
 SVG_ATTR_DATA = 'd'
+SVG_ATTR_COLOR = 'color'
 SVG_ATTR_FILL = 'fill'
 SVG_ATTR_STROKE = 'stroke'
 SVG_ATTR_STROKE_WIDTH = 'stroke-width'
@@ -101,6 +102,7 @@ SVG_TRANSFORM_TRANSLATE_Y = 'translatey'
 SVG_TRANSFORM_SCALE_X = 'scalex'
 SVG_TRANSFORM_SCALE_Y = 'scaley'
 SVG_VALUE_NONE = 'none'
+SVG_VALUE_CURRENT_COLOR = 'currentColor'
 
 PATTERN_WS = r'[\s\t\n]*'
 PATTERN_COMMA = r'(?:\s*,\s*|\s+|(?=-))'
@@ -441,7 +443,7 @@ class Color(int):
     @classmethod
     def parse(cls, color_string):
         """Parse SVG color, will return a set value."""
-        if color_string == SVG_VALUE_NONE:
+        if color_string is None or color_string == SVG_VALUE_NONE:
             return None
         match = REGEX_COLOR_HEX.match(color_string)
         if match:
@@ -5486,7 +5488,7 @@ class SVG:
 
         f = self.f
         stack = []
-        values = {SVG_ATTR_FILL: color}
+        values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: SVG_VALUE_CURRENT_COLOR, SVG_ATTR_STROKE: SVG_VALUE_CURRENT_COLOR}
         for event, elem in iterparse(f, events=('start', 'end')):
             if event == 'start':
                 stack.append(values)
@@ -5500,7 +5502,16 @@ class SVG:
                         equal_item = equate.split(":")
                         if len(equal_item) == 2:
                             attributes[equal_item[0]] = equal_item[1]
-
+                if SVG_ATTR_FILL in attributes and attributes[SVG_ATTR_FILL] == SVG_VALUE_CURRENT_COLOR:
+                    if SVG_ATTR_COLOR in attributes:
+                        attributes[SVG_ATTR_FILL] = attributes[SVG_ATTR_COLOR]
+                    else:
+                        attributes[SVG_ATTR_FILL] = values[SVG_ATTR_COLOR]
+                if SVG_ATTR_STROKE in attributes and attributes[SVG_ATTR_STROKE] == SVG_VALUE_CURRENT_COLOR:
+                    if SVG_ATTR_COLOR in attributes:
+                        attributes[SVG_ATTR_STROKE] = attributes[SVG_ATTR_COLOR]
+                    else:
+                        attributes[SVG_ATTR_STROKE] = values[SVG_ATTR_COLOR]
                 if SVG_ATTR_TRANSFORM in attributes:
                     new_transform = attributes[SVG_ATTR_TRANSFORM]
                     if SVG_ATTR_TRANSFORM in values:
@@ -5587,6 +5598,10 @@ class SVG:
                         equal_item = equate.split(":")
                         if len(equal_item) == 2:
                             attributes[equal_item[0]] = equal_item[1]
+                if SVG_ATTR_FILL in attributes and SVG_ATTR_COLOR in attributes and attributes[SVG_ATTR_FILL] == SVG_VALUE_CURRENT_COLOR:
+                    attributes[SVG_ATTR_FILL] = attributes[SVG_ATTR_COLOR]
+                if SVG_ATTR_STROKE in attributes and SVG_ATTR_COLOR in attributes and attributes[SVG_ATTR_STROKE] == SVG_VALUE_CURRENT_COLOR:
+                    attributes[SVG_ATTR_STROKE] = attributes[SVG_ATTR_COLOR]
                 if SVG_ATTR_TRANSFORM in attributes:
                     new_transform = attributes[SVG_ATTR_TRANSFORM]
                     if SVG_ATTR_TRANSFORM in values:
