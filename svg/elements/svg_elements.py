@@ -1,6 +1,7 @@
 from __future__ import division
 
 import re
+
 try:
     from collections.abc import MutableSequence  # noqa
 except ImportError:
@@ -124,6 +125,9 @@ REGEX_FLOAT = re.compile(PATTERN_FLOAT)
 REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT))
 REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
 REGEX_TRANSFORM_PARAMETER = re.compile('(%s)%s(%s)?' % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS))
+REGEX_COLOR_HEX = re.compile(r'^#?([0-9A-Fa-f]{3,8})$')
+REGEX_COLOR_RGB = re.compile(r'rgb\(\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*\)' % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
+REGEX_COLOR_RGB_PERCENT = re.compile(r'rgb\(\s*(%s)%%\s*,\s*(%s)%%\s*,\s*(%s)%%\s*\)'% (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
 
 
 # PathTokens class.
@@ -336,19 +340,19 @@ def parse_viewbox_transform(svg_node, viewbox=None, ppi=96.0, width=1, height=1)
     if SVG_ATTR_X in svg_node:
         e_x = Distance.parse(svg_node[SVG_ATTR_X], ppi, default_distance=width)
     else:
-        e_x = 0
+        e_x = 0.0
     if SVG_ATTR_Y in svg_node:
         e_y = Distance.parse(svg_node[SVG_ATTR_Y], ppi, default_distance=height)
     else:
-        e_y = 0
+        e_y = 0.0
     if SVG_ATTR_WIDTH in svg_node:
         e_width = Distance.parse(svg_node[SVG_ATTR_WIDTH], ppi, default_distance=width)
     else:
-        e_width = width
+        e_width = float(width)
     if SVG_ATTR_HEIGHT in svg_node:
         e_height = Distance.parse(svg_node[SVG_ATTR_HEIGHT], ppi, default_distance=height)
     else:
-        e_height = height
+        e_height = float(height)
 
     # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
     # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
@@ -359,13 +363,13 @@ def parse_viewbox_transform(svg_node, viewbox=None, ppi=96.0, width=1, height=1)
         try:
             align = aspect_slice[0]
         except IndexError:
-            align = 'xMidYMid'
+            align = 'xMidyMid'
         try:
             meet_or_slice = aspect_slice[1]
         except IndexError:
             meet_or_slice = 'meet'
     else:
-        align = 'xMidYMid'
+        align = 'xMidyMid'
         meet_or_slice = 'meet'
 
     # Initialize scale-x to e-width/vb-width.
@@ -398,7 +402,8 @@ def parse_viewbox_transform(svg_node, viewbox=None, ppi=96.0, width=1, height=1)
     # If align contains 'yMax', add (e-height - vb-height * scale-y) to translate-y.
     if 'ymax' in align:
         translate_y += (e_height - vb_height * scale_y)
-
+    # The transform applied to content contained by the element is given by:
+    # translate(translate-x, translate-y) scale(scale-x, scale-y)
     if translate_x == 0 and translate_y == 0:
         if scale_x == 1 and scale_y == 1:
             return ""  # Nothing happens.
@@ -409,7 +414,6 @@ def parse_viewbox_transform(svg_node, viewbox=None, ppi=96.0, width=1, height=1)
             return "translate(%f, %f)" % (translate_x, translate_y)
         else:
             return "translate(%f, %f) scale(%f, %f)" % (translate_x, translate_y, scale_x, scale_y)
-            # return "scale(%f, %f) translate(%f, %f)" % (scale_x, scale_y, translate_x, translate_y)
 
 
 def number_str(s):
@@ -431,6 +435,8 @@ class Distance(float):
         96 is the typical pixels per inch.
         Other values have been used."""
 
+        if distance_str is None:
+            return None
         if not isinstance(distance_str, str):
             return float(distance_str)
         if distance_str.endswith('%'):
@@ -451,7 +457,7 @@ class Distance(float):
 
     @classmethod
     def percent(cls, value, default_distance=1):
-        return cls(value/100.0 * default_distance)
+        return cls(value / 100.0 * default_distance)
 
     @classmethod
     def mm(cls, value, ppi=96.0):
@@ -511,17 +517,15 @@ class Color(int):
     @classmethod
     def parse(cls, color_string):
         """Parse SVG color, will return a set value."""
-        hex_re = re.compile(r'^#?([0-9A-Fa-f]{3,8})$')
-        match = hex_re.match(color_string)
+        if color_string == SVG_VALUE_NONE:
+            return None
+        match = REGEX_COLOR_HEX.match(color_string)
         if match:
             return Color.parse_color_hex(color_string)
-        rgb_re = re.compile(r'rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)')
-        match = rgb_re.match(color_string)
+        match = REGEX_COLOR_RGB.match(color_string)
         if match:
             return Color.parse_color_rgb(match.groups())
-
-        rgbp_re = re.compile(r'rgb\(\s*(\d+)%\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)')
-        match = rgbp_re.match(color_string)
+        match = REGEX_COLOR_RGB_PERCENT.match(color_string)
         if match:
             return Color.parse_color_rgbp(match.groups())
         return Color.parse_color_lookup(color_string)
@@ -1393,14 +1397,14 @@ class Matrix:
                 except IndexError:
                     continue
                 try:
-                    y_param = Distance.parse(params[1], ppi=ppi,  default_distance=height)
+                    y_param = Distance.parse(params[1], ppi=ppi, default_distance=height)
                     self.pre_translate(x_param, y_param)
                 except IndexError:
                     self.pre_translate(x_param)
             elif SVG_TRANSFORM_TRANSLATE_X == name:
-                self.pre_translate(Distance.parse(params[0], ppi=ppi,  default_distance=width), 0)
+                self.pre_translate(Distance.parse(params[0], ppi=ppi, default_distance=width), 0)
             elif SVG_TRANSFORM_TRANSLATE_Y == name:
-                self.pre_translate(0, Distance.parse(params[0], ppi=ppi,  default_distance=height))
+                self.pre_translate(0, Distance.parse(params[0], ppi=ppi, default_distance=height))
             elif SVG_TRANSFORM_SCALE == name:
                 params = map(float, params)
                 self.pre_scale(*params)
@@ -1411,12 +1415,12 @@ class Matrix:
             elif SVG_TRANSFORM_ROTATE == name:
                 angle = Angle.parse(params[0])
                 try:
-                    x_param = Distance.parse(params[1],  ppi=ppi, default_distance=width)
+                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
                 except IndexError:
                     self.pre_rotate(angle)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
+                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
                     self.pre_rotate(angle, x_param, y_param)
                 except IndexError:
                     self.pre_rotate(angle, x_param)
@@ -1429,7 +1433,7 @@ class Matrix:
                     self.pre_skew(angle_a, angle_b)
                     continue
                 try:
-                    y_param = Distance.parse(params[3], ppi=ppi,  default_distance=height)
+                    y_param = Distance.parse(params[3], ppi=ppi, default_distance=height)
                     self.pre_skew(angle_a, angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew(angle_a, angle_b, x_param)
@@ -1441,20 +1445,20 @@ class Matrix:
                     self.pre_skew_x(angle_a)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
+                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
                     self.pre_skew_x(angle_a, x_param, y_param)
                 except IndexError:
                     self.pre_skew_x(angle_a, x_param)
             elif SVG_TRANSFORM_SKEW_Y == name:
                 angle_b = Angle.parse(params[0])
                 try:
-                    x_param = Distance.parse(params[1], ppi=ppi,  default_distance=width)
+                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
                 except IndexError:
                     self.pre_skew_y(angle_b)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi,  default_distance=height)
-                    self.pre_skew_y(angle_b,  x_param, y_param)
+                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
+                    self.pre_skew_y(angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew_y(angle_b, x_param)
         return self
@@ -1750,6 +1754,7 @@ class Matrix:
 class Transformable:
     def __init__(self):
         self.transform = Matrix()
+        self.apply = True
 
     def __mul__(self, other):
         if isinstance(other, (Matrix, str)):
@@ -1769,6 +1774,8 @@ class Transformable:
 
     @property
     def rotation(self):
+        if not self.apply:
+            return Angle.degrees(0)
         prx = Point(1, 0)
         prx *= self.transform
         origin = Point(0, 0)
@@ -1776,14 +1783,13 @@ class Transformable:
         return origin.angle_to(prx)
 
 
-class GraphicObject(Transformable):
+class GraphicObject():
     def __init__(self):
-        Transformable.__init__(self)
         self.stroke = None
         self.fill = None
 
 
-class Shape(GraphicObject):
+class Shape(GraphicObject, Transformable):
     """
     SVG Shapes are highly several SVG items defined in SVG 1.1 9.1
     https://www.w3.org/TR/SVG11/shapes.html
@@ -1822,26 +1828,32 @@ class Shape(GraphicObject):
 
     __add__ = __iadd__
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         pass
 
     def reify(self):
         """
         Realizes the transform to the shape properties. Such that the properties become actualized and the transform
         simplifies towards the identity matrix. In many cases it will become the identity matrix, but in some the
-        transformed shape cannot be represented through through the properties.
+        transformed shape cannot be represented through through the properties alone.
         """
         return self
 
-    def bbox(self):
-        return Path(self).bbox()
+    def bbox(self, transformed=True):
+        original = self.apply
+        self.apply = transformed
+        bbox = Path(self).bbox()
+        self.apply = original
+        return bbox
 
     def _set_shape(self, s):
+        self.apply = s.apply
         self.transform = Matrix(s.transform)
         self.fill = s.fill
         self.stroke = s.stroke
 
     def _parse_shape(self, v):
+        self.apply = True
         if SVG_ATTR_TRANSFORM in v:
             self.transform = Matrix(v[SVG_ATTR_TRANSFORM])
         if SVG_ATTR_STROKE in v:
@@ -1865,6 +1877,11 @@ class Shape(GraphicObject):
                 self.fill = Color.parse(args[2])
         elif SVG_ATTR_FILL in kwargs:
             self.fill = Color.parse(kwargs[SVG_ATTR_FILL])
+        if arg_length >= 4:
+            if args[3] is not None:
+                self.apply = bool(args[3])
+        elif 'apply' in kwargs:
+            self.apply = bool(kwargs['apply'])
 
     def _repr_shape(self, values):
         if not self.transform.is_identity():
@@ -1873,9 +1890,8 @@ class Shape(GraphicObject):
             values.append('stroke=\"%s\"' % self.stroke)
         if self.fill is not None:
             values.append('fill=\"%s\"' % self.fill)
-
-    def _eq_shape(self, other):
-        return self.transform == other.transform and self.fill == other.fill and self.stroke == other.stroke
+        if self.apply is not None and not self.apply:
+            values.append('apply=\"%s\"' % self.apply)
 
     def _name(self):
         return __class__.__name__
@@ -3557,12 +3573,19 @@ class Path(Shape, MutableSequence):
         if len(segments) != 1:
             self._segments = list(segments)
         else:
-            if isinstance(segments[0], Subpath):
+            p = segments[0]
+            if isinstance(p, dict):
+                self._segments = list()
+                self._parse_shape(p)
+                if SVG_ATTR_DATA in p:
+                    self.parse(p[SVG_ATTR_DATA])
+            elif isinstance(p, Subpath):
                 self._segments = []
-                self._segments.extend(map(copy, list(segments[0])))
+                self._segments.extend(map(copy, list(p)))
             elif isinstance(segments[0], Shape):
                 self._segments = list()
-                self.parse(segments[0].d())
+                self.parse(p.d())
+                self._set_shape(segments[0])
             elif isinstance(segments[0], str):
                 self._segments = list()
                 self.parse(segments[0])
@@ -3636,7 +3659,6 @@ class Path(Shape, MutableSequence):
             if len(new_element) == 0:
                 return
             new_element = new_element[0]
-        original_element = self._segments[index]
         self._segments[index] = new_element
         self._length = None
         self._validate_connection(index - 1)
@@ -3650,7 +3672,7 @@ class Path(Shape, MutableSequence):
         original_element = self._segments[index]
         del self._segments[index]
         self._length = None
-        self._validate_connection(index-1)
+        self._validate_connection(index - 1)
         if isinstance(original_element, (Close, Move)):
             self._validate_subpath(index)
 
@@ -4077,7 +4099,7 @@ class Path(Shape, MutableSequence):
                 else:
                     yield p
 
-    def bbox(self):
+    def bbox(self, transformed=True):
         """returns a bounding box for the input Path"""
         bbs = [seg.bbox() for seg in self._segments if not isinstance(Close, Move)]
         try:
@@ -4096,19 +4118,21 @@ class Path(Shape, MutableSequence):
 
         Paths do not permit the matrix to be non-identity.
         """
+        self *= self.transform
+        self.transform.reset()
         return self
 
     @staticmethod
-    def svg_d(segments, relative=False):
+    def svg_d(segments, relative=False, transformed=True):
         if len(segments) == 0:
             return ''
         if relative:
-            return Path.svg_d_relative(segments)
+            return Path.svg_d_relative(segments, transformed=transformed)
         else:
-            return Path.svg_d_absolute(segments)
+            return Path.svg_d_absolute(segments, transformed=transformed)
 
     @staticmethod
-    def svg_d_relative(segments):
+    def svg_d_relative(segments, transformed=True):
         parts = []
         previous_segment = None
         p = Point(0)
@@ -4122,7 +4146,7 @@ class Path(Shape, MutableSequence):
         return ' '.join(parts)
 
     @staticmethod
-    def svg_d_absolute(segments):
+    def svg_d_absolute(segments, transformed=True):
         parts = []
         previous_segment = None
         for segment in segments:
@@ -4131,10 +4155,9 @@ class Path(Shape, MutableSequence):
             elif isinstance(segment, (CubicBezier, QuadraticBezier)):
                 parts.append(segment.d(smooth=segment.is_smooth_from(previous_segment)))
             previous_segment = segment
-            p = previous_segment.end
         return ' '.join(parts)
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         return Path.svg_d(self._segments, relative)
 
 
@@ -4162,10 +4185,14 @@ class Rect(Shape):
         if count_args == 1:
             if isinstance(args[0], dict):
                 rect = args[0]
-                self.x, self.y = float(rect.get(SVG_ATTR_X, 0)), float(rect.get(SVG_ATTR_Y, 0))
-                self.width, self.height = float(rect.get(SVG_ATTR_WIDTH, 1)), float(rect.get(SVG_ATTR_HEIGHT, 1))
-                self.rx, self.ry = float(rect.get(SVG_ATTR_RADIUS_X, 0)), float(rect.get(SVG_ATTR_RADIUS_Y, 0))
+                self.x = Distance.parse(rect.get(SVG_ATTR_X,0))
+                self.y = Distance.parse(rect.get(SVG_ATTR_Y,0))
+                self.width = Distance.parse(rect.get(SVG_ATTR_WIDTH, 1))
+                self.height = Distance.parse(rect.get(SVG_ATTR_HEIGHT, 1))
+                self.rx = Distance.parse(rect.get(SVG_ATTR_RADIUS_X, None))
+                self.ry = Distance.parse(rect.get(SVG_ATTR_RADIUS_Y, None))
                 self._parse_shape(rect)
+                self._validate_rect()
                 return
             elif isinstance(args[0], Rect):
                 s = args[0]
@@ -4176,6 +4203,7 @@ class Rect(Shape):
                 self.rx = s.rx
                 self.ry = s.ry
                 self._set_shape(s)
+                self._validate_rect()
                 return
 
         if arg_length >= 1:
@@ -4220,6 +4248,30 @@ class Rect(Shape):
         else:
             self.ry = 0
         self._init_shape(*args[6:], **kwargs)
+        self._validate_rect()
+
+    def _validate_rect(self):
+        """None is 'auto' for values."""
+        rx = self.rx
+        ry = self.ry
+        if rx is None and ry is None:
+            rx = ry = 0
+        if rx is not None and ry is None:
+            rx = Distance.parse(rx, default_distance=self.width)
+            ry = rx
+        elif ry is not None and rx is None:
+            ry = Distance.parse(ry, default_distance=self.height)
+            rx = ry
+        elif rx is not None and ry is not None:
+            rx = Distance.parse(rx, default_distance=self.width)
+            ry = Distance.parse(ry, default_distance=self.height)
+        if rx == 0 or ry == 0:
+            rx = ry = 0
+        else:
+            rx = min(rx, self.width/2.0)
+            ry = min(ry, self.height/2.0)
+        self.rx = rx
+        self.ry = ry
 
     def __repr__(self):
         values = []
@@ -4244,20 +4296,28 @@ class Rect(Shape):
 
     @property
     def implicit_position(self):
+        if not self.apply:
+            return Point(self.x, self.y)
         point = Point(self.x, self.y)
         point *= self.transform
         return point
 
     @property
     def implicit_x(self):
+        if not self.apply:
+            return self.x
         return self.implicit_position[0]
 
     @property
     def implicit_y(self):
+        if not self.apply:
+            return self.y
         return self.implicit_position[1]
 
     @property
     def implicit_width(self):
+        if not self.apply:
+            return self.width
         p = Point(self.width, 0)
         p *= self.transform
         origin = Point(0, 0)
@@ -4266,6 +4326,8 @@ class Rect(Shape):
 
     @property
     def implicit_height(self):
+        if not self.apply:
+            return self.height
         p = Point(0, self.height)
         p *= self.transform
         origin = Point(0, 0)
@@ -4274,6 +4336,8 @@ class Rect(Shape):
 
     @property
     def implicit_rx(self):
+        if not self.apply:
+            return self.rx
         p = Point(self.rx, 0)
         p *= self.transform
         origin = Point(0, 0)
@@ -4282,13 +4346,15 @@ class Rect(Shape):
 
     @property
     def implicit_ry(self):
+        if not self.apply:
+            return self.ry
         p = Point(0, self.ry)
         p *= self.transform
         origin = Point(0, 0)
         origin *= self.transform
         return origin.distance_to(p)
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         """
         Rect decomposition is given in SVG 2.0 10.2
 
@@ -4317,11 +4383,12 @@ class Rect(Shape):
         :param relative: provides a relative path.
         :return: path_d of shape.
         """
-
         x = self.x
         y = self.y
         width = self.width
         height = self.height
+        if width == 0 or height == 0:
+            return '' # a computed value of zero for either dimension disables rendering.
         rx = self.rx
         ry = self.ry
         n = number_str
@@ -4354,7 +4421,7 @@ class Rect(Shape):
                 n(y + ry),
                 arc
             )
-        if self.transform.is_identity():
+        if self.transform.is_identity() or not transformed:
             if not relative:
                 return path_d
             else:
@@ -4371,6 +4438,8 @@ class Rect(Shape):
 
         :return:
         """
+        original = self.apply
+        self.apply = True
         x = self.implicit_x
         y = self.implicit_y
         width = self.implicit_width
@@ -4378,6 +4447,7 @@ class Rect(Shape):
         rx = self.implicit_rx
         ry = self.implicit_ry
         rotation = self.rotation
+        self.apply = original
         self.x = x
         self.y = y
         self.width = width
@@ -4397,24 +4467,27 @@ class _RoundShape(Shape):
         if arg_length == 1:
             if isinstance(args[0], dict):
                 ellipse = args[0]
-                cx = ellipse.get(SVG_ATTR_CENTER_X, None)
-                cy = ellipse.get(SVG_ATTR_CENTER_Y, None)
-                rx = ellipse.get(SVG_ATTR_RADIUS_X, None)
-                ry = ellipse.get(SVG_ATTR_RADIUS_Y, None)
-                r = ellipse.get(SVG_ATTR_RADIUS, None)
+                cx = Distance.parse(ellipse.get(SVG_ATTR_CENTER_X, None))
+                cy = Distance.parse(ellipse.get(SVG_ATTR_CENTER_Y, None))
+                rx = Distance.parse(ellipse.get(SVG_ATTR_RADIUS_X, None))
+                ry = Distance.parse(ellipse.get(SVG_ATTR_RADIUS_Y, None))
+                r = Distance.parse(ellipse.get(SVG_ATTR_RADIUS, None))
                 if r is not None:
-                    self.rx = self.ry = float(r)
+                    self.rx = self.ry = r
                 else:
                     if rx is None:
                         self.rx = 1
                     else:
-                        self.rx = float(rx)
+                        self.rx = rx
                     if ry is None:
                         self.ry = 1
                     else:
-                        self.ry = float(ry)
-
-                self.center = Point(float(cx), float(cy))
+                        self.ry = ry
+                if cx is None:
+                    cx = 0
+                if cy is None:
+                    cy = 0
+                self.center = Point(cx, cy)
                 self._parse_shape(ellipse)
                 return
             elif isinstance(args[0], _RoundShape):
@@ -4467,6 +4540,8 @@ class _RoundShape(Shape):
 
     @property
     def implicit_rx(self):
+        if not self.apply:
+            return self.rx
         prx = Point(self.rx, 0)
         prx *= self.transform
         origin = Point(0, 0)
@@ -4475,6 +4550,8 @@ class _RoundShape(Shape):
 
     @property
     def implicit_ry(self):
+        if not self.apply:
+            return self.ry
         pry = Point(0, self.ry)
         pry *= self.transform
         origin = Point(0, 0)
@@ -4485,11 +4562,13 @@ class _RoundShape(Shape):
 
     @property
     def implicit_center(self):
+        if not self.apply:
+            return self.center
         center = Point(self.center)
         center *= self.transform
         return center
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         """
         SVG path decomposition is given in SVG 2.0 10.3, 10.4.
 
@@ -4501,17 +4580,25 @@ class _RoundShape(Shape):
 
         Converts the parameters from an ellipse or a circle to a string for a
         Path object d-attribute"""
+
+        original_apply = self.apply
+        self.apply = transformed
         path = Path()
-        path.move((self.point_at_t(0)))
         steps = 4
         step_size = tau / steps
         t_start = 0
         t_end = step_size
+        path.move((self.point_at_t(0)))
         for i in range(steps):
-            path += self.arc_t(t_start, t_end)
+            path += Arc(
+                self.point_at_t(t_start),
+                self.point_at_t(t_end),
+                self.implicit_center,
+                rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=step_size)
             t_start = t_end
             t_end += step_size
         path.closed()
+        self.apply = original_apply
         return path.d(relative=relative)
 
     def reify(self):
@@ -4553,7 +4640,7 @@ class _RoundShape(Shape):
         """
         return Arc(self.point_at_t(t0),
                    self.point_at_t(t1),
-                   self.center,
+                   self.implicit_center,
                    rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=t1 - t0)
 
     def arc_angle(self, a0, a1):
@@ -4566,7 +4653,7 @@ class _RoundShape(Shape):
         """
         return Arc(self.point_at_angle(a0),
                    self.point_at_angle(a1),
-                   self.center,
+                   self.implicit_center,
                    rx=self.implicit_rx, ry=self.implicit_ry,
                    rotation=self.rotation)
 
@@ -4578,11 +4665,11 @@ class _RoundShape(Shape):
         :param angle: angle from center to find point
         :return: point found
         """
-        angle -= self.rotation
         a = self.implicit_rx
         b = self.implicit_ry
         if a == b:
             return self.point_at_t(angle)
+        angle -= self.rotation
         if abs(angle) > tau / 4:
             t = atan2(a * tan(angle), b) + tau / 2
         else:
@@ -4596,7 +4683,10 @@ class _RoundShape(Shape):
         :param p: point
         :return: angle to given point.
         """
-        return self.implicit_center.angle_to(p)
+        if self.apply and not self.transform.is_identity():
+            return self.implicit_center.angle_to(p)
+        else:
+            return self.center.angle_to(p)
 
     def t_at_point(self, p):
         """
@@ -4661,7 +4751,7 @@ class Ellipse(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Ellipse(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill)
+        return Ellipse(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
 
     def _name(self):
         return __class__.__name__
@@ -4679,7 +4769,7 @@ class Circle(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Circle(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill)
+        return Circle(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
 
     def _name(self):
         return __class__.__name__
@@ -4704,8 +4794,12 @@ class SimpleLine(Shape):
         if count_args == 1:
             if isinstance(args[0], dict):
                 values = args[0]
-                self.start = Point(float(values.get(SVG_ATTR_X1, 0)), float(values.get(SVG_ATTR_Y1, 0)))
-                self.end = Point(float(values.get(SVG_ATTR_X2, 0)), float(values.get(SVG_ATTR_Y2, 0)))
+                x1 = Distance.parse(values.get(SVG_ATTR_X1, 0))
+                y1 = Distance.parse(values.get(SVG_ATTR_Y1, 0))
+                x2 = Distance.parse(values.get(SVG_ATTR_X2, 0))
+                y2 = Distance.parse(values.get(SVG_ATTR_Y2, 0))
+                self.start = Point(x1, y1)
+                self.end = Point(x2, y2)
                 self._parse_shape(values)
             elif isinstance(args[0], SimpleLine):
                 s = args[0]
@@ -4777,7 +4871,7 @@ class SimpleLine(Shape):
         point *= self.transform
         return point
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         """
         SVG path decomposition is given in SVG 2.0 10.5.
 
@@ -4869,7 +4963,7 @@ class _Polyshape(Shape):
     def __getitem__(self, item):
         return self.points[item]
 
-    def d(self, relative=False):
+    def d(self, relative=False, transformed=True):
         """
         Polyline and Polygon decomposition is given in SVG2. 10.6 and 10.7
 
@@ -5127,16 +5221,34 @@ class Subpath:
         return self
 
 
-class SVGText(GraphicObject):
+class SVGText(GraphicObject, Transformable):
     """
     SVG Text are defined in SVG 2.0 Chapter 11
 
     This is a stub element.
     """
 
-    def __init__(self, text):
+    def __init__(self, values, text=None):
         GraphicObject.__init__(self)
-        self.text = text
+        Transformable.__init__(self)
+        if isinstance(values, dict):
+            self.text = text
+        else:
+            self.text = values
+
+
+class SVGDesc:
+    """
+    SVG Desc are just desc data.
+
+    This is a stub element.
+    """
+
+    def __init__(self, values, desc=None):
+        if isinstance(values, dict):
+            self.desc = desc
+        else:
+            self.desc = values
 
 
 class SVGImage(Transformable):
@@ -5149,8 +5261,14 @@ class SVGImage(Transformable):
     This is a stub element.
     """
 
-    def __init__(self, image):
+    def __init__(self, values):
         Transformable.__init__(self)
+        image = values
+        if isinstance(values, dict):
+            if XLINK_HREF in values:
+                image = values[XLINK_HREF]
+            elif SVG_HREF in values:
+                image = values[SVG_HREF]
         self.image = image
 
 
@@ -5163,6 +5281,88 @@ class SVG:
 
     def __init__(self, f):
         self.f = f
+
+    def elements(self, ppi=96.0, width=1, height=1):
+        """
+        Parses the SVG file.
+        Style elements are split into their proper values.
+
+        def elements are not processed.
+        use elements are not processed.
+        switch elements are not processed.
+        title elements are not processed.
+        metadata elements are not processed.
+        foreignObject elements are not processed.
+        """
+
+        f = self.f
+        stack = []
+        values = {}
+        for event, elem in iterparse(f, events=('start', 'end')):
+            if event == 'start':
+                stack.append(values)
+                current_values = values
+                values = {}
+                values.update(current_values)  # copy of dictionary
+
+                attributes = elem.attrib
+                if SVG_ATTR_STYLE in attributes:
+                    for equate in attributes[SVG_ATTR_STYLE].split(";"):
+                        equal_item = equate.split(":")
+                        if len(equal_item) == 2:
+                            attributes[equal_item[0]] = equal_item[1]
+
+                if SVG_ATTR_TRANSFORM in attributes:
+                    new_transform = attributes[SVG_ATTR_TRANSFORM]
+                    if SVG_ATTR_TRANSFORM in values:
+                        current_transform = values[SVG_ATTR_TRANSFORM]
+                        attributes[SVG_ATTR_TRANSFORM] = current_transform + " " + new_transform
+                    else:
+                        attributes[SVG_ATTR_TRANSFORM] = new_transform
+                values.update(attributes)
+
+                tag = elem.tag
+                if tag.startswith('{'):
+                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
+
+                if SVG_NAME_TAG == tag:
+                    new_transform = parse_viewbox_transform(values, ppi=ppi, width=width, height=height)
+                    values[SVG_VIEWBOX_TRANSFORM] = new_transform
+                    if SVG_ATTR_TRANSFORM in attributes:
+                        values[SVG_ATTR_TRANSFORM] += " " + new_transform
+                    else:
+                        values[SVG_ATTR_TRANSFORM] = new_transform
+                    continue
+                elif SVG_TAG_GROUP == tag:
+                    continue  # Groups are ignored.
+                elif SVG_TAG_PATH == tag:
+                    yield Path(values)
+                elif SVG_TAG_CIRCLE == tag:
+                    yield Circle(values)
+                elif SVG_TAG_ELLIPSE == tag:
+                    yield Ellipse(values)
+                elif SVG_TAG_LINE == tag:
+                    yield SimpleLine(values)
+                elif SVG_TAG_POLYLINE == tag:
+                    yield Polyline(values)
+                elif SVG_TAG_POLYGON == tag:
+                    yield Polygon(values)
+                elif SVG_TAG_RECT == tag:
+                    yield Rect(values)
+                elif SVG_TAG_IMAGE == tag:
+                    yield SVGImage(values)
+                else:
+                    continue
+            else:  # End event.
+                # The iterparse spec makes it clear that internal text data is undefined except at the end.
+                tag = elem.tag
+                if tag.startswith('{'):
+                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
+                if SVG_TAG_TEXT == tag:
+                    yield SVGText(values, text=elem.text)
+                elif SVG_TAG_DESC == tag:
+                    yield SVGDesc(values, desc=elem.text)
+                values = stack.pop()
 
     # SVG File Parsing
     def nodes(self, viewport_transform=False, ppi=96.0, width=1, height=1):
