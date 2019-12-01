@@ -336,7 +336,7 @@ class Distance(float):
         return "Distance(%s)" % number_str(self)
 
     @classmethod
-    def parse(cls, distance_str, ppi=DEFAULT_PPI, default_distance=1,
+    def parse(cls, distance_str, ppi=DEFAULT_PPI, default_distance=None,
               font_size=12, font_height=12, viewport="0 0 100 100"):
         """Convert svg length to set distances.
         96 is the typical pixels per inch.
@@ -348,6 +348,8 @@ class Distance(float):
         if not isinstance(distance_str, str):
             return float(distance_str)
         if distance_str.endswith('%'):
+            if default_distance is None:
+                return distance_str
             return Distance.percent(float(distance_str[:-1]), default_distance)
         if distance_str.endswith('mm'):
             return Distance.mm(float(distance_str[:-2]), ppi=ppi)
@@ -1238,6 +1240,8 @@ class Matrix:
         return m
 
     def __imatmul__(self, other):
+        if isinstance(other,str):
+            other = Matrix(other)
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(self, other)
         return self
 
@@ -1709,7 +1713,7 @@ class Transformable:
         return origin.angle_to(prx)
 
 
-class GraphicObject():
+class GraphicObject:
     def __init__(self):
         self.stroke = None
         self.fill = None
@@ -5213,7 +5217,7 @@ class SVGImage(Transformable):
 
     """
 
-    def __init__(self, values):
+    def __init__(self, values, *args, **kwargs):
         Transformable.__init__(self)
         if isinstance(values, dict):
             if XLINK_HREF in values:
@@ -5222,13 +5226,7 @@ class SVGImage(Transformable):
                 self.url = values[SVG_HREF]
             else:
                 self.url = None
-            self.values = values
-        else:
-            self.values = {}
         self.data = None
-        self.image = None
-        self.width = 0
-        self.height = 0
         if self.url is not None:
             if self.url.startswith("data:image/"):
                 # Data URL
@@ -5241,6 +5239,31 @@ class SVGImage(Transformable):
                     self.data = b64decode(self.url[23:])
                 elif self.url.startswith("data:image/svg+xml;base64,"):
                     self.data = b64decode(self.url[26:])
+        self.image = None
+        self.image_width = None
+        self.image_height = None
+
+        if 'ppi' in values:  # PPI is only needed to calculate real-world distances
+            ppi = values['ppi']
+        elif 'ppi' in kwargs:
+            ppi = kwargs['ppi']
+        else:
+            ppi = DEFAULT_PPI
+
+        if SVG_ATTR_WIDTH in kwargs:
+            self.physical_width = kwargs[SVG_ATTR_WIDTH]
+        else:
+            self.physical_width = 100
+
+        if SVG_ATTR_HEIGHT in kwargs:
+            self.physical_height = kwargs[SVG_ATTR_HEIGHT]
+        else:
+            self.physical_height = 100
+
+        if SVG_ATTR_TRANSFORM in values:
+            self.transform = Matrix(values[SVG_ATTR_TRANSFORM])
+
+        self.viewbox = Viewbox(values, viewBox=None, ppi=ppi, width=self.physical_width, height=self.physical_height)
 
     def load(self, directory=None):
         try:
@@ -5287,14 +5310,14 @@ class SVGImage(Transformable):
 
     def set_values_by_image(self):
         if self.image is not None:
-            self.width = self.image.width
-            self.height = self.image.height
+            self.image_width = self.image.width
+            self.image_height = self.image.height
         else:
             return
-        viewbox = "0 0 %d %d" % (self.width, self.height)
-        values = self.values
-        self.viewbox = Viewbox(values, viewbox=viewbox, width=self.width, height=self.height)
-        self.transform *= Matrix(self.viewbox.transform())
+        viewbox = "0 0 %d %d" % (self.image_width, self.image_height)
+        self.viewbox.set_viewbox(viewbox)
+        viewbox_transform = self.viewbox.transform()
+        self.transform = Matrix(viewbox_transform) * self.transform
 
 
 class Viewbox:
@@ -5302,28 +5325,30 @@ class Viewbox:
     def __init__(self, *args, **kwargs):
         """
         Viewbox(nodes)
-        Viewbox(nodes, ppi=value, width=value, height=value)
+        Viewbox(nodes, viewbox=value, ppi=value, width=value, height=value)
 
-        Note that width/height is the physical width of the space the svg occupies.
+        If the viewbox is not availible or in the nodes data it doesn't need to be expressly defined.
 
-        This is different from the element width/height given in the SVG tag and the
-         width/height of the viewbox which is given as the 3rd and 4th values in the
-         viewbox values.
+        Viewbox control the scaling between the element size and viewbox.
 
+        The given width and height are merely to intepret the meaning of percent values of lengths. Usually this is
+        the size of the physical space being occupied. And the PPI is used to interpret the meaning of physical units
+        if the pixel_per_inch conversion isn't 96.
 
         :param args: nodes, must contain node values.
-        :param kwargs: ppi, width, height
+        :param kwargs: ppi, width, height, viewbox
         """
         if len(args) == 1:
             values = args[0]
         else:
             return
+
         if SVG_ATTR_VIEWBOX in kwargs:
             self.viewbox = kwargs[SVG_ATTR_VIEWBOX]
         elif SVG_ATTR_VIEWBOX in values:
             self.viewbox = values[SVG_ATTR_VIEWBOX]
         else:
-            self.viewbox = "0 0 100 100"
+            self.viewbox = None
 
         if 'ppi' in values:  # PPI is only needed to calculate distances
             ppi = values['ppi']
@@ -5335,12 +5360,12 @@ class Viewbox:
         if SVG_ATTR_WIDTH in kwargs:
             self.physical_width = kwargs[SVG_ATTR_WIDTH]
         else:
-            self.physical_width = 100
+            self.physical_width = None
 
         if SVG_ATTR_HEIGHT in kwargs:
             self.physical_height = kwargs[SVG_ATTR_HEIGHT]
         else:
-            self.physical_height = 100
+            self.physical_height = None
 
         if SVG_ATTR_WIDTH in values:
             self.element_width = Distance.parse(values[SVG_ATTR_WIDTH], ppi, default_distance=self.physical_width)
@@ -5361,24 +5386,33 @@ class Viewbox:
             self.element_y = Distance.parse(values[SVG_ATTR_Y], ppi, default_distance=self.physical_height)
         else:
             self.element_y = 0
-
-        if isinstance(self.viewbox, str):
-            dims = list(REGEX_FLOAT.findall(self.viewbox))
-            self.viewbox_x = float(dims[0])
-            self.viewbox_y = float(dims[1])
-            self.viewbox_width = float(dims[2])
-            self.viewbox_height = float(dims[3])
-        else:
-            self.viewbox_x = 0
-            self.viewbox_y = 0
-            self.viewbox_width = 100
-            self.viewbox_height = 100
+        self.set_viewbox(self.viewbox)
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
             self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
         else:
             self.preserve_aspect_ratio = None
 
+    def set_viewbox(self, viewbox):
+        if viewbox is not None and isinstance(viewbox, str):
+            dims = list(REGEX_FLOAT.findall(viewbox))
+            self.viewbox_x = float(dims[0])
+            self.viewbox_y = float(dims[1])
+            self.viewbox_width = float(dims[2])
+            self.viewbox_height = float(dims[3])
+        else:
+            self.viewbox_x = None
+            self.viewbox_y = None
+            self.viewbox_width = None
+            self.viewbox_height = None
+
     def transform(self):
+        return Viewbox.viewbox_transform(
+            self.element_x, self.element_y, self.element_width, self.element_height,
+            self.viewbox_x, self.viewbox_y, self.viewbox_width, self.viewbox_height,
+            self.preserve_aspect_ratio)
+
+    @staticmethod
+    def viewbox_transform(e_x, e_y, e_width, e_height, vb_x, vb_y, vb_width, vb_height, aspect):
         """
         SVG 1.1 7.2, SVG 2.0 8.2 equivalent transform of an SVG viewport.
         With regards to https://github.com/w3c/svgwg/issues/215 use 8.2 version.
@@ -5389,23 +5423,15 @@ class Viewbox:
         :return: string of the SVG transform commands to account for the viewbox.
         """
 
-        e_x = self.element_x
-        e_y = self.element_y
-        e_width = self.element_width
-        e_height = self.element_height
         # Let e-x, e-y, e-width, e-height be the position and size of the element respectively.
-        vb_x = self.viewbox_x
-        vb_y = self.viewbox_y
-        vb_width = self.viewbox_width
-        vb_height = self.viewbox_height
+
         # Let vb-x, vb-y, vb-width, vb-height be the min-x, min-y,
         # width and height values of the viewBox attribute respectively.
 
         # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
         # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
         # or if meetOrSlice is missing from this value.
-        if self.preserve_aspect_ratio is not None:
-            aspect = self.preserve_aspect_ratio
+        if aspect is not None:
             aspect_slice = aspect.split(' ')
             try:
                 align = aspect_slice[0]
@@ -5496,6 +5522,12 @@ class SVG:
                 values = {}
                 values.update(current_values)  # copy of dictionary
 
+                # Non-propagating values.
+                if SVG_ATTR_PRESERVEASPECTRATIO in values:
+                    del values[SVG_ATTR_PRESERVEASPECTRATIO]
+                if SVG_ATTR_VIEWBOX in values:
+                    del values[SVG_ATTR_VIEWBOX]
+
                 attributes = elem.attrib
                 if SVG_ATTR_STYLE in attributes:
                     for equate in attributes[SVG_ATTR_STYLE].split(";"):
@@ -5525,6 +5557,8 @@ class SVG:
                     tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
 
                 if SVG_NAME_TAG == tag:
+                    if SVG_ATTR_VIEWBOX not in values:
+                        values[SVG_ATTR_VIEWBOX] = "0 0 100 100"
                     viewbox = Viewbox(values, ppi=ppi, width=width, height=height)
                     yield viewbox
                     new_transform = viewbox.transform()
@@ -5564,106 +5598,4 @@ class SVG:
                     yield SVGText(values, text=elem.text)
                 elif SVG_TAG_DESC == tag:
                     yield SVGDesc(values, desc=elem.text)
-                values = stack.pop()
-
-    # SVG File Parsing
-    def nodes(self, viewport_transform=False, ppi=DEFAULT_PPI, width=1, height=1):
-        """Parses the SVG file.
-        Style elements are split into their proper values.
-        Transform elements are concatenated and unparsed.
-        Shape leaf node elements are turned into pathd values.
-
-        Text, Image, Desc nodes are yielded and contain no 'd' property.
-        def elements are not processed.
-        use elements are not processed.
-        switch elements are not processed.
-        title elements are not processed.
-        metadata elements are not processed.
-        foreignObject elements are not processed.
-        """
-
-        f = self.f
-        stack = []
-        values = {}
-        for event, elem in iterparse(f, events=('start', 'end')):
-            if event == 'start':
-                stack.append(values)
-                current_values = values
-                values = {}
-                values.update(current_values)  # copy of dictionary
-
-                attributes = elem.attrib
-                if SVG_ATTR_STYLE in attributes:
-                    for equate in attributes[SVG_ATTR_STYLE].split(";"):
-                        equal_item = equate.split(":")
-                        if len(equal_item) == 2:
-                            attributes[equal_item[0]] = equal_item[1]
-                if SVG_ATTR_FILL in attributes and SVG_ATTR_COLOR in attributes and attributes[SVG_ATTR_FILL] == SVG_VALUE_CURRENT_COLOR:
-                    attributes[SVG_ATTR_FILL] = attributes[SVG_ATTR_COLOR]
-                if SVG_ATTR_STROKE in attributes and SVG_ATTR_COLOR in attributes and attributes[SVG_ATTR_STROKE] == SVG_VALUE_CURRENT_COLOR:
-                    attributes[SVG_ATTR_STROKE] = attributes[SVG_ATTR_COLOR]
-                if SVG_ATTR_TRANSFORM in attributes:
-                    new_transform = attributes[SVG_ATTR_TRANSFORM]
-                    if SVG_ATTR_TRANSFORM in values:
-                        current_transform = values[SVG_ATTR_TRANSFORM]
-                        attributes[SVG_ATTR_TRANSFORM] = current_transform + " " + new_transform
-                    else:
-                        attributes[SVG_ATTR_TRANSFORM] = new_transform
-                    # will be used to update values.
-                values.update(attributes)
-                tag = elem.tag
-                if tag.startswith('{'):
-                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
-                if SVG_NAME_TAG == tag:
-                    if viewport_transform:
-                        viewbox = Viewbox(values, ppi=ppi, width=width, height=height)
-                        new_transform = viewbox.transform()
-                        values[SVG_VIEWBOX_TRANSFORM] = new_transform
-                        if SVG_ATTR_TRANSFORM in attributes:
-                            values[SVG_ATTR_TRANSFORM] += " " + new_transform
-                        else:
-                            values[SVG_ATTR_TRANSFORM] = new_transform
-                    yield values
-                    continue
-                elif SVG_TAG_GROUP == tag:
-                    continue
-                elif SVG_TAG_PATH == tag:
-                    pass
-                elif SVG_TAG_CIRCLE == tag:
-                    values[SVG_ATTR_DATA] = Circle(values).d()
-                elif SVG_TAG_ELLIPSE == tag:
-                    values[SVG_ATTR_DATA] = Ellipse(values).d()
-                elif SVG_TAG_LINE == tag:
-                    values[SVG_ATTR_DATA] = SimpleLine(values).d()
-                elif SVG_TAG_POLYLINE == tag:
-                    values[SVG_ATTR_DATA] = Polyline(values).d()
-                elif SVG_TAG_POLYGON == tag:
-                    values[SVG_ATTR_DATA] = Polygon(values).d()
-                elif SVG_TAG_RECT == tag:
-                    values[SVG_ATTR_DATA] = Rect(values).d()
-                elif SVG_TAG_IMAGE == tag:
-                    if XLINK_HREF in values:
-                        image = values[XLINK_HREF]
-                    elif SVG_HREF in values:
-                        image = values[SVG_HREF]
-                    else:
-                        continue
-                    values[SVG_TAG_IMAGE] = image
-                else:
-                    continue
-                values[SVG_ATTR_TAG] = tag
-                yield values
-            else:  # End event.
-                # The iterparse spec makes it clear that internal text data is undefined except at the end.
-                tag = elem.tag
-                if tag.startswith('{'):
-                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
-                if SVG_TAG_TEXT == tag:
-                    values[SVG_ATTR_TAG] = tag
-                    values[SVG_TAG_TEXT] = elem.text
-                    yield values
-                elif SVG_TAG_DESC == tag:
-                    values[SVG_ATTR_TAG] = tag
-                    values[SVG_TAG_DESC] = elem.text
-                    yield values
                 values = stack.pop()
