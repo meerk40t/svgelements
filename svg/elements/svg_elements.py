@@ -64,6 +64,7 @@ SVG_TAG_POLYGON = 'polygon'
 SVG_TAG_TEXT = 'text'
 SVG_TAG_IMAGE = 'image'
 SVG_TAG_DESC = 'desc'
+SVG_ATTR_ID = 'id'
 SVG_ATTR_DATA = 'd'
 SVG_ATTR_COLOR = 'color'
 SVG_ATTR_FILL = 'fill'
@@ -2023,8 +2024,16 @@ class Matrix:
         return float(r0[0]), float(r1[0]), float(r0[1]), float(r1[1]), r0[2], r1[2]
 
 
-class Transformable:
+class SVGElement:
+    """Any tagged element within the SVG namespace."""
     def __init__(self):
+        self.id = None
+
+
+class Transformable(SVGElement):
+    """Any element that is transformable and has a transform property."""
+    def __init__(self):
+        SVGElement.__init__(self)
         self.transform = Matrix()
         self.apply = True
 
@@ -2056,6 +2065,7 @@ class Transformable:
 
 
 class GraphicObject:
+    """Any drawn element."""
     def __init__(self):
         self.stroke = None
         self.fill = None
@@ -2107,7 +2117,7 @@ class Shape(GraphicObject, Transformable):
         """
         Realizes the transform to the shape properties. Such that the properties become actualized and the transform
         simplifies towards the identity matrix. In many cases it will become the identity matrix, but in some the
-        transformed shape cannot be represented through through the properties alone.
+        transformed shape cannot be represented through the properties alone.
         """
         return self
 
@@ -2123,6 +2133,7 @@ class Shape(GraphicObject, Transformable):
         self.transform = Matrix(s.transform)
         self.fill = s.fill
         self.stroke = s.stroke
+        self.id = s.id
 
     def _parse_shape(self, v):
         self.apply = True
@@ -2132,8 +2143,12 @@ class Shape(GraphicObject, Transformable):
             self.stroke = Color.parse(v[SVG_ATTR_STROKE])
         if SVG_ATTR_FILL in v:
             self.fill = Color.parse(v[SVG_ATTR_FILL])
+        if SVG_ATTR_ID in v:
+            self.id = v[SVG_ATTR_ID]
 
     def _init_shape(self, *args, **kwargs):
+        if SVG_ATTR_ID in kwargs:
+            self.id = kwargs[SVG_ATTR_ID]
         arg_length = len(args)
         if arg_length >= 1:
             self.transform = Matrix(args[0])
@@ -5534,6 +5549,8 @@ class SVGText(GraphicObject, Transformable):
             self.stroke = Color.parse(values[SVG_ATTR_STROKE])
         if SVG_ATTR_FILL in values:
             self.fill = Color.parse(values[SVG_ATTR_FILL])
+        if SVG_ATTR_ID in values:
+            self.id = values[SVG_ATTR_ID]
 
 
 class SVGDesc:
@@ -5550,7 +5567,7 @@ class SVGDesc:
             self.desc = values
 
 
-class SVGImage(Transformable):
+class SVGImage(GraphicObject, Transformable):
     """
     SVG Images are defined in SVG 2.0 12.3
 
@@ -5560,6 +5577,7 @@ class SVGImage(Transformable):
     """
 
     def __init__(self, values, *args, **kwargs):
+        GraphicObject.__init__(self)
         Transformable.__init__(self)
         if isinstance(values, dict):
             if XLINK_HREF in values:
@@ -5604,6 +5622,12 @@ class SVGImage(Transformable):
 
         if SVG_ATTR_TRANSFORM in values:
             self.transform = Matrix(values[SVG_ATTR_TRANSFORM])
+        if SVG_ATTR_STROKE in values:
+            self.stroke = Color.parse(values[SVG_ATTR_STROKE])
+        if SVG_ATTR_FILL in values:
+            self.fill = Color.parse(values[SVG_ATTR_FILL])
+        if SVG_ATTR_ID in values:
+            self.id = values[SVG_ATTR_ID]
 
         self.viewbox = Viewbox(values, viewBox=None, ppi=ppi, width=self.physical_width, height=self.physical_height)
 
@@ -5869,6 +5893,8 @@ class SVG:
                     del values[SVG_ATTR_PRESERVEASPECTRATIO]
                 if SVG_ATTR_VIEWBOX in values:
                     del values[SVG_ATTR_VIEWBOX]
+                if SVG_ATTR_ID in values:
+                    del values[SVG_ATTR_ID]
 
                 attributes = elem.attrib
                 if SVG_ATTR_STYLE in attributes:
