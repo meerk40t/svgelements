@@ -136,6 +136,7 @@ REGEX_COLOR_HEX = re.compile(r'^#?([0-9A-Fa-f]{3,8})$')
 REGEX_COLOR_RGB = re.compile(r'rgb\(\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*\)' % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
 REGEX_COLOR_RGB_PERCENT = re.compile(
     r'rgb\(\s*(%s)%%\s*,\s*(%s)%%\s*,\s*(%s)%%\s*\)' % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
+REGEX_LENGTH = re.compile('(%s)([A-Za-z%%]*)' % PATTERN_FLOAT)
 
 
 # PathTokens class.
@@ -329,6 +330,286 @@ def number_str(s):
     return s
 
 
+class Length:
+    """SVGLength as used in SVG"""
+
+    def __init__(self, *args, **kwargs):
+        if len(args) == 1:
+            value = args[0]
+            s = str(value)
+            for m in REGEX_LENGTH.findall(s):
+                self.amount = float(m[0])
+                self.units = m[1]
+                return
+        elif len(args) == 2:
+            self.amount = args[0]
+            self.units = args[1]
+            return
+        self.amount = 0.0
+        self.units = ''
+
+    def __float__(self):
+        return self.amount
+
+    def __imul__(self, other):
+        if isinstance(other, (int, float)):
+            self.amount *= other
+            return self
+        if isinstance(other, str):
+            other = Length(other)
+        if isinstance(other, Length):
+            if self.units == "%":
+                self.units = other.units
+                self.amount = other.amount * (self.amount / 100.0)
+                return self
+            elif other.units == "%":
+                self.amount *= other.amount / 100.0
+                return self
+        return NotImplemented
+
+    def __iadd__(self, other):
+        if not isinstance(other, Length):
+            other = Length(other)
+        if self.units == other.units:
+            self.amount += other.amount
+            return self
+        if self.amount == 0:
+            self.amount = other.amount
+            self.units = other.units
+            return self
+        if other.amount == 0:
+            return self
+        if other.units == '%':
+            p = other.amount / 100.0
+            self.amount += (self.amount * p)
+            return self
+        if self.units == 'px' or self.units == '':
+            if other.units == 'px' or other.units == '':
+                self.amount += other.amount
+            elif other.units == 'pt':
+                self.amount += other.amount * 1.3333
+            elif other.units == 'pc':
+                self.amount += other.amount * 16.0
+            else:
+                raise ValueError
+            return self
+        if self.units == 'pt':
+            if other.units == 'px' or other.units == '':
+                self.amount += other.amount / 1.3333
+            elif other.units == 'pc':
+                self.amount += other.amount * 12.0
+            else:
+                raise ValueError
+            return self
+        elif self.units == 'pc':
+            if other.units == 'px' or other.units == '':
+                self.amount += other.amount / 16.0
+            elif other.units == 'pt':
+                self.amount += other.amount / 12.0
+            else:
+                raise ValueError
+            return self
+        elif self.units == 'cm':
+            if other.units == 'mm':
+                self.amount += other.amount / 10.0
+            elif other.units == 'in':
+                self.amount += other.amount / 0.393701
+            else:
+                raise ValueError
+            return self
+        elif self.units == 'mm':
+            if other.units == 'cm':
+                self.amount += other.amount * 10.0
+            elif other.units == 'in':
+                self.amount += other.amount / 0.0393701
+            else:
+                raise ValueError
+            return self
+        elif self.units == 'in':
+            if other.units == 'cm':
+                self.amount += other.amount * 0.393701
+            elif other.units == 'mm':
+                self.amount += other.amount * 0.0393701
+            else:
+                raise ValueError
+            return self
+        raise ValueError
+
+    def __add__(self, other):
+        if isinstance(other,(str, float,int)):
+            other = Length(other)
+        c = self.__copy__()
+        c += other
+        return c
+
+    __radd__ = __add__
+
+    def __mul__(self, other):
+        c = copy(self)
+        c *= other
+        return c
+
+    def __rdiv__(self, other):
+        c = copy(self)
+        c *= 1.0 / other.amount
+        return c
+
+    def __neg__(self):
+        s = self.__copy__()
+        s.amount = -s.amount
+        return s
+
+    def __isub__(self, other):
+        if isinstance(other, (str, float, int)):
+            other = Length(other)
+        self += -other
+        return self
+
+    def __sub__(self, other):
+        s = self.__copy__()
+        s -= other
+        return s
+
+    def __rsub__(self, other):
+        if isinstance(other, (str, float, int)):
+            other = Length(other)
+        return (-self) + other
+
+    def __copy__(self):
+        return Length(self.amount, self.units)
+
+    __rmul__ = __mul__
+
+    def __repr__(self):
+        return "Length(\"%s\")" % (str(self))
+
+    def __str__(self):
+        return "%s%s" % (number_str(self.amount), self.units)
+
+    def __eq__(self, other):
+        s = self.in_pixels()
+        if isinstance(other, (float, int)):
+            return s == other
+        if isinstance(other, str):
+            other = Length(other)
+        if self.amount == other.amount and self.units == other.units:
+            return True
+        if s is not None:
+            o = self.in_pixels()
+            if o == s:
+                return True
+        s = self.in_inches()
+        if s is not None:
+            o = self.in_inches()
+            if s == o:
+                return True
+        return False
+
+    @property
+    def value_in_units(self):
+        return self.amount
+
+    def in_pixels(self):
+        if self.units == 'px' or self.units == '':
+            return self.amount
+        if self.units == 'pt':
+            return self.amount / 1.3333
+        if self.units == 'pc':
+            return self.amount / 16.0
+        return None
+
+    def in_inches(self):
+        if self.units == 'mm':
+            return self.amount / 0.0393701
+        if self.units == 'cm':
+            return self.amount / 0.393701
+        if self.units == 'in':
+            return self.amount
+        return None
+
+    def to_mm(self, ppi=DEFAULT_PPI, relative_length=None, font_size=None, font_height=None, viewbox=None):
+        value = self.value(ppi=ppi, relative_length=relative_length, font_size=font_size,
+                           font_height=font_height, viewbox=viewbox)
+        v = value / (ppi * 0.0393701)
+        return Length("%smm" % (number_str(v)))
+
+    def to_cm(self, ppi=DEFAULT_PPI, relative_length=None, font_size=None, font_height=None, viewbox=None):
+        value = self.value(ppi=ppi, relative_length=relative_length,
+                           font_size=font_size, font_height=font_height, viewbox=viewbox)
+        v = value / (ppi * 0.393701)
+        return Length("%scm" % (number_str(v)))
+
+    def to_inch(self, ppi=DEFAULT_PPI, relative_length=None, font_size=None, font_height=None, viewbox=None):
+        value = self.value(ppi=ppi, relative_length=relative_length,
+                           font_size=font_size, font_height=font_height, viewbox=viewbox)
+        v = value / ppi
+        return Length("%sin" % (number_str(v)))
+
+    def value(self, ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None):
+        if self.units == '%':
+            if relative_length is None:
+                return self
+            fraction = self.amount / 100.0
+            if isinstance(relative_length, (float,int)):
+                return fraction*relative_length
+            elif isinstance(relative_length, (str, Length)):
+                length = relative_length * self
+                return length.value(ppi=ppi, font_size=font_size, font_height=font_height, viewbox=viewbox)
+            return self
+        if self.units == 'mm':
+            if ppi is None:
+                return self
+            return self.amount * ppi * 0.0393701
+        if self.units == 'cm':
+            if ppi is None:
+                return self
+            return self.amount * ppi * 0.393701
+        if self.units == 'in':
+            if ppi is None:
+                return self
+            return self.amount * ppi
+        if self.units == 'px' or self.units == '':
+            return self.amount
+        if self.units == 'pt':
+            return self.amount * 1.3333
+        if self.units == 'pc':
+            return self.amount * 16.0
+        if self.units == 'em':
+            if font_size is None:
+                return self
+            return self.amount * float(font_size)
+        if self.units == 'ex':
+            if font_height is None:
+                return self
+            return self.amount * float(font_height)
+        if self.units == 'vw':
+            if viewbox is None:
+                return self
+            v = Viewbox(viewbox)
+            return self.amount * v.viewbox_width / 100.0
+        if self.units == 'vh':
+            if viewbox is None:
+                return self
+            v = Viewbox(viewbox)
+            return self.amount * v.viewbox_height / 100.0
+        if self.units == 'vmin':
+            if viewbox is None:
+                return self
+            v = Viewbox(viewbox)
+            m = min(v.viewbox_height, v.viewbox_height)
+            return self.amount * m / 100.0
+        if self.units == 'vmax':
+            if viewbox is None:
+                return self
+            v = Viewbox(viewbox)
+            m = max(v.viewbox_height, v.viewbox_height)
+            return self.amount * m / 100.0
+        try:
+            return float(self)
+        except ValueError:
+            return self
+
+
 class Distance(float):
     """CSS Distance defines as used in SVG"""
 
@@ -337,7 +618,7 @@ class Distance(float):
 
     @classmethod
     def parse(cls, distance_str, ppi=DEFAULT_PPI, default_distance=None,
-              font_size=12, font_height=12, viewport="0 0 100 100"):
+              font_size=12, font_height=12, viewbox="0 0 100 100"):
         """Convert svg length to set distances.
         96 is the typical pixels per inch.
         Default distance is the distance that 100% should equal.
@@ -368,19 +649,19 @@ class Distance(float):
         if distance_str.endswith('ex'):
             return cls(float(distance_str[:-2]) * float(font_height))
         if distance_str.endswith('vw'):
-            v = Viewbox(viewport)
+            v = Viewbox(viewbox)
             return cls(float(distance_str[:-2]) * v.viewbox_width / 100.0)
         if distance_str.endswith('vh'):
-            v = Viewbox(viewport)
+            v = Viewbox(viewbox)
             return cls(float(distance_str[:-2]) * v.viewbox_height / 100.0)
         if distance_str.endswith('vmin'):
-            v = Viewbox(viewport)
+            v = Viewbox(viewbox)
             m = min(v.viewbox_height, v.viewbox_height)
-            return cls(float(distance_str[:-2]) * m / 100.0)
+            return cls(float(distance_str[:-4]) * m / 100.0)
         if distance_str.endswith('vmax'):
-            v = Viewbox(viewport)
+            v = Viewbox(viewbox)
             m = max(v.viewbox_height, v.viewbox_height)
-            return cls(float(distance_str[:-2]) * m / 100.0)
+            return cls(float(distance_str[:-4]) * m / 100.0)
         return float(distance_str)
 
     @classmethod
@@ -1201,7 +1482,8 @@ class Matrix:
         elif len_args == 1:
             m = components[0]
             if isinstance(m, str):
-                self.parse(m, **kwargs)
+                self.parse(m)
+                self.reify(**kwargs)
             else:
                 self.a = m[0]
                 self.b = m[1]
@@ -1216,15 +1498,31 @@ class Matrix:
             self.d = components[3]
             self.e = components[4]
             self.f = components[5]
+            self.reify(**kwargs)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __eq__(self, other):
-        return other is not None and isinstance(other, Matrix) and \
-               abs(self.a - other.a) < 1e-12 and abs(self.b - other.b) < 1e-12 and \
-               abs(self.c - other.c) < 1e-12 and abs(self.d - other.d) < 1e-12 and \
-               abs(self.e - other.e) < 1e-12 and abs(self.f - other.f) < 1e-12
+        if other is None:
+            return False
+        if isinstance(other, str):
+            other = Matrix(other)
+        if not isinstance(other, Matrix):
+            return False
+        if abs(self.a - other.a) > 1e-12:
+            return False
+        if abs(self.b - other.b) > 1e-12:
+            return False
+        if abs(self.c - other.c) > 1e-12:
+            return False
+        if abs(self.d - other.d) > 1e-12:
+            return False
+        if self.e != other.e and abs(self.e - other.e) > 1e-12:
+            return False
+        if self.f != other.f and abs(self.f - other.f) > 1e-12:
+            return False
+        return True
 
     def __len__(self):
         return 6
@@ -1251,13 +1549,13 @@ class Matrix:
 
     def __getitem__(self, item):
         if item == 0:
-            return self.a
+            return float(self.a)
         elif item == 1:
-            return self.b
+            return float(self.b)
         elif item == 2:
-            return self.c
+            return float(self.c)
         elif item == 3:
-            return self.d
+            return float(self.d)
         elif item == 4:
             return self.e
         elif item == 5:
@@ -1281,7 +1579,7 @@ class Matrix:
         return "Matrix(%s, %s, %s, %s, %s, %s)" % \
                (number_str(self.a), number_str(self.b),
                 number_str(self.c), number_str(self.d),
-                number_str(self.e), number_str(self.f))
+                str(self.e), str(self.f))
 
     def __copy__(self):
         return Matrix(self.a, self.b, self.c, self.d, self.e, self.f)
@@ -1292,10 +1590,10 @@ class Matrix:
 
         :returns string representation of matrix.
         """
-        return "[%3f, %3f,\n %3f, %3f,   %3f, %3f]" % \
+        return "[%3f, %3f,\n %3f, %3f,   %s, %s]" % \
                (self.a, self.c, self.b, self.d, self.e, self.f)
 
-    def parse(self, transform_str, ppi=DEFAULT_PPI, width=1, height=1):
+    def parse(self, transform_str):
         """Parses the svg transform string.
 
         Transforms from SVG 1.1 have a smaller complete set of operations. Whereas in SVG 2.0 they gain
@@ -1323,18 +1621,18 @@ class Matrix:
                 self.pre_cat(*params)
             elif SVG_TRANSFORM_TRANSLATE == name:
                 try:
-                    x_param = Distance.parse(params[0], ppi=ppi, default_distance=width)
+                    x_param = Length(params[0])
                 except IndexError:
                     continue
                 try:
-                    y_param = Distance.parse(params[1], ppi=ppi, default_distance=height)
+                    y_param = Length(params[1])
                     self.pre_translate(x_param, y_param)
                 except IndexError:
                     self.pre_translate(x_param)
             elif SVG_TRANSFORM_TRANSLATE_X == name:
-                self.pre_translate(Distance.parse(params[0], ppi=ppi, default_distance=width), 0)
+                self.pre_translate(Length(params[0]), 0)
             elif SVG_TRANSFORM_TRANSLATE_Y == name:
-                self.pre_translate(0, Distance.parse(params[0], ppi=ppi, default_distance=height))
+                self.pre_translate(0, Length(params[0]))
             elif SVG_TRANSFORM_SCALE == name:
                 params = map(float, params)
                 self.pre_scale(*params)
@@ -1345,12 +1643,12 @@ class Matrix:
             elif SVG_TRANSFORM_ROTATE == name:
                 angle = Angle.parse(params[0])
                 try:
-                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
+                    x_param = Length(params[1])
                 except IndexError:
                     self.pre_rotate(angle)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
+                    y_param = Length(params[2])
                     self.pre_rotate(angle, x_param, y_param)
                 except IndexError:
                     self.pre_rotate(angle, x_param)
@@ -1358,40 +1656,60 @@ class Matrix:
                 angle_a = Angle.parse(params[0])
                 angle_b = Angle.parse(params[1])
                 try:
-                    x_param = Distance.parse(params[2], ppi=ppi, default_distance=width)
+                    x_param = Length(params[2])
                 except IndexError:
                     self.pre_skew(angle_a, angle_b)
                     continue
                 try:
-                    y_param = Distance.parse(params[3], ppi=ppi, default_distance=height)
+                    y_param = Length(params[3])
                     self.pre_skew(angle_a, angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew(angle_a, angle_b, x_param)
             elif SVG_TRANSFORM_SKEW_X == name:
                 angle_a = Angle.parse(params[0])
                 try:
-                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
+                    x_param = Length(params[1])
                 except IndexError:
                     self.pre_skew_x(angle_a)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
+                    y_param = Length(params[2])
                     self.pre_skew_x(angle_a, x_param, y_param)
                 except IndexError:
                     self.pre_skew_x(angle_a, x_param)
             elif SVG_TRANSFORM_SKEW_Y == name:
                 angle_b = Angle.parse(params[0])
                 try:
-                    x_param = Distance.parse(params[1], ppi=ppi, default_distance=width)
+                    x_param = Length(params[1])
                 except IndexError:
                     self.pre_skew_y(angle_b)
                     continue
                 try:
-                    y_param = Distance.parse(params[2], ppi=ppi, default_distance=height)
+                    y_param = Length(params[2])
                     self.pre_skew_y(angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew_y(angle_b, x_param)
         return self
+
+    def reify(self, ppi=None, relative_length=None, width=None, height=None,
+              font_size=None, font_height=None, viewbox=None):
+        """
+        Provides values to turn trans_x and trans_y values into user units floats rather
+        than Lengths by giving the required information to perform the conversions.
+        """
+
+        if width is None and relative_length is not None:
+            width = relative_length
+        if height is None and relative_length is not None:
+            height = relative_length
+
+        if isinstance(self.e, Length):
+            self.e = self.e.value(ppi=ppi, relative_length=width, font_size=font_size,
+                                  font_height=font_height, viewbox=viewbox)
+
+        if isinstance(self.f, Length):
+            self.f = self.f.value(ppi=ppi, relative_length=height, font_size=font_size,
+                                  font_height=font_height, viewbox=viewbox)
 
     def value_trans_x(self):
         return self.e
@@ -1400,16 +1718,16 @@ class Matrix:
         return self.f
 
     def value_scale_x(self):
-        return self.a
+        return float(self.a)
 
     def value_scale_y(self):
-        return self.d
+        return float(self.d)
 
     def value_skew_x(self):
-        return self.b
+        return float(self.b)
 
     def value_skew_y(self):
-        return self.c
+        return float(self.c)
 
     def reset(self):
         """Resets matrix to identity."""
@@ -1432,11 +1750,11 @@ class Matrix:
         det = self.a * m48s75 + self.c * m38s56 + 0 * m37s46
         inverse_det = 1.0 / float(det)
 
-        self.a = m48s75 * inverse_det
-        self.b = (0 * self.f - self.c * 1) * inverse_det
+        self.a = float(m48s75 * inverse_det)
+        self.b = float((0 * self.f - self.c * 1) * inverse_det)
         # self.g = (self.c * self.h - self.g * self.d) * inverse_det
-        self.c = m38s56 * inverse_det
-        self.d = (self.a * 1 - 0 * self.e) * inverse_det
+        self.c = float(m38s56 * inverse_det)
+        self.d = float((self.a * 1 - 0 * self.e) * inverse_det)
         # self.h = (self.c * self.g - self.a * self.h) * inverse_det
         self.e = m37s46 * inverse_det
         self.f = (0 * self.c - self.a * self.f) * inverse_det
@@ -1678,7 +1996,7 @@ class Matrix:
              s.b * m.c + s.d * m.d + s.f * 0, \
              s.b * m.e + s.d * m.f + s.f * 1
 
-        return r0[0], r1[0], r0[1], r1[1], r0[2], r1[2]
+        return float(r0[0]), float(r1[0]), float(r0[1]), float(r1[1]), r0[2], r1[2]
 
 
 class Transformable:

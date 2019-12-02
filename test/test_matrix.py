@@ -35,9 +35,11 @@ class TestPathMatrix(unittest.TestCase):
 
     def test_rotate_css_distance(self):
         matrix = Matrix("rotate(90deg,100cm,100cm)")
+        matrix.reify(ppi=DEFAULT_PPI)
         path = Path("M0,0z")
         path *= matrix
-        p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % Distance.parse("1cm"))
+        d = Length("1cm").value(ppi=DEFAULT_PPI)
+        p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % d)
         self.assertEqual(p2, path)
 
     def test_skew_single_value(self):
@@ -70,12 +72,12 @@ class TestPathMatrix(unittest.TestCase):
     def test_translate_css_value(self):
         m0 = Matrix("translate(50mm,5cm)")
         m1 = Matrix("translate(5cm,5cm)")
-        self.assertEqual(repr(m0), repr(m1))
+        self.assertEqual(m0, m1)
 
     def test_rotate_css_value(self):
-        m0 = Matrix("rotate(90deg, 50cm,50cm)")
-        m1 = Matrix("rotate(0.25turn, 500mm,500mm)")
-        self.assertEqual(repr(m0), repr(m1))
+        m0 = Matrix("rotate(90deg, 50cm,50cm)", ppi=DEFAULT_PPI)
+        m1 = Matrix("rotate(0.25turn, 500mm,500mm)", ppi=DEFAULT_PPI)
+        self.assertEqual(m0, m1)
 
     def test_transform_translate(self):
         matrix = Matrix("translate(5,4)")

@@ -349,9 +349,9 @@ class TestElementArcLength(unittest.TestCase):
 
     def test_arc_len_random_lines(self):
         """Test error vs. random arc"""
-        n = 5
+        n = 2
         error = 0
-        for i in range(5):
+        for i in range(n):
             arc = get_random_arc()
             length = arc._line_length()
             exact = arc._exact_length()
