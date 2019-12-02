@@ -11,6 +11,9 @@ class TestElementColor(unittest.TestCase):
         r0 = Color.parse('red')
         r1 = Color.parse('#F00')
         r2 = Color.parse('#FF0000')
+        print(repr(r0))
+        print(repr(r1))
+        print(repr(r2))
         self.assertEqual(r0, r1)
         self.assertEqual(r0, r2)
 

@@ -435,6 +435,20 @@ class Length:
             return self
         raise ValueError
 
+    def __abs__(self):
+        c = self.__copy__()
+        c.amount = abs(c.amount)
+        return c
+
+    def __le__(self, other):
+        return float(self).__le__(float(other))
+
+    def __ge__(self, other):
+        return float(self).__ge__(float(other))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __add__(self, other):
         if isinstance(other,(str, float,int)):
             other = Length(other)
@@ -718,7 +732,10 @@ class Color(int):
         return "Color.parse(\"%s\")" % (self.hex)
 
     def __eq__(self, other):
-        return other is not None and (self ^ other) & 0xFFFFFFFF == 0
+        if other is None:
+            return False
+        v = self ^ other
+        return v & 0xFFFFFFFF == 0
 
     def __ne__(self, other):
         return not self == other
@@ -1054,14 +1071,18 @@ class Color(int):
         if size == 8:
             return cls(int(h[:8], 16))
         elif size == 6:
-            s = 'ff{0}'.format(h[:6])
-            return cls(int(s, 16))
+            s = '{0}'.format(h[:6])
+            q = (~int(s, 16) & 0xFFFFFF)
+            v = -1 ^ q
+            return cls(v)
         elif size == 4:
             s = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]
             return cls(int(s, 16))
         elif size == 3:
-            s = 'ff{0}{0}{1}{1}{2}{2}'.format(h[0], h[1], h[2])
-            return cls(int(s, 16))
+            s = '{0}{0}{1}{1}{2}{2}'.format(h[0], h[1], h[2])
+            q = (~int(s, 16) & 0xFFFFFF)
+            v = -1 ^ q
+            return cls(v)
         return Color.rgb(0, 0, 0)
 
     @classmethod
@@ -1095,7 +1116,10 @@ class Color(int):
 
     @property
     def hex(self):
-        return '#%02x%02x%02x' % (self.red, self.green, self.blue)
+        if self.alpha != 0xFF:
+            return '#%02x%02x%02x' % (self.red, self.green, self.blue)
+        else:
+            return '#%02x%02x%02x%02x' % (self.alpha, self.red, self.green, self.blue)
 
 
 class Point:
