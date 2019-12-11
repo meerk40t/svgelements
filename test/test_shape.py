@@ -49,7 +49,7 @@ class TestElementShape(unittest.TestCase):
             'cy': "33.33"
         }
         e = Ellipse(values)
-        e2 = Ellipse((22.4, 33.33), 4, 8)
+        e2 = Ellipse(22.4, 33.33, 4, 8)
         self.assertEqual(e, e2)
         e3 = Ellipse()
         self.assertNotEqual(e, e3)
@@ -62,7 +62,7 @@ class TestElementShape(unittest.TestCase):
             'cy': "33.33"
         }
         e = Circle(values)
-        e2 = Circle((22.4, 33.33), 4)
+        e2 = Circle(22.4, 33.33, 4)
         self.assertEqual(e, e2)
         e3 = Circle()
         self.assertNotEqual(e, e3)
@@ -212,7 +212,7 @@ class TestElementShape(unittest.TestCase):
     def test_path_plus_shape(self):
         path = Path("M 0,0 z")
         path += Rect(0, 0, 1, 1)
-        self.assertEqual(path, "M0,0zM0,0h1v1h-1v-1z")
+        self.assertEqual(path, "M0,0zM0,0h1v1h-1z")
 
     def test_circle_not_equal_red_circle(self):
         shape1 = Circle()
@@ -242,12 +242,12 @@ class TestElementShape(unittest.TestCase):
     def test_circle_initialize(self):
         shapes = (
             Circle(),
-            Circle((0, 0)),
+            Circle(0, 0),
             Circle(center=(0, 0), r=1),
-            Circle("0,0", 1),
-            Ellipse("0,0", 1, 1),
-            Ellipse("0,0", rx=1, ry=1),
-            Ellipse((0, 0), 1, ry=1),
+            Circle("0px","0px", 1),
+            Ellipse("0","0", 1, 1),
+            Ellipse("0", "0", rx=1, ry=1),
+            Ellipse(0, 0, 1, ry=1),
             Circle(Circle()),
             Circle({"cx": 0, "cy": 0, "r": 1}),
             Ellipse({"cx": 0, "cy": 0, "rx": 1}),

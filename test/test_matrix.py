@@ -35,7 +35,7 @@ class TestPathMatrix(unittest.TestCase):
 
     def test_rotate_css_distance(self):
         matrix = Matrix("rotate(90deg,100cm,100cm)")
-        matrix.reify(ppi=DEFAULT_PPI)
+        matrix.render(ppi=DEFAULT_PPI)
         path = Path("M0,0z")
         path *= matrix
         d = Length("1cm").value(ppi=DEFAULT_PPI)

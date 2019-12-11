@@ -123,42 +123,42 @@ class TestElementArcLength(unittest.TestCase):
         y = sin(angle) * b
         arc0 = Arc(start=3.05 + 0j, radius=3.05 + 2.23j, rotation=0, sweep=1, arc=0, end=x + 1j * y)
 
-        ellipse = Ellipse((0, 0), 3.05, 2.23)
+        ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc1 = ellipse.arc_angle(0, Angle.degrees(50))
 
         self.assertEqual(arc0, arc1)
 
     def test_arc_solved_exact(self):
-        ellipse = Ellipse((0, 0), 3.05, 2.23)
+        ellipse = Ellipse(0.0, 0.0, 3.05, 2.23)
         arc = ellipse.arc_angle(0, Angle.degrees(50))
         arc *= "rotate(1)"
         exact = arc._exact_length()
-        self.assertAlmostEqual(exact, 2.5314195265536624417, delta=1e-15)
+        self.assertAlmostEqual(exact, 2.5314195265536624417, delta=1e-10)
 
     def test_arc_solved_integrated(self):
-        ellipse = Ellipse((0, 0), 3.05, 2.23)
+        ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc = ellipse.arc_angle(0, Angle.degrees(50))
         length_calculated = arc._integral_length()
         self.assertAlmostEqual(length_calculated, 2.5314195265536624417, delta=1e-4)
 
     def test_arc_solved_lines(self):
-        ellipse = Ellipse((0, 0), 3.05, 2.23)
+        ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc = ellipse.arc_angle(0, Angle.degrees(50))
         length_calculated = arc._line_length()
         self.assertAlmostEqual(length_calculated, 2.5314195265536624417, delta=1e-9)
 
     def test_arc_rotated_solved_exact(self):
-        ellipse = Ellipse((0, 0), 3.05, 2.23)
+        ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc = ellipse.arc_angle(Angle.degrees(180), Angle.degrees(180 - 50))
         exact = arc._exact_length()
         self.assertAlmostEqual(exact, 2.5314195265536624417)
 
     def test_arc_position_0_ortho(self):
-        arc = Ellipse(0, 3, 5).arc_angle(0, Angle.degrees(90))
+        arc = Ellipse(0, 0, 3, 5).arc_angle(0, Angle.degrees(90))
         self.assertEqual(arc.point(0), (3, 0))
 
     def test_arc_position_0_rotate(self):
-        arc = Ellipse(0, 3, 5).arc_angle(0, Angle.degrees(90))
+        arc = Ellipse(0, 0, 3, 5).arc_angle(0, Angle.degrees(90))
         arc *= "rotate(90deg)"
         p = arc.point(0)
         self.assertEqual(p, (0, 3))
@@ -232,13 +232,13 @@ class TestElementArcLength(unittest.TestCase):
         self.assertEqual(Arc(0, 1, 1e-10, 0, 1, 0, (0, 2e-10))._exact_length(), 2)
 
     def test_unit_matrix(self):
-        ellipse = Ellipse("20,20", 4, 8, "rotate(45deg)")
+        ellipse = Ellipse("20", "20", 4, 8, "rotate(45deg)")
         matrix = ellipse.unit_matrix()
         ellipse2 = Circle()
         ellipse2 *= matrix
         p1 = ellipse.point_at_t(1)
         p2 = ellipse2.point_at_t(1)
-        self.assertEqual(p1, p2)
+        self.assertAlmostEqual(p1, p2)
         self.assertEqual(ellipse, ellipse2)
 
     def test_arc_len_circle_shortcut(self):

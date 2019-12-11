@@ -134,9 +134,15 @@ REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATT
 REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
 REGEX_TRANSFORM_PARAMETER = re.compile('(%s)%s(%s)?' % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS))
 REGEX_COLOR_HEX = re.compile(r'^#?([0-9A-Fa-f]{3,8})$')
-REGEX_COLOR_RGB = re.compile(r'rgb\(\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*\)' % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
+REGEX_COLOR_RGB = re.compile(
+    r'rgba?\(\s*(%s)\s*,\s*(%s)\s*,\s*(%s)\s*(?:,\s*(%s)\s*)?\)' % (
+        PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
 REGEX_COLOR_RGB_PERCENT = re.compile(
-    r'rgb\(\s*(%s)%%\s*,\s*(%s)%%\s*,\s*(%s)%%\s*\)' % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
+    r'rgba?\(\s*(%s)%%\s*,\s*(%s)%%\s*,\s*(%s)%%\s*(?:,\s*(%s)\s*)?\)' % (
+        PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
+REGEX_COLOR_HSL = re.compile(
+    r'hsla?\(\s*(%s)\s*,\s*(%s)%%\s*,\s*(%s)%%\s*(?:,\s*(%s)\s*)?\)' % (
+        PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT))
 REGEX_LENGTH = re.compile('(%s)([A-Za-z%%]*)' % PATTERN_FLOAT)
 
 
@@ -324,19 +330,30 @@ class SVGPathTokens(PathTokens):
         pass
 
 
-def number_str(s):
-    s = "%.12f" % (s)
-    if '.' in s:
-        s = s.rstrip('0').rstrip('.')
-    return s
+class Length(object):
+    """
+    SVGLength as used in SVG
 
+    Length are lazy solving values. Several conversion values are typically unknown by default and length simply
+    stores that ambiguity. So we can have a length of 50% and without calling .value(relative_length=3000) it will
+    simply store as 50%. Likewise you can have discrete values like 30cm or 20in which have knowable discrete values
+    but are not knowable in pixels unless a PPI value is supplied. We can say .value(relative_length=30cm, PPI=96) and
+    solve this for a value like 12%. We can also convert values between knowable lengths. So 30cm in 300mm regardless
+    whether we know how to convert this to pixels. 0% is 0 in any units or relative values. We can convert pixels to
+    pc and pt without issue. We can convert vh, vw, vmax, vmin values if we know viewbox values. We can convert em
+    values if we know the font_size. We can add values together if they are convertible units. Length("20in") + "3cm".
 
-class Length:
-    """SVGLength as used in SVG"""
+    If .value() cannot solve for the value with the given information then it will return a Length value. If it can
+    be solved it will return a float.
+    """
 
     def __init__(self, *args, **kwargs):
         if len(args) == 1:
             value = args[0]
+            if value is None:
+                self.amount = None
+                self.units = None
+                return
             s = str(value)
             for m in REGEX_LENGTH.findall(s):
                 self.amount = float(m[0])
@@ -350,23 +367,36 @@ class Length:
         self.units = ''
 
     def __float__(self):
+        if self.amount is None:
+            return None
+        if self.units == 'pt':
+            return self.amount * 1.3333
+        elif self.units == 'pc':
+            return self.amount * 16.0
         return self.amount
 
     def __imul__(self, other):
         if isinstance(other, (int, float)):
             self.amount *= other
             return self
+        if self.amount == 0.0:
+            return 0.0
         if isinstance(other, str):
             other = Length(other)
         if isinstance(other, Length):
-            if self.units == "%":
+            if other.amount == 0.0:
+                self.amount = 0.0
+                return self
+            if self.units == other.units:
+                self.amount *= other.amount
+                return self
+            if self.units == '%':
                 self.units = other.units
-                self.amount = other.amount * (self.amount / 100.0)
+                self.amount = self.amount * other.amount / 100.0
                 return self
-            elif other.units == "%":
-                self.amount *= other.amount / 100.0
-                return self
-        return NotImplemented
+            elif other.units == '%':
+                self.amount = self.amount * other.amount / 100.0
+        raise ValueError
 
     def __iadd__(self, other):
         if not isinstance(other, Length):
@@ -379,10 +409,6 @@ class Length:
             self.units = other.units
             return self
         if other.amount == 0:
-            return self
-        if other.units == '%':
-            p = other.amount / 100.0
-            self.amount += (self.amount * p)
             return self
         if self.units == 'px' or self.units == '':
             if other.units == 'px' or other.units == '':
@@ -441,6 +467,11 @@ class Length:
         c.amount = abs(c.amount)
         return c
 
+    def __div__(self, other):
+        c = self.__copy__()
+        c *= 1.0 / other
+        return c
+
     def __le__(self, other):
         return float(self).__le__(float(other))
 
@@ -451,7 +482,7 @@ class Length:
         return not self.__eq__(other)
 
     def __add__(self, other):
-        if isinstance(other,(str, float,int)):
+        if isinstance(other, (str, float, int)):
             other = Length(other)
         c = self.__copy__()
         c += other
@@ -499,24 +530,31 @@ class Length:
         return "Length(\"%s\")" % (str(self))
 
     def __str__(self):
-        return "%s%s" % (number_str(self.amount), self.units)
+        if self.amount is None:
+            return SVG_VALUE_NONE
+        return "%s%s" % (Length.str(self.amount), self.units)
 
     def __eq__(self, other):
+        if other is None:
+            return False
         s = self.in_pixels()
         if isinstance(other, (float, int)):
-            return s == other
+            if s is not None:
+                return abs(s - other) <= ERROR
+            else:
+                return other == 0 and self.amount == 0
         if isinstance(other, str):
             other = Length(other)
         if self.amount == other.amount and self.units == other.units:
             return True
         if s is not None:
             o = self.in_pixels()
-            if o == s:
+            if abs(s - o) <= ERROR:
                 return True
         s = self.in_inches()
         if s is not None:
             o = self.in_inches()
-            if s == o:
+            if abs(s - o) <= ERROR:
                 return True
         return False
 
@@ -546,30 +584,34 @@ class Length:
         value = self.value(ppi=ppi, relative_length=relative_length, font_size=font_size,
                            font_height=font_height, viewbox=viewbox)
         v = value / (ppi * 0.0393701)
-        return Length("%smm" % (number_str(v)))
+        return Length("%smm" % (Length.str(v)))
 
     def to_cm(self, ppi=DEFAULT_PPI, relative_length=None, font_size=None, font_height=None, viewbox=None):
         value = self.value(ppi=ppi, relative_length=relative_length,
                            font_size=font_size, font_height=font_height, viewbox=viewbox)
         v = value / (ppi * 0.393701)
-        return Length("%scm" % (number_str(v)))
+        return Length("%scm" % (Length.str(v)))
 
     def to_inch(self, ppi=DEFAULT_PPI, relative_length=None, font_size=None, font_height=None, viewbox=None):
         value = self.value(ppi=ppi, relative_length=relative_length,
                            font_size=font_size, font_height=font_height, viewbox=viewbox)
         v = value / ppi
-        return Length("%sin" % (number_str(v)))
+        return Length("%sin" % (Length.str(v)))
 
     def value(self, ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None):
+        if self.amount is None:
+            return None
         if self.units == '%':
             if relative_length is None:
                 return self
             fraction = self.amount / 100.0
-            if isinstance(relative_length, (float,int)):
-                return fraction*relative_length
+            if isinstance(relative_length, (float, int)):
+                return fraction * relative_length
             elif isinstance(relative_length, (str, Length)):
                 length = relative_length * self
-                return length.value(ppi=ppi, font_size=font_size, font_height=font_height, viewbox=viewbox)
+                if isinstance(length, Length):
+                    return length.value(ppi=ppi, font_size=font_size, font_height=font_height, viewbox=viewbox)
+                return length
             return self
         if self.units == 'mm':
             if ppi is None:
@@ -624,125 +666,103 @@ class Length:
         except ValueError:
             return self
 
-
-class Distance(float):
-    """CSS Distance defines as used in SVG"""
-
-    def __repr__(self):
-        return "Distance(%s)" % number_str(self)
-
-    @classmethod
-    def parse(cls, distance_str, ppi=DEFAULT_PPI, default_distance=None,
-              font_size=12, font_height=12, viewbox="0 0 100 100"):
-        """Convert svg length to set distances.
-        96 is the typical pixels per inch.
-        Default distance is the distance that 100% should equal.
-        Font_size is needed to convert em units."""
-
-        if distance_str is None:
-            return None
-        if not isinstance(distance_str, str):
-            return float(distance_str)
-        if distance_str.endswith('%'):
-            if default_distance is None:
-                return distance_str
-            return Distance.percent(float(distance_str[:-1]), default_distance)
-        if distance_str.endswith('mm'):
-            return Distance.mm(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('cm'):
-            return Distance.cm(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('in'):
-            return Distance.inch(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('px'):
-            return Distance.px(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('pt'):
-            return Distance.pt(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('pc'):
-            return Distance.pc(float(distance_str[:-2]), ppi=ppi)
-        if distance_str.endswith('em'):
-            return cls(float(distance_str[:-2]) * float(font_size))
-        if distance_str.endswith('ex'):
-            return cls(float(distance_str[:-2]) * float(font_height))
-        if distance_str.endswith('vw'):
-            v = Viewbox(viewbox)
-            return cls(float(distance_str[:-2]) * v.viewbox_width / 100.0)
-        if distance_str.endswith('vh'):
-            v = Viewbox(viewbox)
-            return cls(float(distance_str[:-2]) * v.viewbox_height / 100.0)
-        if distance_str.endswith('vmin'):
-            v = Viewbox(viewbox)
-            m = min(v.viewbox_height, v.viewbox_height)
-            return cls(float(distance_str[:-4]) * m / 100.0)
-        if distance_str.endswith('vmax'):
-            v = Viewbox(viewbox)
-            m = max(v.viewbox_height, v.viewbox_height)
-            return cls(float(distance_str[:-4]) * m / 100.0)
-        return float(distance_str)
-
-    @classmethod
-    def percent(cls, value, default_distance=1):
-        return cls(value / 100.0 * default_distance)
-
-    @classmethod
-    def mm(cls, value, ppi=DEFAULT_PPI):
-        return cls(value * ppi * 0.0393701)
-
-    @classmethod
-    def cm(cls, value, ppi=DEFAULT_PPI):
-        return cls(value * ppi * 0.393701)
-
-    @classmethod
-    def inch(cls, value, ppi=DEFAULT_PPI):
-        return cls(value * ppi)
-
-    @classmethod
-    def px(cls, value, ppi=DEFAULT_PPI):
-        return cls(value)
-
-    @classmethod
-    def pt(cls, value, ppi=DEFAULT_PPI):
-        return cls(value * 1.3333)
-
-    @classmethod
-    def pc(cls, value, ppi=DEFAULT_PPI):
-        return cls(value * 16)
-
-    @property
-    def as_mm(self, ppi=DEFAULT_PPI):
-        return float(self) / (ppi * 0.0393701)
-
-    @property
-    def as_cm(self, ppi=DEFAULT_PPI):
-        return float(self) / (ppi * 0.393701)
-
-    @property
-    def as_inch(self, ppi=DEFAULT_PPI):
-        return float(self) / ppi
+    @staticmethod
+    def str(s):
+        if isinstance(s, Length):
+            if s.units == '':
+                s = s.amount
+            else:
+                return str(Length)
+        s = "%.12f" % (s)
+        if '.' in s:
+            s = s.rstrip('0').rstrip('.')
+        return s
 
 
-class Color(int):
+class Color(object):
     """
     SVG Color Parsing
     defining predefined colors permitted by svg: https://www.w3.org/TR/SVG11/types.html#ColorKeywords
     """
 
+    def __init__(self, *args):
+        if len(args) == 1:
+            v = args[0]
+            if isinstance(v, Color):
+                self.value = v.value
+            elif isinstance(v, int):
+                self.value = v
+            else:
+                self.value = Color.parse(v)
+        elif len(args) == 3:
+            r = args[0]
+            g = args[1]
+            b = args[2]
+            self.value = Color.rgb_to_int(r, g, b)
+        elif len(args) == 4:
+            r = args[0]
+            g = args[1]
+            b = args[2]
+            opacity = args[3] / 255.0
+            self.value = Color.rgb_to_int(r, g, b, opacity)
+        else:
+            self.value = 0
+
+    def __int__(self):
+        return self.value
+
     def __str__(self):
         return self.hex
 
     def __repr__(self):
-        return "Color.parse(\"%s\")" % (self.hex)
+        return "Color(\'%s\')" % (self.hex)
 
     def __eq__(self, other):
+        if other is self:
+            return True
         if other is None:
             return False
-        v = self ^ other
+        if isinstance(other, str):
+            other = Color(other).value
+        if isinstance(other, Color):
+            other = other.value
+        v = self.value ^ other
         return v & 0xFFFFFFFF == 0
 
     def __ne__(self, other):
         return not self == other
 
-    @classmethod
-    def parse(cls, color_string):
+    @staticmethod
+    def rgb_to_int(r, g, b, opacity=1.0):
+        if opacity > 1:
+            opacity = 1.0
+        if opacity < 0:
+            opacity = 0
+        r = Color.crimp(r)
+        g = Color.crimp(g)
+        b = Color.crimp(b)
+        a = Color.crimp(opacity * 255.0)
+        if a & 0x80 != 0:
+            a ^= 0x80
+            a <<= 24
+            a = ~a
+            a ^= 0x7FFFFFFF
+        else:
+            a <<= 24
+        r <<= 16
+        g <<= 8
+        c = r | g | b | a
+        return c
+
+    @staticmethod
+    def hsl_to_int(h, s, l, opacity=1.0):
+        c = Color()
+        c.opacity = opacity
+        c.hsl = h,s,l
+        return c.value
+
+    @staticmethod
+    def parse(color_string):
         """Parse SVG color, will return a set value."""
         if color_string is None or color_string == SVG_VALUE_NONE:
             return None
@@ -755,372 +775,685 @@ class Color(int):
         match = REGEX_COLOR_RGB_PERCENT.match(color_string)
         if match:
             return Color.parse_color_rgbp(match.groups())
+        match = REGEX_COLOR_HSL.match(color_string)
+        if match:
+            return Color.parse_color_hsl(match.groups())
         return Color.parse_color_lookup(color_string)
 
-    @classmethod
-    def rgb(cls, r, g, b):
-        r <<= 16
-        g <<= 8
-        return cls(0xFFFFFF ^ ~r ^ ~g ^ ~b)
-
-    @classmethod
-    def parse_color_lookup(cls, v):
+    @staticmethod
+    def parse_color_lookup(v):
         """Parse SVG Color by Keyword on dictionary lookup"""
+        if not isinstance(v, str):
+            return Color.rgb_to_int(0, 0, 0)
+        else:
+            v = v.replace(' ', '').lower()
+        if v == "transparent":
+            return Color.rgb_to_int(0, 0, 0, 0.0)
         if v == "aliceblue":
-            return Color.rgb(250, 248, 255)
+            return Color.rgb_to_int(250, 248, 255)
         if v == "aliceblue":
-            return Color.rgb(240, 248, 255)
+            return Color.rgb_to_int(240, 248, 255)
         if v == "antiquewhite":
-            return Color.rgb(250, 235, 215)
+            return Color.rgb_to_int(250, 235, 215)
         if v == "aqua":
-            return Color.rgb(0, 255, 255)
+            return Color.rgb_to_int(0, 255, 255)
         if v == "aquamarine":
-            return Color.rgb(127, 255, 212)
+            return Color.rgb_to_int(127, 255, 212)
         if v == "azure":
-            return Color.rgb(240, 255, 255)
+            return Color.rgb_to_int(240, 255, 255)
         if v == "beige":
-            return Color.rgb(245, 245, 220)
+            return Color.rgb_to_int(245, 245, 220)
         if v == "bisque":
-            return Color.rgb(255, 228, 196)
+            return Color.rgb_to_int(255, 228, 196)
         if v == "black":
-            return Color.rgb(0, 0, 0)
+            return Color.rgb_to_int(0, 0, 0)
         if v == "blanchedalmond":
-            return Color.rgb(255, 235, 205)
+            return Color.rgb_to_int(255, 235, 205)
         if v == "blue":
-            return Color.rgb(0, 0, 255)
+            return Color.rgb_to_int(0, 0, 255)
         if v == "blueviolet":
-            return Color.rgb(138, 43, 226)
+            return Color.rgb_to_int(138, 43, 226)
         if v == "brown":
-            return Color.rgb(165, 42, 42)
+            return Color.rgb_to_int(165, 42, 42)
         if v == "burlywood":
-            return Color.rgb(222, 184, 135)
+            return Color.rgb_to_int(222, 184, 135)
         if v == "cadetblue":
-            return Color.rgb(95, 158, 160)
+            return Color.rgb_to_int(95, 158, 160)
         if v == "chartreuse":
-            return Color.rgb(127, 255, 0)
+            return Color.rgb_to_int(127, 255, 0)
         if v == "chocolate":
-            return Color.rgb(210, 105, 30)
+            return Color.rgb_to_int(210, 105, 30)
         if v == "coral":
-            return Color.rgb(255, 127, 80)
+            return Color.rgb_to_int(255, 127, 80)
         if v == "cornflowerblue":
-            return Color.rgb(100, 149, 237)
+            return Color.rgb_to_int(100, 149, 237)
         if v == "cornsilk":
-            return Color.rgb(255, 248, 220)
+            return Color.rgb_to_int(255, 248, 220)
         if v == "crimson":
-            return Color.rgb(220, 20, 60)
+            return Color.rgb_to_int(220, 20, 60)
         if v == "cyan":
-            return Color.rgb(0, 255, 255)
+            return Color.rgb_to_int(0, 255, 255)
         if v == "darkblue":
-            return Color.rgb(0, 0, 139)
+            return Color.rgb_to_int(0, 0, 139)
         if v == "darkcyan":
-            return Color.rgb(0, 139, 139)
+            return Color.rgb_to_int(0, 139, 139)
         if v == "darkgoldenrod":
-            return Color.rgb(184, 134, 11)
+            return Color.rgb_to_int(184, 134, 11)
         if v == "darkgray":
-            return Color.rgb(169, 169, 169)
+            return Color.rgb_to_int(169, 169, 169)
         if v == "darkgreen":
-            return Color.rgb(0, 100, 0)
+            return Color.rgb_to_int(0, 100, 0)
         if v == "darkgrey":
-            return Color.rgb(169, 169, 169)
+            return Color.rgb_to_int(169, 169, 169)
         if v == "darkkhaki":
-            return Color.rgb(189, 183, 107)
+            return Color.rgb_to_int(189, 183, 107)
         if v == "darkmagenta":
-            return Color.rgb(139, 0, 139)
+            return Color.rgb_to_int(139, 0, 139)
         if v == "darkolivegreen":
-            return Color.rgb(85, 107, 47)
+            return Color.rgb_to_int(85, 107, 47)
         if v == "darkorange":
-            return Color.rgb(255, 140, 0)
+            return Color.rgb_to_int(255, 140, 0)
         if v == "darkorchid":
-            return Color.rgb(153, 50, 204)
+            return Color.rgb_to_int(153, 50, 204)
         if v == "darkred":
-            return Color.rgb(139, 0, 0)
+            return Color.rgb_to_int(139, 0, 0)
         if v == "darksalmon":
-            return Color.rgb(233, 150, 122)
+            return Color.rgb_to_int(233, 150, 122)
         if v == "darkseagreen":
-            return Color.rgb(143, 188, 143)
+            return Color.rgb_to_int(143, 188, 143)
         if v == "darkslateblue":
-            return Color.rgb(72, 61, 139)
+            return Color.rgb_to_int(72, 61, 139)
         if v == "darkslategray":
-            return Color.rgb(47, 79, 79)
+            return Color.rgb_to_int(47, 79, 79)
         if v == "darkslategrey":
-            return Color.rgb(47, 79, 79)
+            return Color.rgb_to_int(47, 79, 79)
         if v == "darkturquoise":
-            return Color.rgb(0, 206, 209)
+            return Color.rgb_to_int(0, 206, 209)
         if v == "darkviolet":
-            return Color.rgb(148, 0, 211)
+            return Color.rgb_to_int(148, 0, 211)
         if v == "deeppink":
-            return Color.rgb(255, 20, 147)
+            return Color.rgb_to_int(255, 20, 147)
         if v == "deepskyblue":
-            return Color.rgb(0, 191, 255)
+            return Color.rgb_to_int(0, 191, 255)
         if v == "dimgray":
-            return Color.rgb(105, 105, 105)
+            return Color.rgb_to_int(105, 105, 105)
         if v == "dimgrey":
-            return Color.rgb(105, 105, 105)
+            return Color.rgb_to_int(105, 105, 105)
         if v == "dodgerblue":
-            return Color.rgb(30, 144, 255)
+            return Color.rgb_to_int(30, 144, 255)
         if v == "firebrick":
-            return Color.rgb(178, 34, 34)
+            return Color.rgb_to_int(178, 34, 34)
         if v == "floralwhite":
-            return Color.rgb(255, 250, 240)
+            return Color.rgb_to_int(255, 250, 240)
         if v == "forestgreen":
-            return Color.rgb(34, 139, 34)
+            return Color.rgb_to_int(34, 139, 34)
         if v == "fuchsia":
-            return Color.rgb(255, 0, 255)
+            return Color.rgb_to_int(255, 0, 255)
         if v == "gainsboro":
-            return Color.rgb(220, 220, 220)
+            return Color.rgb_to_int(220, 220, 220)
         if v == "ghostwhite":
-            return Color.rgb(248, 248, 255)
+            return Color.rgb_to_int(248, 248, 255)
         if v == "gold":
-            return Color.rgb(255, 215, 0)
+            return Color.rgb_to_int(255, 215, 0)
         if v == "goldenrod":
-            return Color.rgb(218, 165, 32)
+            return Color.rgb_to_int(218, 165, 32)
         if v == "gray":
-            return Color.rgb(128, 128, 128)
+            return Color.rgb_to_int(128, 128, 128)
         if v == "grey":
-            return Color.rgb(128, 128, 128)
+            return Color.rgb_to_int(128, 128, 128)
         if v == "green":
-            return Color.rgb(0, 128, 0)
+            return Color.rgb_to_int(0, 128, 0)
         if v == "greenyellow":
-            return Color.rgb(173, 255, 47)
+            return Color.rgb_to_int(173, 255, 47)
         if v == "honeydew":
-            return Color.rgb(240, 255, 240)
+            return Color.rgb_to_int(240, 255, 240)
         if v == "hotpink":
-            return Color.rgb(255, 105, 180)
+            return Color.rgb_to_int(255, 105, 180)
         if v == "indianred":
-            return Color.rgb(205, 92, 92)
+            return Color.rgb_to_int(205, 92, 92)
         if v == "indigo":
-            return Color.rgb(75, 0, 130)
+            return Color.rgb_to_int(75, 0, 130)
         if v == "ivory":
-            return Color.rgb(255, 255, 240)
+            return Color.rgb_to_int(255, 255, 240)
         if v == "khaki":
-            return Color.rgb(240, 230, 140)
+            return Color.rgb_to_int(240, 230, 140)
         if v == "lavender":
-            return Color.rgb(230, 230, 250)
+            return Color.rgb_to_int(230, 230, 250)
         if v == "lavenderblush":
-            return Color.rgb(255, 240, 245)
+            return Color.rgb_to_int(255, 240, 245)
         if v == "lawngreen":
-            return Color.rgb(124, 252, 0)
+            return Color.rgb_to_int(124, 252, 0)
         if v == "lemonchiffon":
-            return Color.rgb(255, 250, 205)
+            return Color.rgb_to_int(255, 250, 205)
         if v == "lightblue":
-            return Color.rgb(173, 216, 230)
+            return Color.rgb_to_int(173, 216, 230)
         if v == "lightcoral":
-            return Color.rgb(240, 128, 128)
+            return Color.rgb_to_int(240, 128, 128)
         if v == "lightcyan":
-            return Color.rgb(224, 255, 255)
+            return Color.rgb_to_int(224, 255, 255)
         if v == "lightgoldenrodyellow":
-            return Color.rgb(250, 250, 210)
+            return Color.rgb_to_int(250, 250, 210)
         if v == "lightgray":
-            return Color.rgb(211, 211, 211)
+            return Color.rgb_to_int(211, 211, 211)
         if v == "lightgreen":
-            return Color.rgb(144, 238, 144)
+            return Color.rgb_to_int(144, 238, 144)
         if v == "lightgrey":
-            return Color.rgb(211, 211, 211)
+            return Color.rgb_to_int(211, 211, 211)
         if v == "lightpink":
-            return Color.rgb(255, 182, 193)
+            return Color.rgb_to_int(255, 182, 193)
         if v == "lightsalmon":
-            return Color.rgb(255, 160, 122)
+            return Color.rgb_to_int(255, 160, 122)
         if v == "lightseagreen":
-            return Color.rgb(32, 178, 170)
+            return Color.rgb_to_int(32, 178, 170)
         if v == "lightskyblue":
-            return Color.rgb(135, 206, 250)
+            return Color.rgb_to_int(135, 206, 250)
         if v == "lightslategray":
-            return Color.rgb(119, 136, 153)
+            return Color.rgb_to_int(119, 136, 153)
         if v == "lightslategrey":
-            return Color.rgb(119, 136, 153)
+            return Color.rgb_to_int(119, 136, 153)
         if v == "lightsteelblue":
-            return Color.rgb(176, 196, 222)
+            return Color.rgb_to_int(176, 196, 222)
         if v == "lightyellow":
-            return Color.rgb(255, 255, 224)
+            return Color.rgb_to_int(255, 255, 224)
         if v == "lime":
-            return Color.rgb(0, 255, 0)
+            return Color.rgb_to_int(0, 255, 0)
         if v == "limegreen":
-            return Color.rgb(50, 205, 50)
+            return Color.rgb_to_int(50, 205, 50)
         if v == "linen":
-            return Color.rgb(250, 240, 230)
+            return Color.rgb_to_int(250, 240, 230)
         if v == "magenta":
-            return Color.rgb(255, 0, 255)
+            return Color.rgb_to_int(255, 0, 255)
         if v == "maroon":
-            return Color.rgb(128, 0, 0)
+            return Color.rgb_to_int(128, 0, 0)
         if v == "mediumaquamarine":
-            return Color.rgb(102, 205, 170)
+            return Color.rgb_to_int(102, 205, 170)
         if v == "mediumblue":
-            return Color.rgb(0, 0, 205)
+            return Color.rgb_to_int(0, 0, 205)
         if v == "mediumorchid":
-            return Color.rgb(186, 85, 211)
+            return Color.rgb_to_int(186, 85, 211)
         if v == "mediumpurple":
-            return Color.rgb(147, 112, 219)
+            return Color.rgb_to_int(147, 112, 219)
         if v == "mediumseagreen":
-            return Color.rgb(60, 179, 113)
+            return Color.rgb_to_int(60, 179, 113)
         if v == "mediumslateblue":
-            return Color.rgb(123, 104, 238)
+            return Color.rgb_to_int(123, 104, 238)
         if v == "mediumspringgreen":
-            return Color.rgb(0, 250, 154)
+            return Color.rgb_to_int(0, 250, 154)
         if v == "mediumturquoise":
-            return Color.rgb(72, 209, 204)
+            return Color.rgb_to_int(72, 209, 204)
         if v == "mediumvioletred":
-            return Color.rgb(199, 21, 133)
+            return Color.rgb_to_int(199, 21, 133)
         if v == "midnightblue":
-            return Color.rgb(25, 25, 112)
+            return Color.rgb_to_int(25, 25, 112)
         if v == "mintcream":
-            return Color.rgb(245, 255, 250)
+            return Color.rgb_to_int(245, 255, 250)
         if v == "mistyrose":
-            return Color.rgb(255, 228, 225)
+            return Color.rgb_to_int(255, 228, 225)
         if v == "moccasin":
-            return Color.rgb(255, 228, 181)
+            return Color.rgb_to_int(255, 228, 181)
         if v == "navajowhite":
-            return Color.rgb(255, 222, 173)
+            return Color.rgb_to_int(255, 222, 173)
         if v == "navy":
-            return Color.rgb(0, 0, 128)
+            return Color.rgb_to_int(0, 0, 128)
         if v == "oldlace":
-            return Color.rgb(253, 245, 230)
+            return Color.rgb_to_int(253, 245, 230)
         if v == "olive":
-            return Color.rgb(128, 128, 0)
+            return Color.rgb_to_int(128, 128, 0)
         if v == "olivedrab":
-            return Color.rgb(107, 142, 35)
+            return Color.rgb_to_int(107, 142, 35)
         if v == "orange":
-            return Color.rgb(255, 165, 0)
+            return Color.rgb_to_int(255, 165, 0)
         if v == "orangered":
-            return Color.rgb(255, 69, 0)
+            return Color.rgb_to_int(255, 69, 0)
         if v == "orchid":
-            return Color.rgb(218, 112, 214)
+            return Color.rgb_to_int(218, 112, 214)
         if v == "palegoldenrod":
-            return Color.rgb(238, 232, 170)
+            return Color.rgb_to_int(238, 232, 170)
         if v == "palegreen":
-            return Color.rgb(152, 251, 152)
+            return Color.rgb_to_int(152, 251, 152)
         if v == "paleturquoise":
-            return Color.rgb(175, 238, 238)
+            return Color.rgb_to_int(175, 238, 238)
         if v == "palevioletred":
-            return Color.rgb(219, 112, 147)
+            return Color.rgb_to_int(219, 112, 147)
         if v == "papayawhip":
-            return Color.rgb(255, 239, 213)
+            return Color.rgb_to_int(255, 239, 213)
         if v == "peachpuff":
-            return Color.rgb(255, 218, 185)
+            return Color.rgb_to_int(255, 218, 185)
         if v == "peru":
-            return Color.rgb(205, 133, 63)
+            return Color.rgb_to_int(205, 133, 63)
         if v == "pink":
-            return Color.rgb(255, 192, 203)
+            return Color.rgb_to_int(255, 192, 203)
         if v == "plum":
-            return Color.rgb(221, 160, 221)
+            return Color.rgb_to_int(221, 160, 221)
         if v == "powderblue":
-            return Color.rgb(176, 224, 230)
+            return Color.rgb_to_int(176, 224, 230)
         if v == "purple":
-            return Color.rgb(128, 0, 128)
+            return Color.rgb_to_int(128, 0, 128)
         if v == "red":
-            return Color.rgb(255, 0, 0)
+            return Color.rgb_to_int(255, 0, 0)
         if v == "rosybrown":
-            return Color.rgb(188, 143, 143)
+            return Color.rgb_to_int(188, 143, 143)
         if v == "royalblue":
-            return Color.rgb(65, 105, 225)
+            return Color.rgb_to_int(65, 105, 225)
         if v == "saddlebrown":
-            return Color.rgb(139, 69, 19)
+            return Color.rgb_to_int(139, 69, 19)
         if v == "salmon":
-            return Color.rgb(250, 128, 114)
+            return Color.rgb_to_int(250, 128, 114)
         if v == "sandybrown":
-            return Color.rgb(244, 164, 96)
+            return Color.rgb_to_int(244, 164, 96)
         if v == "seagreen":
-            return Color.rgb(46, 139, 87)
+            return Color.rgb_to_int(46, 139, 87)
         if v == "seashell":
-            return Color.rgb(255, 245, 238)
+            return Color.rgb_to_int(255, 245, 238)
         if v == "sienna":
-            return Color.rgb(160, 82, 45)
+            return Color.rgb_to_int(160, 82, 45)
         if v == "silver":
-            return Color.rgb(192, 192, 192)
+            return Color.rgb_to_int(192, 192, 192)
         if v == "skyblue":
-            return Color.rgb(135, 206, 235)
+            return Color.rgb_to_int(135, 206, 235)
         if v == "slateblue":
-            return Color.rgb(106, 90, 205)
+            return Color.rgb_to_int(106, 90, 205)
         if v == "slategray":
-            return Color.rgb(112, 128, 144)
+            return Color.rgb_to_int(112, 128, 144)
         if v == "slategrey":
-            return Color.rgb(112, 128, 144)
+            return Color.rgb_to_int(112, 128, 144)
         if v == "snow":
-            return Color.rgb(255, 250, 250)
+            return Color.rgb_to_int(255, 250, 250)
         if v == "springgreen":
-            return Color.rgb(0, 255, 127)
+            return Color.rgb_to_int(0, 255, 127)
         if v == "steelblue":
-            return Color.rgb(70, 130, 180)
+            return Color.rgb_to_int(70, 130, 180)
         if v == "tan":
-            return Color.rgb(210, 180, 140)
+            return Color.rgb_to_int(210, 180, 140)
         if v == "teal":
-            return Color.rgb(0, 128, 128)
+            return Color.rgb_to_int(0, 128, 128)
         if v == "thistle":
-            return Color.rgb(216, 191, 216)
+            return Color.rgb_to_int(216, 191, 216)
         if v == "tomato":
-            return Color.rgb(255, 99, 71)
+            return Color.rgb_to_int(255, 99, 71)
         if v == "turquoise":
-            return Color.rgb(64, 224, 208)
+            return Color.rgb_to_int(64, 224, 208)
         if v == "violet":
-            return Color.rgb(238, 130, 238)
+            return Color.rgb_to_int(238, 130, 238)
         if v == "wheat":
-            return Color.rgb(245, 222, 179)
+            return Color.rgb_to_int(245, 222, 179)
         if v == "white":
-            return Color.rgb(255, 255, 255)
+            return Color.rgb_to_int(255, 255, 255)
         if v == "whitesmoke":
-            return Color.rgb(245, 245, 245)
+            return Color.rgb_to_int(245, 245, 245)
         if v == "yellow":
-            return Color.rgb(255, 255, 0)
+            return Color.rgb_to_int(255, 255, 0)
         if v == "yellowgreen":
-            return Color.rgb(154, 205, 50)
-        return Color.rgb(0, 0, 0)
+            return Color.rgb_to_int(154, 205, 50)
+        return Color.rgb_to_int(0, 0, 0)
 
-    @classmethod
-    def parse_color_hex(cls, hex_string):
+    @staticmethod
+    def parse_color_hex(hex_string):
         """Parse SVG Color by Hex String"""
         h = hex_string.lstrip('#')
         size = len(h)
         if size == 8:
-            return cls(int(h[:8], 16))
+            return int(h[:8], 16)
         elif size == 6:
             s = '{0}'.format(h[:6])
             q = (~int(s, 16) & 0xFFFFFF)
             v = -1 ^ q
-            return cls(v)
+            return v
         elif size == 4:
             s = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]
-            return cls(int(s, 16))
+            return int(s, 16)
         elif size == 3:
             s = '{0}{0}{1}{1}{2}{2}'.format(h[0], h[1], h[2])
             q = (~int(s, 16) & 0xFFFFFF)
             v = -1 ^ q
-            return cls(v)
-        return Color.rgb(0, 0, 0)
+            return v
+        return Color.rgb_to_int(0, 0, 0)
 
-    @classmethod
-    def parse_color_rgb(cls, values):
+    @staticmethod
+    def parse_color_rgb(values):
         """Parse SVG Color, RGB value declarations """
-        int_values = list(map(int, values))
-        return Color.rgb(int_values[0], int_values[1], int_values[2])
+        r = int(values[0])
+        g = int(values[1])
+        b = int(values[2])
+        if values[3] is not None:
+            opacity = float(values[3])
+        else:
+            opacity = 1
+        return Color.rgb_to_int(r, g, b, opacity)
 
-    @classmethod
-    def parse_color_rgbp(cls, values):
+    @staticmethod
+    def parse_color_rgbp(values):
         """Parse SVG color, RGB percent value declarations"""
         ratio = 255.0 / 100.0
-        values = list(map(float, values))
-        return Color.rgb(int(values[0] * ratio), int(values[1] * ratio), int(values[2] * ratio))
+        r = round(float(values[0]) * ratio)
+        g = round(float(values[1]) * ratio)
+        b = round(float(values[2]) * ratio)
+        if values[3] is not None:
+            opacity = float(values[3])
+        else:
+            opacity = 1
+        return Color.rgb_to_int(r, g, b, opacity)
+
+    @staticmethod
+    def parse_color_hsl(values):
+        """Parse SVG color, HSL value declarations"""
+        h = Angle.parse(values[0])
+        h = h.as_turns
+        s = float(values[1]) / 100.0
+        if s > 1:
+            s = 1.0
+        if s < 0:
+            s = 0.0
+        l = float(values[2]) / 100.0
+        if l > 1:
+            l = 1.0
+        if l < 0:
+            l = 0.0
+        if values[3] is not None:
+            opacity = float(values[3])
+        else:
+            opacity = 1
+        return Color.hsl_to_int(h, s, l, opacity)
+
+    @property
+    def opacity(self):
+        return self.alpha / 255.0
+
+    @opacity.setter
+    def opacity(self, opacity):
+        a = int(round(opacity * 255.0))
+        a = Color.crimp(a)
+        self.alpha = a
 
     @property
     def alpha(self):
-        return (self >> 24) & 0xFF
+        return (self.value >> 24) & 0xFF
+
+    @alpha.setter
+    def alpha(self, a):
+        a = Color.crimp(a)
+        self.value &= 0xFFFFFF
+        self.value = int(self.value)
+        if a & 0x80 != 0:
+            a ^= 0x80
+            a <<= 24
+            a = ~a
+            a ^= 0x7FFFFFFF
+        else:
+            a <<= 24
+        self.value |= a
 
     @property
     def red(self):
-        return (self >> 16) & 0xFF
+        return (self.value >> 16) & 0xFF
+
+    @red.setter
+    def red(self, r):
+        r = int(r & 0xFF)
+        self.value &= ~0xFF0000
+        r <<= 16
+        self.value |= r
 
     @property
     def green(self):
-        return (self >> 8) & 0xFF
+        return (self.value >> 8) & 0xFF
+
+    @green.setter
+    def green(self, g):
+        g = int(g & 0xFF)
+        self.value &= ~0xFF00
+        g <<= 8
+        self.value |= g
 
     @property
     def blue(self):
-        return self & 0xFF
+        return self.value & 0xFF
+
+    @blue.setter
+    def blue(self, b):
+        b = int(b & 0xFF)
+        self.value &= ~0xFF
+        self.value |= b
+
+    @property
+    def hexa(self):
+        return '#%02x%02x%02x%02x' % (self.alpha, self.red, self.green, self.blue)
 
     @property
     def hex(self):
-        if self.alpha != 0xFF:
+        if self.alpha == 0xFF:
             return '#%02x%02x%02x' % (self.red, self.green, self.blue)
         else:
             return '#%02x%02x%02x%02x' % (self.alpha, self.red, self.green, self.blue)
+
+    @property
+    def hue(self):
+        r = self.red / 255.0
+        g = self.green / 255.0
+        b = self.blue / 255.0
+        var_min = min(r, g, b)
+        var_max = max(r, g, b)
+        delta_max = var_max - var_min
+        if delta_max == 0:
+            return 0
+        dr = (((var_max - r) / 6.0) + delta_max / 2.0) / delta_max
+        dg = (((var_max - g) / 6.0) + delta_max / 2.0) / delta_max
+        db = (((var_max - b) / 6.0) + delta_max / 2.0) / delta_max
+        if r == var_max:
+            h = db - dg
+        elif g == var_max:
+            h = (1.0 / 3.0) + dr - db
+        else:  # db == max_v
+            h = (2.0 / 3.0) + dg - dr
+        if h < 0:
+            h += 1
+        if h > 1:
+            h -= 1
+        return h
+
+    @hue.setter
+    def hue(self, v):
+        h, s, l = self.hsl
+        self.hsl = v, s, l
+
+    @property
+    def saturation(self):
+        r = self.red / 255.0
+        g = self.green / 255.0
+        b = self.blue / 255.0
+        min_v = min(r, g, b)
+        max_v = max(r, g, b)
+        delta = max_v - min_v
+        if max_v == min_v:
+            return 0.0
+        if (max_v + min_v) < 1:
+            return delta / (max_v + min_v)
+        else:
+            return delta / (2.0 - max_v - min_v)
+
+    @saturation.setter
+    def saturation(self, v):
+        h, s, l = self.hsl
+        self.hsl = h, v, l
+
+    @property
+    def lightness(self):
+        r = self.red / 255.0
+        g = self.green / 255.0
+        b = self.blue / 255.0
+        min_v = min(r, g, b)
+        max_v = max(r, g, b)
+        return (max_v + min_v) / 2.0
+
+    @lightness.setter
+    def lightness(self, v):
+        h, s, l = self.hsl
+        self.hsl = h, s, v
+
+    @property
+    def intensity(self):
+        r = self.red
+        g = self.green
+        b = self.blue
+        return (r + b + g) / 768.0
+
+    @property
+    def brightness(self):
+        r = self.red
+        g = self.green
+        b = self.blue
+        cmax = max(r, g, b)
+        return cmax / 255.0
+
+    @property
+    def blackness(self):
+        return 1.0 - self.brightness
+
+    @property
+    def luminance(self):
+        r = self.red / 255.0
+        g = self.green / 255.0
+        b = self.blue / 255.0
+        return r * 0.3 + g * 0.59 + b * 0.11
+
+    @property
+    def luma(self):
+        r = self.red / 255.0
+        g = self.green / 255.0
+        b = self.blue / 255.0
+        return r * 0.2126 + g * 0.7152 + b * 0.0722
+
+    @staticmethod
+    def over(c1, c2):
+        """
+        Porter Duff Alpha compositing operation over.
+        Returns c1 over c2. This is the standard painter algorithm.
+        """
+        if isinstance(c1, str):
+            c1 = Color.parse(c1)
+        elif isinstance(c1, int):
+            c1 = Color(c1)
+        if isinstance(c2, str):
+            c2 = Color.parse(c2)
+        elif isinstance(c2, int):
+            c2 = Color(c2)
+        r1 = c1.red
+        g1 = c1.green
+        b1 = c1.blue
+        a1 = c1.alpha
+        if a1 == 255:
+            return c1.value
+        if a1 == 0:
+            return c2.value
+        r2 = c2.red
+        g2 = c2.green
+        b2 = c2.blue
+        a2 = c2.alpha
+
+        q = 255.0 - a1
+
+        sr = r1 * a1 * 255.0 + r2 * a2 * q
+        sg = g1 * a1 * 255.0 + g2 * a2 * q
+        sb = b1 * a1 * 255.0 + b2 * a2 * q
+        sa = a1 * 255.0 + a2 * q
+        sr /= sa
+        sg /= sa
+        sb /= sa
+        sa /= (255.0 * 255.0)
+        return Color.rgb_to_int(sr, sg, sb, sa)
+
+    @staticmethod
+    def distance(c1, c2):
+        return sqrt(Color.distance_sq(c1, c2))
+
+    @staticmethod
+    def distance_sq(c1, c2):
+        """
+        Function returns the square of colordistance. The square of the color distance will always be closer than the
+        square of another color distance.
+
+        Rather than naive Euclidean distance we use Compuphase's Redmean color distance.
+        https://www.compuphase.com/cmetric.htm
+
+        It's computationally simple, and empirical tests finds it to be on par with LabDE2000.
+
+        :param c1: first color
+        :param c2: second color
+        :return: square of color distance
+        """
+        if isinstance(c1, str):
+            c1 = Color.parse(c1)
+        elif isinstance(c1, int):
+            c1 = Color(c1)
+        if isinstance(c2, str):
+            c2 = Color.parse(c2)
+        elif isinstance(c2, int):
+            c2 = Color(c2)
+        red_mean = int((c1.red + c2.red) / 2.0)
+        r = c1.red - c2.red
+        g = c1.green - c2.green
+        b = c1.blue - c2.blue
+        return (((512 + red_mean) * r * r) >> 8) + 4 * g * g + ((767 - red_mean) * b * b) >> 8
+
+    @staticmethod
+    def crimp(v):
+        if v > 255:
+            return 255
+        if v < 0:
+            return 0
+        return int(v)
+
+    @property
+    def hsl(self):
+        return self.hue, self.saturation, self.lightness
+
+    @hsl.setter
+    def hsl(self, value):
+        if not isinstance(value, tuple):
+            return
+        h, s, l = value
+
+        def hue_2_rgb(v1, v2, vh):
+            if vh < 0:
+                vh += 1
+            if vh > 1:
+                vh -= 1
+            if 6.0 * vh < 1.0:
+                return v1 + (v2 - v1) * 6.0 * vh
+            if 2.0 * vh < 1:
+                return v2
+            if 3 * vh < 2.0:
+                return v1 + (v2 - v1) * ((2.0 / 3.0) - vh) * 6.0
+            return v1
+
+        if s == 0.0:
+            r = 255.0 * l
+            g = 255.0 * l
+            b = 255.0 * l
+        else:
+            if l < 0.5:
+                v2 = l * (1.0 + s)
+            else:
+                v2 = (l + s) - (s * l)
+            v1 = 2 * l - v2
+            r = 255.0 * hue_2_rgb(v1, v2, h + (1.0 / 3.0))
+            g = 255.0 * hue_2_rgb(v1, v2, h)
+            b = 255.0 * hue_2_rgb(v1, v2, h - (1.0 / 3.0))
+        self.value = self.rgb_to_int(r, g, b)
+
+    def distance_to(self, other):
+        return Color.distance(self, other)
+
+    def blend(self, other, opacity=None):
+        """
+        Blends the given color with the current color.
+        """
+        if opacity is None:
+            self.value = Color.over(other, self)
+        else:
+            color = Color(other)
+            color.opacity = opacity
+            self.value = Color.over(color, self)
 
 
 class Point:
@@ -1129,8 +1462,12 @@ class Point:
     For compatibility with regebro svg.path we accept complex numbers as points x + yj,
     and provide .real and .imag as properties. As well as float and integer values as (v,0) elements.
 
-    With regard to SGV 7.15.1 defining SVGPoint this class provides for matrix transformations.
+    With regard to SVG 7.15.1 defining SVGPoint this class provides for matrix transformations.
+
+    With regard to CSS/SVG Lengths this class can define a length point.
     """
+
+    # TODO: require proper printing of lengths if they are used as coordinates.
 
     def __init__(self, x, y=None):
         if x is not None and y is None:
@@ -1508,7 +1845,7 @@ class Matrix:
             m = components[0]
             if isinstance(m, str):
                 self.parse(m)
-                self.reify(**kwargs)
+                self.render(**kwargs)
             else:
                 self.a = m[0]
                 self.b = m[1]
@@ -1523,7 +1860,7 @@ class Matrix:
             self.d = components[3]
             self.e = components[4]
             self.f = components[5]
-            self.reify(**kwargs)
+            self.render(**kwargs)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1563,7 +1900,7 @@ class Matrix:
         return m
 
     def __imatmul__(self, other):
-        if isinstance(other,str):
+        if isinstance(other, str):
             other = Matrix(other)
         self.a, self.b, self.c, self.d, self.e, self.f = Matrix.matrix_multiply(self, other)
         return self
@@ -1602,8 +1939,8 @@ class Matrix:
 
     def __repr__(self):
         return "Matrix(%s, %s, %s, %s, %s, %s)" % \
-               (number_str(self.a), number_str(self.b),
-                number_str(self.c), number_str(self.d),
+               (Length.str(self.a), Length.str(self.b),
+                Length.str(self.c), Length.str(self.d),
                 str(self.e), str(self.f))
 
     def __copy__(self):
@@ -1646,18 +1983,18 @@ class Matrix:
                 self.pre_cat(*params)
             elif SVG_TRANSFORM_TRANSLATE == name:
                 try:
-                    x_param = Length(params[0])
+                    x_param = Length(params[0]).value()
                 except IndexError:
                     continue
                 try:
-                    y_param = Length(params[1])
+                    y_param = Length(params[1]).value()
                     self.pre_translate(x_param, y_param)
                 except IndexError:
                     self.pre_translate(x_param)
             elif SVG_TRANSFORM_TRANSLATE_X == name:
-                self.pre_translate(Length(params[0]), 0)
+                self.pre_translate(Length(params[0]).value(), 0)
             elif SVG_TRANSFORM_TRANSLATE_Y == name:
-                self.pre_translate(0, Length(params[0]))
+                self.pre_translate(0, Length(params[0]).value())
             elif SVG_TRANSFORM_SCALE == name:
                 params = map(float, params)
                 self.pre_scale(*params)
@@ -1668,12 +2005,12 @@ class Matrix:
             elif SVG_TRANSFORM_ROTATE == name:
                 angle = Angle.parse(params[0])
                 try:
-                    x_param = Length(params[1])
+                    x_param = Length(params[1]).value()
                 except IndexError:
                     self.pre_rotate(angle)
                     continue
                 try:
-                    y_param = Length(params[2])
+                    y_param = Length(params[2]).value()
                     self.pre_rotate(angle, x_param, y_param)
                 except IndexError:
                     self.pre_rotate(angle, x_param)
@@ -1681,43 +2018,43 @@ class Matrix:
                 angle_a = Angle.parse(params[0])
                 angle_b = Angle.parse(params[1])
                 try:
-                    x_param = Length(params[2])
+                    x_param = Length(params[2]).value()
                 except IndexError:
                     self.pre_skew(angle_a, angle_b)
                     continue
                 try:
-                    y_param = Length(params[3])
+                    y_param = Length(params[3]).value()
                     self.pre_skew(angle_a, angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew(angle_a, angle_b, x_param)
             elif SVG_TRANSFORM_SKEW_X == name:
                 angle_a = Angle.parse(params[0])
                 try:
-                    x_param = Length(params[1])
+                    x_param = Length(params[1]).value()
                 except IndexError:
                     self.pre_skew_x(angle_a)
                     continue
                 try:
-                    y_param = Length(params[2])
+                    y_param = Length(params[2]).value()
                     self.pre_skew_x(angle_a, x_param, y_param)
                 except IndexError:
                     self.pre_skew_x(angle_a, x_param)
             elif SVG_TRANSFORM_SKEW_Y == name:
                 angle_b = Angle.parse(params[0])
                 try:
-                    x_param = Length(params[1])
+                    x_param = Length(params[1]).value()
                 except IndexError:
                     self.pre_skew_y(angle_b)
                     continue
                 try:
-                    y_param = Length(params[2])
+                    y_param = Length(params[2]).value()
                     self.pre_skew_y(angle_b, x_param, y_param)
                 except IndexError:
                     self.pre_skew_y(angle_b, x_param)
         return self
 
-    def reify(self, ppi=None, relative_length=None, width=None, height=None,
-              font_size=None, font_height=None, viewbox=None):
+    def render(self, ppi=None, relative_length=None, width=None, height=None,
+               font_size=None, font_height=None, viewbox=None):
         """
         Provides values to turn trans_x and trans_y values into user units floats rather
         than Lengths by giving the required information to perform the conversions.
@@ -2024,14 +2361,16 @@ class Matrix:
         return float(r0[0]), float(r1[0]), float(r0[1]), float(r1[1]), r0[2], r1[2]
 
 
-class SVGElement:
+class SVGElement(object):
     """Any tagged element within the SVG namespace."""
+
     def __init__(self):
         self.id = None
 
 
 class Transformable(SVGElement):
     """Any element that is transformable and has a transform property."""
+
     def __init__(self):
         SVGElement.__init__(self)
         self.transform = Matrix()
@@ -2066,6 +2405,7 @@ class Transformable(SVGElement):
 
 class GraphicObject:
     """Any drawn element."""
+
     def __init__(self):
         self.stroke = None
         self.fill = None
@@ -2120,6 +2460,13 @@ class Shape(GraphicObject, Transformable):
         transformed shape cannot be represented through the properties alone.
         """
         return self
+
+    def render(self, **kwargs):
+        """
+        Renders the shape by performing any required length conversion operations into pixels. The shape will be the
+        pixel-length form of the shape.
+        """
+        self.transform.render(**kwargs)
 
     def bbox(self, transformed=True):
         original = self.apply
@@ -2181,7 +2528,7 @@ class Shape(GraphicObject, Transformable):
             values.append('apply=\"%s\"' % self.apply)
 
     def _name(self):
-        return __class__.__name__
+        return self.__class__.__name__
 
 
 class PathSegment:
@@ -4472,12 +4819,12 @@ class Rect(Shape):
         if count_args == 1:
             if isinstance(args[0], dict):
                 rect = args[0]
-                self.x = Distance.parse(rect.get(SVG_ATTR_X, 0))
-                self.y = Distance.parse(rect.get(SVG_ATTR_Y, 0))
-                self.width = Distance.parse(rect.get(SVG_ATTR_WIDTH, 1))
-                self.height = Distance.parse(rect.get(SVG_ATTR_HEIGHT, 1))
-                self.rx = Distance.parse(rect.get(SVG_ATTR_RADIUS_X, None))
-                self.ry = Distance.parse(rect.get(SVG_ATTR_RADIUS_Y, None))
+                self.x = Length(rect.get(SVG_ATTR_X, 0)).value()
+                self.y = Length(rect.get(SVG_ATTR_Y, 0)).value()
+                self.width = Length(rect.get(SVG_ATTR_WIDTH, 1)).value()
+                self.height = Length(rect.get(SVG_ATTR_HEIGHT, 1)).value()
+                self.rx = Length(rect.get(SVG_ATTR_RADIUS_X, None)).value()
+                self.ry = Length(rect.get(SVG_ATTR_RADIUS_Y, None)).value()
                 self._parse_shape(rect)
                 self._validate_rect()
                 return
@@ -4494,46 +4841,46 @@ class Rect(Shape):
                 return
 
         if arg_length >= 1:
-            self.x = args[0]
+            self.x = Length(args[0]).value()
         elif 'x' in kwargs:
-            self.x = kwargs['x']
+            self.x = Length(kwargs['x']).value()
         else:
-            self.x = 0
+            self.x = 0.0
 
         if arg_length >= 2:
-            self.y = args[1]
+            self.y = Length(args[1]).value()
         elif 'y' in kwargs:
-            self.y = kwargs['y']
+            self.y = Length(kwargs['y']).value()
         else:
-            self.y = 0
+            self.y = 0.0
 
         if arg_length >= 3:
-            self.width = args[2]
+            self.width = Length(args[2]).value()
         elif 'width' in kwargs:
-            self.width = kwargs['width']
+            self.width = Length(kwargs['width']).value()
         else:
-            self.width = 1
+            self.width = 1.0
 
         if arg_length >= 4:
-            self.height = args[3]
+            self.height = Length(args[3]).value()
         elif 'height' in kwargs:
-            self.height = kwargs['height']
+            self.height = Length(kwargs['height']).value()
         else:
-            self.height = 1
+            self.height = 1.0
 
         if arg_length >= 5:
-            self.rx = args[4]
+            self.rx = Length(args[4]).value()
         elif 'rx' in kwargs:
-            self.rx = kwargs['rx']
+            self.rx = Length(kwargs['rx']).value()
         else:
-            self.rx = 0
+            self.rx = 0.0
 
         if arg_length >= 6:
-            self.ry = args[5]
+            self.ry = Length(args[5]).value()
         elif 'ry' in kwargs:
-            self.ry = kwargs['ry']
+            self.ry = Length(kwargs['ry']).value()
         else:
-            self.ry = 0
+            self.ry = 0.0
         self._init_shape(*args[6:], **kwargs)
         self._validate_rect()
 
@@ -4544,14 +4891,14 @@ class Rect(Shape):
         if rx is None and ry is None:
             rx = ry = 0
         if rx is not None and ry is None:
-            rx = Distance.parse(rx, default_distance=self.width)
+            rx = Length(rx).value(relative_length=self.width)
             ry = rx
         elif ry is not None and rx is None:
-            ry = Distance.parse(ry, default_distance=self.height)
+            ry = Length(ry).value(relative_length=self.height)
             rx = ry
         elif rx is not None and ry is not None:
-            rx = Distance.parse(rx, default_distance=self.width)
-            ry = Distance.parse(ry, default_distance=self.height)
+            rx = Length(rx).value(relative_length=self.width)
+            ry = Length(ry).value(relative_length=self.height)
         if rx == 0 or ry == 0:
             rx = ry = 0
         else:
@@ -4563,17 +4910,17 @@ class Rect(Shape):
     def __repr__(self):
         values = []
         if self.x != 0:
-            values.append('x=%s' % number_str(self.x))
+            values.append('x=%s' % Length.str(self.x))
         if self.y != 0:
-            values.append('y=%s' % number_str(self.y))
+            values.append('y=%s' % Length.str(self.y))
         if self.width != 0:
-            values.append('width=%s' % number_str(self.width))
+            values.append('width=%s' % Length.str(self.width))
         if self.height != 0:
-            values.append('height=%s' % number_str(self.height))
+            values.append('height=%s' % Length.str(self.height))
         if self.rx != 0:
-            values.append('rx=%s' % number_str(self.rx))
+            values.append('rx=%s' % Length.str(self.rx))
         if self.ry != 0:
-            values.append('ry=%s' % number_str(self.ry))
+            values.append('ry=%s' % Length.str(self.ry))
         self._repr_shape(values)
         params = ", ".join(values)
         return "Rect(%s)" % params
@@ -4650,7 +4997,6 @@ class Rect(Shape):
         * perform an absolute horizontal lineto with parameter x+width;
         * perform an absolute vertical lineto parameter y+height;
         * perform an absolute horizontal lineto parameter x;
-        * perform an absolute vertical lineto parameter y
         * ( close the path)
 
         Rounded Rect:
@@ -4678,15 +5024,14 @@ class Rect(Shape):
             return ''  # a computed value of zero for either dimension disables rendering.
         rx = self.rx
         ry = self.ry
-        n = number_str
+        n = Length.str
         if rx == ry == 0:
-            path_d = "M %s,%s H %s V %s H %s V %s z" % (
+            path_d = "M %s,%s H %s V %s H %s z" % (
                 n(x),
                 n(y),
                 n(x + width),
                 n(y + height),
-                n(x),
-                n(y)
+                n(x)
             )
         else:
             arc = "%s %s 0 0 1" % (n(rx), n(ry))
@@ -4744,6 +5089,25 @@ class Rect(Shape):
         self.transform = Matrix.rotate(rotation)
         return self
 
+    def render(self, width=None, height=None, relative_length=None, **kwargs):
+        if width is None and relative_length is not None:
+            width = relative_length
+        if height is None and relative_length is not None:
+            height = relative_length
+        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+        if isinstance(self.x, Length):
+            self.x = self.x.value(relative_length=width, **kwargs)
+        if isinstance(self.y, Length):
+            self.y = self.y.value(relative_length=height, **kwargs)
+        if isinstance(self.width, Length):
+            self.width = self.width.value(relative_length=width, **kwargs)
+        if isinstance(self.height, Length):
+            self.height = self.height.value(relative_length=height, **kwargs)
+        if isinstance(self.rx, Length):
+            self.rx = self.rx.value(relative_length=width, **kwargs)
+        if isinstance(self.ry, Length):
+            self.ry = self.ry.value(relative_length=height, **kwargs)
+
 
 class _RoundShape(Shape):
 
@@ -4754,11 +5118,11 @@ class _RoundShape(Shape):
         if arg_length == 1:
             if isinstance(args[0], dict):
                 ellipse = args[0]
-                cx = Distance.parse(ellipse.get(SVG_ATTR_CENTER_X, None))
-                cy = Distance.parse(ellipse.get(SVG_ATTR_CENTER_Y, None))
-                rx = Distance.parse(ellipse.get(SVG_ATTR_RADIUS_X, None))
-                ry = Distance.parse(ellipse.get(SVG_ATTR_RADIUS_Y, None))
-                r = Distance.parse(ellipse.get(SVG_ATTR_RADIUS, None))
+                cx = Length(ellipse.get(SVG_ATTR_CENTER_X, None)).value()
+                cy = Length(ellipse.get(SVG_ATTR_CENTER_Y, None)).value()
+                rx = Length(ellipse.get(SVG_ATTR_RADIUS_X, None)).value()
+                ry = Length(ellipse.get(SVG_ATTR_RADIUS_Y, None)).value()
+                r = Length(ellipse.get(SVG_ATTR_RADIUS, None)).value()
                 if r is not None:
                     self.rx = self.ry = r
                 else:
@@ -4774,52 +5138,68 @@ class _RoundShape(Shape):
                     cx = 0
                 if cy is None:
                     cy = 0
-                self.center = Point(cx, cy)
+                self.cx = cx
+                self.cy = cy
                 self._parse_shape(ellipse)
                 return
             elif isinstance(args[0], _RoundShape):
                 s = args[0]
-                self.center = Point(s.center)
+                self.cx = s.cx
+                self.cy = s.cy
                 self.rx = s.rx
                 self.ry = s.ry
                 self._set_shape(s)
                 return
-
+        if 'center' in kwargs:
+            center = Point(kwargs['center'])
+            cx = center[0]
+            cy = center[1]
+        else:
+            cx = 0
+            cy = 0
         if arg_length >= 1:
-            self.center = Point(args[0])
-        elif 'center' in kwargs:
-            self.center = Point(kwargs['center'])
+            self.cx = Length(args[0]).value()
+        elif 'cx' in kwargs:
+            self.cx = Length(kwargs['cx']).value()
         else:
-            self.center = Point(0, 0)
+            self.cx = cx
         if arg_length >= 2:
-            self.rx = float(args[1])
-        elif 'rx' in kwargs:
-            self.rx = float(kwargs['rx'])
-        elif 'r' in kwargs:
-            self.rx = float(kwargs['r'])
+            self.cy = Length(args[1]).value()
+        elif 'cx' in kwargs:
+            self.cy = Length(kwargs['cy']).value()
         else:
-            self.rx = 1
+            self.cy = cy
         if arg_length >= 3:
-            self.ry = float(args[2])
-        elif 'ry' in kwargs:
-            self.ry = float(kwargs['ry'])
+            self.rx = Length(args[2]).value()
+        elif 'rx' in kwargs:
+            self.rx = Length(kwargs['rx']).value()
         elif 'r' in kwargs:
-            self.ry = float(kwargs['r'])
+            self.rx = Length(kwargs['r']).value()
+        else:
+            self.rx = 1.0
+        if arg_length >= 4:
+            self.ry = Length(args[3]).value()
+        elif 'ry' in kwargs:
+            self.ry = Length(kwargs['ry']).value()
+        elif 'r' in kwargs:
+            self.ry = Length(kwargs['r']).value()
         else:
             self.ry = self.rx
-        self._init_shape(*args[3:], **kwargs)
+        self._init_shape(*args[4:], **kwargs)
 
     def __repr__(self):
         values = []
-        if self.center is not None:
-            values.append('center=%s' % repr(self.center))
-        if abs(self.rx - self.ry) < 1e-12:
-            values.append('r=%s' % number_str(self.rx))
+        if self.cx is not None:
+            values.append('cx=%s' % Length.str(self.cx))
+        if self.cy is not None:
+            values.append('cy=%s' % Length.str(self.cy))
+        if self.rx == self.ry:
+            values.append('r=%s' % Length.str(self.rx))
         else:
             if self.rx != 0:
-                values.append('rx=%s' % number_str(self.rx))
+                values.append('rx=%s' % Length.str(self.rx))
             if self.ry != 0:
-                values.append('ry=%s' % number_str(self.ry))
+                values.append('ry=%s' % Length.str(self.ry))
         self._repr_shape(values)
         params = ", ".join(values)
         name = self._name()
@@ -4849,9 +5229,9 @@ class _RoundShape(Shape):
 
     @property
     def implicit_center(self):
+        center = Point(self.cx, self.cy)
         if not self.apply:
-            return self.center
-        center = Point(self.center)
+            return center
         center *= self.transform
         return center
 
@@ -4893,13 +5273,31 @@ class _RoundShape(Shape):
         Realizes the transform to the shape properties.
         """
         matrix = self.transform
-        self.center *= matrix
+        center = Point(self.cx, self.cy)
+        center *= matrix
+        self.cx = self.cx
+        self.cy = self.cy
         radius = Point(self.rx, self.ry)
         radius *= matrix.vector()
         self.rx = radius[0]
         self.ry = radius[1]
         self.transform = Matrix.rotate(self.rotation)
         return self
+
+    def render(self, width=None, height=None, relative_length=None, **kwargs):
+        if width is None and relative_length is not None:
+            width = relative_length
+        if height is None and relative_length is not None:
+            height = relative_length
+        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+        if isinstance(self.cx, Length):
+            self.cx = self.cx.value(relative_length=width, **kwargs)
+        if isinstance(self.cy, Length):
+            self.cy = self.cy.value(relative_length=height, **kwargs)
+        if isinstance(self.rx, Length):
+            self.rx = self.rx.value(relative_length=width, **kwargs)
+        if isinstance(self.ry, Length):
+            self.ry = self.ry.value(relative_length=height, **kwargs)
 
     def unit_matrix(self):
         """
@@ -4973,7 +5371,8 @@ class _RoundShape(Shape):
         if self.apply and not self.transform.is_identity():
             return self.implicit_center.angle_to(p)
         else:
-            return self.center.angle_to(p)
+            center = Point(self.cx, self.cy)
+            return center.angle_to(p)
 
     def t_at_point(self, p):
         """
@@ -5038,10 +5437,10 @@ class Ellipse(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Ellipse(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
+        return Ellipse(self.cx, self.cy, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
 
     def _name(self):
-        return __class__.__name__
+        return self.__class__.__name__
 
 
 class Circle(_RoundShape):
@@ -5056,10 +5455,10 @@ class Circle(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Circle(self.center, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
+        return Circle(self.cx, self.cy, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
 
     def _name(self):
-        return __class__.__name__
+        return self.__class__.__name__
 
 
 class SimpleLine(Shape):
@@ -5081,10 +5480,10 @@ class SimpleLine(Shape):
         if count_args == 1:
             if isinstance(args[0], dict):
                 values = args[0]
-                x1 = Distance.parse(values.get(SVG_ATTR_X1, 0))
-                y1 = Distance.parse(values.get(SVG_ATTR_Y1, 0))
-                x2 = Distance.parse(values.get(SVG_ATTR_X2, 0))
-                y2 = Distance.parse(values.get(SVG_ATTR_Y2, 0))
+                x1 = Length(values.get(SVG_ATTR_X1, 0)).value()
+                y1 = Length(values.get(SVG_ATTR_Y1, 0)).value()
+                x2 = Length(values.get(SVG_ATTR_X2, 0)).value()
+                y2 = Length(values.get(SVG_ATTR_Y2, 0)).value()
                 self.start = Point(x1, y1)
                 self.end = Point(x2, y2)
                 self._parse_shape(values)
@@ -5528,19 +5927,19 @@ class SVGText(GraphicObject, Transformable):
         else:
             self.font = None
         if SVG_ATTR_X in values:
-            self.x = Distance.parse(values[SVG_ATTR_X])
+            self.x = Length(values[SVG_ATTR_X]).value()
         else:
             self.x = 0
         if SVG_ATTR_Y in values:
-            self.y = Distance.parse(values[SVG_ATTR_Y])
+            self.y = Length(values[SVG_ATTR_Y]).value()
         else:
             self.y = 0
         if SVG_ATTR_DX in values:
-            self.dx = Distance.parse(values[SVG_ATTR_DX])
+            self.dx = Length(values[SVG_ATTR_DX]).value()
         else:
             self.dx = None
         if SVG_ATTR_DY in values:
-            self.dy = Distance.parse(values[SVG_ATTR_DY])
+            self.dy = Length(values[SVG_ATTR_DY]).value()
         else:
             self.dy = None
         if SVG_ATTR_TRANSFORM in values:
@@ -5734,22 +6133,22 @@ class Viewbox:
             self.physical_height = None
 
         if SVG_ATTR_WIDTH in values:
-            self.element_width = Distance.parse(values[SVG_ATTR_WIDTH], ppi, default_distance=self.physical_width)
+            self.element_width = Length(values[SVG_ATTR_WIDTH]).value(ppi=ppi, relative_length=self.physical_width)
         else:
             self.element_width = self.physical_width
 
         if SVG_ATTR_HEIGHT in values:
-            self.element_height = Distance.parse(values[SVG_ATTR_HEIGHT], ppi, default_distance=self.physical_height)
+            self.element_height = Length(values[SVG_ATTR_HEIGHT]).value(ppi=ppi, relative_length=self.physical_height)
         else:
             self.element_height = self.physical_height
 
         if SVG_ATTR_X in values:
-            self.element_x = Distance.parse(values[SVG_ATTR_X], ppi, default_distance=self.physical_width)
+            self.element_x = Length(values[SVG_ATTR_X]).value(ppi=ppi, relative_length=self.physical_width)
         else:
             self.element_x = 0
 
         if SVG_ATTR_Y in values:
-            self.element_y = Distance.parse(values[SVG_ATTR_Y], ppi, default_distance=self.physical_height)
+            self.element_y = Length(values[SVG_ATTR_Y]).value(ppi=ppi, relative_length=self.physical_height)
         else:
             self.element_y = 0
         self.set_viewbox(self.viewbox)
@@ -5880,7 +6279,8 @@ class SVG:
 
         f = self.f
         stack = []
-        values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: SVG_VALUE_CURRENT_COLOR, SVG_ATTR_STROKE: SVG_VALUE_CURRENT_COLOR}
+        values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: SVG_VALUE_CURRENT_COLOR,
+                  SVG_ATTR_STROKE: SVG_VALUE_CURRENT_COLOR}
         for event, elem in iterparse(f, events=('start', 'end')):
             if event == 'start':
                 stack.append(values)
