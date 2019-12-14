@@ -241,8 +241,8 @@ class TestElementShape(unittest.TestCase):
             Circle(),
             Circle(0, 0),
             Circle(center=(0, 0), r=1),
-            Circle("0px","0px", 1),
-            Ellipse("0","0", 1, 1),
+            Circle("0px", "0px", 1),
+            Ellipse("0", "0", 1, 1),
             Ellipse("0", "0", rx=1, ry=1),
             Ellipse(0, 0, 1, ry=1),
             Circle(Circle()),
@@ -287,3 +287,19 @@ class TestElementShape(unittest.TestCase):
         )
         for s in shapes:
             self.assertEqual(shapes[0], s)
+
+    def test_shapes_repr(self):
+        s = Rect(fill='red')
+        self.assertEqual(repr(s), "Rect(width=1, height=1, fill='#ff0000')")
+        s = Ellipse(fill='red')
+        self.assertEqual(repr(s), "Ellipse(cx=0, cy=0, r=1, fill='#ff0000')")
+        s = Circle(fill='red')
+        self.assertEqual(repr(s), "Circle(cx=0, cy=0, r=1, fill='#ff0000')")
+        s = SimpleLine(fill='red')
+        self.assertEqual(repr(s), "SimpleLine(x1=0.0, y1=0.0, x2=0.0, y2=0.0, fill='#ff0000')")
+        s = Polygon(fill='red')
+        self.assertEqual(repr(s), "Polygon(points=(''), fill='#ff0000')")
+        s = Polyline(fill='red')
+        self.assertEqual(repr(s), "Polyline(points=(''), fill='#ff0000')")
+        s = Path(fill='red')
+        self.assertEqual(repr(s), "Path(fill='#ff0000')")

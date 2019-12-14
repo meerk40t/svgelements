@@ -527,12 +527,12 @@ class Length(object):
     __rmul__ = __mul__
 
     def __repr__(self):
-        return "Length(\"%s\")" % (str(self))
+        return 'Length(\'%s\')' % (str(self))
 
     def __str__(self):
         if self.amount is None:
             return SVG_VALUE_NONE
-        return "%s%s" % (Length.str(self.amount), self.units)
+        return '%s%s' % (Length.str(self.amount), self.units)
 
     def __eq__(self, other):
         if other is None:
@@ -672,8 +672,11 @@ class Length(object):
             if s.units == '':
                 s = s.amount
             else:
-                return str(Length)
-        s = "%.12f" % (s)
+                a = '%.12f' % (s.amount)
+                if '.' in a:
+                    a = a.rstrip('0').rstrip('.')
+                return '\'%s%s\'' % (a, s.units)
+        s = '%.12f' % (s)
         if '.' in s:
             s = s.rstrip('0').rstrip('.')
         return s
@@ -718,8 +721,8 @@ class Color(object):
 
     def __repr__(self):
         if self.value is None:
-            return "Color(\'%s\')" % (self.value)
-        return "Color(\'%s\')" % (self.hex)
+            return 'Color(\'%s\')' % (self.value)
+        return 'Color(\'%s\')' % (self.hex)
 
     def __eq__(self, other):
         if self is other:
@@ -1544,7 +1547,7 @@ class Point:
     def __repr__(self):
         x_str = Length.str(self.x)
         y_str = Length.str(self.y)
-        return "Point(%s,%s)" % (x_str, y_str)
+        return 'Point(%s,%s)' % (x_str, y_str)
 
     def __copy__(self):
         return Point(self.x, self.y)
@@ -1749,7 +1752,7 @@ class Angle(float):
     """CSS Angle defines as used in SVG/CSS"""
 
     def __repr__(self):
-        return "Angle(%.12f)" % self
+        return 'Angle(%.12f)' % self
 
     def __copy__(self):
         return Angle(self)
@@ -1942,11 +1945,10 @@ class Matrix:
             self.f = value
 
     def __repr__(self):
-        # TODO: Repr of a length matrix, has 20cm without quotes.
-        return "Matrix(%s, %s, %s, %s, %s, %s)" % \
+        return 'Matrix(%s, %s, %s, %s, %s, %s)' % \
                (Length.str(self.a), Length.str(self.b),
                 Length.str(self.c), Length.str(self.d),
-                str(self.e), str(self.f))
+                Length.str(self.e), Length.str(self.f))
 
     def __copy__(self):
         return Matrix(self.a, self.b, self.c, self.d, self.e, self.f)
@@ -2597,13 +2599,13 @@ class Shape(GraphicObject, Transformable):
         if not self.transform.is_identity():
             values.append('transform=%s' % repr(self.transform))
         if self.stroke is not None:
-            values.append('stroke=\"%s\"' % self.stroke)
+            values.append('stroke=\'%s\'' % self.stroke)
         if self.fill is not None:
-            values.append('fill=\"%s\"' % self.fill)
+            values.append('fill=\'%s\'' % self.fill)
         if self.apply is not None and not self.apply:
             values.append('apply=%s' % self.apply)
         if self.id is not None:
-            values.append('id=\"%s\"' % self.id)
+            values.append('id=\'%s\'' % self.id)
 
     def _name(self):
         return self.__class__.__name__
@@ -4309,7 +4311,7 @@ class Path(Shape, MutableSequence):
 
     def __copy__(self):
         return Path(*map(copy, self._segments),
-                    fill=Color(self.fill), stroke=Color(self.stroke), transform=Matrix(self.transform), id=self.id)
+                    transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     def __getitem__(self, index):
         return self._segments[index]
@@ -4425,7 +4427,9 @@ class Path(Shape, MutableSequence):
         return self.d()
 
     def __repr__(self):
-        values = [', '.join(repr(x) for x in self._segments)]
+        values = []
+        if len(self) > 0:
+            values.append(', '.join(repr(x) for x in self._segments))
         self._repr_shape(values)
         params = ", ".join(values)
         name = self._name()
@@ -4886,10 +4890,8 @@ class Rect(Shape):
     def __init__(self, *args, **kwargs):
         Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
 
-        if count_args == 1:
+        if arg_length == 1:
             if isinstance(args[0], dict):
                 rect = args[0]
                 self.x = Length(rect.get(SVG_ATTR_X, 0)).value()
@@ -4997,7 +4999,7 @@ class Rect(Shape):
 
     def __copy__(self):
         return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry,
-                    transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+                    transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     @property
     def implicit_position(self):
@@ -5507,7 +5509,7 @@ class Ellipse(_RoundShape):
 
     def __copy__(self):
         return Ellipse(self.cx, self.cy, self.rx, self.ry,
-                       transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+                       transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     def _name(self):
         return self.__class__.__name__
@@ -5526,7 +5528,7 @@ class Circle(_RoundShape):
 
     def __copy__(self):
         return Circle(self.cx, self.cy, self.rx, self.ry,
-                      transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+                      transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     def _name(self):
         return self.__class__.__name__
@@ -5545,10 +5547,7 @@ class SimpleLine(Shape):
     def __init__(self, *args, **kwargs):
         Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
-        kwarg_length = len(kwargs)
-        count_args = arg_length + kwarg_length
-
-        if count_args == 1:
+        if arg_length == 1:
             if isinstance(args[0], dict):
                 values = args[0]
                 self.x1 = Length(values.get(SVG_ATTR_X1, 0)).value()
@@ -5608,7 +5607,7 @@ class SimpleLine(Shape):
 
     def __copy__(self):
         return SimpleLine(self.x1, self.y1, self.x2, self.y2,
-                          transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+                          transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     @property
     def implicit_x1(self):
@@ -5649,7 +5648,7 @@ class SimpleLine(Shape):
             start *= self.transform
             end *= self.transform
         if relative:
-            return 'm %s l %s' % (start, end-start)
+            return 'm %s l %s' % (start, end - start)
         return 'M %s L %s' % (start, end)
 
     def reify(self):
@@ -5795,7 +5794,8 @@ class Polyline(_Polyshape):
         _Polyshape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Polyline(*self.points, transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+        return Polyline(*self.points,
+                        transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     def _name(self):
         return self.__class__.__name__
@@ -5813,7 +5813,8 @@ class Polygon(_Polyshape):
         _Polyshape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Polygon(*self.points, transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
+        return Polygon(*self.points,
+                       transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply, id=self.id)
 
     def _name(self):
         return self.__class__.__name__
