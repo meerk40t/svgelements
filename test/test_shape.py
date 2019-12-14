@@ -33,7 +33,7 @@ class TestElementShape(unittest.TestCase):
             'y2': "100"
         }
         e = SimpleLine(values)
-        e2 = SimpleLine((0, 0), (100, 100))
+        e2 = SimpleLine(0, '0px', '100px', '100px')
         e3 = SimpleLine(0, 0, 100, 100)
         self.assertEqual(e, e2)
         self.assertEqual(e, e3)
@@ -153,9 +153,6 @@ class TestElementShape(unittest.TestCase):
         self.assertAlmostEqual(shape.implicit_x2, 40 + p[0])
         self.assertAlmostEqual(shape.implicit_y2, 40 + p[1])
         self.assertAlmostEqual(shape.rotation, Angle.degrees(15))
-
-        self.assertEqual(shape.implicit_start, (40, 40))
-        self.assertEqual(shape.implicit_end, (40 + p[0], 40 + p[1]))
 
     def test_circle_equals_transformed_circle(self):
         shape1 = Circle(r=2)

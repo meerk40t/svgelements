@@ -30,8 +30,13 @@ class TestElementColor(unittest.TestCase):
         self.assertEqual(r0, r9)
         ra = Color("rgba(100%, 0%, 0%, 1)")
         self.assertEqual(r0, ra)
-        rb = Color("rgba(100%, 0%, 0%, 0.5)")
-        self.assertNotEqual(r0, rb)
+        rb = Color("hsl(0, 100%, 50%)")
+        self.assertEqual(r0, rb)
+        rc = Color("hsla(0, 100%, 50%, 1.0)")
+        self.assertEqual(r0, rc)
+
+        half_red = Color("rgba(100%, 0%, 0%, 0.5)")
+        self.assertNotEqual(r0, half_red)
 
     def test_color_transparent(self):
         t0 = Color('transparent')

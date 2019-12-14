@@ -712,22 +712,25 @@ class Color(object):
         return self.value
 
     def __str__(self):
+        if self.value is None:
+            return str(self.value)
         return self.hex
 
     def __repr__(self):
+        if self.value is None:
+            return "Color(\'%s\')" % (self.value)
         return "Color(\'%s\')" % (self.hex)
 
     def __eq__(self, other):
-        if other is self:
+        if self is other:
             return True
-        if other is None:
-            return False
-        if isinstance(other, str):
-            other = Color(other).value
-        if isinstance(other, Color):
-            other = other.value
-        v = self.value ^ other
-        return v & 0xFFFFFFFF == 0
+        first = self.value
+        second = other
+        if isinstance(second, str):
+            second = Color(second)
+        if isinstance(second, Color):
+            second = second.value
+        return first == second
 
     def __ne__(self, other):
         return not self == other
@@ -758,7 +761,7 @@ class Color(object):
     def hsl_to_int(h, s, l, opacity=1.0):
         c = Color()
         c.opacity = opacity
-        c.hsl = h,s,l
+        c.hsl = h, s, l
         return c.value
 
     @staticmethod
@@ -1464,10 +1467,9 @@ class Point:
 
     With regard to SVG 7.15.1 defining SVGPoint this class provides for matrix transformations.
 
-    With regard to CSS/SVG Lengths this class can define a length point.
+    Points are only positions in real Euclidean space. This class is not intended to interact with
+    the Length class.
     """
-
-    # TODO: require proper printing of lengths if they are used as coordinates.
 
     def __init__(self, x, y=None):
         if x is not None and y is None:
@@ -1540,12 +1542,8 @@ class Point:
             raise IndexError
 
     def __repr__(self):
-        x_str = ('%.12f' % (self.x))
-        if '.' in x_str:
-            x_str = x_str.rstrip('0').rstrip('.')
-        y_str = ('%.12f' % (self.y))
-        if '.' in y_str:
-            y_str = y_str.rstrip('0').rstrip('.')
+        x_str = Length.str(self.x)
+        y_str = Length.str(self.y)
         return "Point(%s,%s)" % (x_str, y_str)
 
     def __copy__(self):
@@ -1748,7 +1746,7 @@ class Point:
 
 
 class Angle(float):
-    """CSS Angle defines as used in SVG"""
+    """CSS Angle defines as used in SVG/CSS"""
 
     def __repr__(self):
         return "Angle(%.12f)" % self
@@ -1829,6 +1827,12 @@ class Matrix:
     SVG 7.15.3 defines the matrix form as:
     [a c  e]
     [b d  f]
+
+    While e and f are defined as floats, they can be for limited periods defined as a Length.
+    With regard to CSS, it's reasonable to perform operations like 'transform(20cm, 20cm)' and
+    expect these to be treated consistently. Performing other matrix operations in a consistent
+    way. However, render must be called to change these parameters into float locations prior to
+    any operation which might be used to transform a point or polyline or path object.
     """
 
     def __init__(self, *components, **kwargs):
@@ -1938,6 +1942,7 @@ class Matrix:
             self.f = value
 
     def __repr__(self):
+        # TODO: Repr of a length matrix, has 20cm without quotes.
         return "Matrix(%s, %s, %s, %s, %s, %s)" % \
                (Length.str(self.a), Length.str(self.b),
                 Length.str(self.c), Length.str(self.d),
@@ -2362,7 +2367,7 @@ class Matrix:
 
 
 class SVGElement(object):
-    """Any tagged element within the SVG namespace."""
+    """Any element within the SVG namespace."""
 
     def __init__(self):
         self.id = None
@@ -2413,17 +2418,75 @@ class GraphicObject:
 
 class Shape(GraphicObject, Transformable):
     """
-    SVG Shapes are highly several SVG items defined in SVG 1.1 9.1
+    SVG Shapes are several SVG items defined in SVG 1.1 9.1
     https://www.w3.org/TR/SVG11/shapes.html
 
     These shapes are circle, ellipse, line, polyline, polygon, and path.
 
-    SVGText is not according to SVG spec a shape, but is a subclass here.
+    All shapes have methods:
+    d(relative, transform): provides path_d string for the shape.
+    reify(): Applies transform of the shape to modify the shape attributes.
+    render(): Ensure that the shape properties have real space values.
+    bbox(transformed): Provides the bounding box for the given shape.
+
+    All shapes must implement:
+    __repr__(), with a call to _repr_shape()
+    __copy__()
+
+    All shapes have attributes:
+    id: SVG ID attributes. (SVGElement)
+    transform: SVG Matrix to apply to this shape. (Transformable)
+    apply: Determine whether transform should be applied. (Transformable)
+    fill: SVG color of the shape fill. (GraphicObject)
+    stroke: SVG color of the shape stroke. (GraphicObject)
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         Transformable.__init__(self)
         GraphicObject.__init__(self)
+        if len(args) == 1:
+            if isinstance(args[0], dict):
+                v = args[0]
+                self.apply = True
+                if SVG_ATTR_TRANSFORM in v:
+                    self.transform = Matrix(v[SVG_ATTR_TRANSFORM])
+                if SVG_ATTR_STROKE in v:
+                    self.stroke = Color(v[SVG_ATTR_STROKE])
+                if SVG_ATTR_FILL in v:
+                    self.fill = Color(v[SVG_ATTR_FILL])
+                if SVG_ATTR_ID in v:
+                    self.id = v[SVG_ATTR_ID]
+            elif isinstance(args[0], Shape):
+                s = args[0]
+                self.apply = s.apply
+                self.transform = Matrix(s.transform)
+                if s.fill is None:
+                    self.fill = None
+                else:
+                    self.fill = Color(s.fill)
+                if s.stroke is None:
+                    self.stroke = None
+                else:
+                    self.stroke = Color(s.stroke)
+                self.id = s.id
+        if SVG_ATTR_ID in kwargs:
+            self.id = kwargs[SVG_ATTR_ID]
+        if SVG_ATTR_TRANSFORM in kwargs:
+            self.transform = Matrix(kwargs[SVG_ATTR_TRANSFORM])
+        if SVG_ATTR_STROKE in kwargs:
+            stroke = kwargs[SVG_ATTR_STROKE]
+            if stroke is None:
+                self.stroke = None
+            else:
+                self.stroke = Color(stroke)
+        if SVG_ATTR_FILL in kwargs:
+            fill = kwargs[SVG_ATTR_FILL]
+            if fill is None:
+                self.fill = None
+            else:
+                self.fill = Color(fill)
+        if 'apply' in kwargs:
+            self.apply = bool(kwargs['apply'])
 
     def __eq__(self, other):
         if not isinstance(other, Shape):
@@ -2450,14 +2513,45 @@ class Shape(GraphicObject, Transformable):
 
     __add__ = __iadd__
 
+    def __abs__(self):
+        m = copy(self)
+        m.reify()
+        return m
+
+    def __matmul__(self, other):
+        m = copy(self)
+        m.__imatmul__(other)
+        return m
+
+    def __rmatmul__(self, other):
+        m = copy(other)
+        m.__imatmul__(self)
+        return m
+
+    def __imatmul__(self, other):
+        if isinstance(other, str):
+            other = Matrix(other)
+        if isinstance(other, Matrix):
+            self.transform *= other
+        self.reify()
+        return self
+
     def d(self, relative=False, transformed=True):
+        """
+        Returns the path_d string of the shape.
+
+        :param relative: Returns path_d in relative form.
+        :param transformed: Return path_d, with applied transform.
+        :return:
+        """
         pass
 
     def reify(self):
         """
         Realizes the transform to the shape properties. Such that the properties become actualized and the transform
-        simplifies towards the identity matrix. In many cases it will become the identity matrix, but in some the
-        transformed shape cannot be represented through the properties alone.
+        simplifies towards the identity matrix. In many cases it will become the identity matrix. In other cases the
+        transformed shape cannot be represented through the properties alone. And shall keep those parts of the matrix
+        required to maintain the shape.
         """
         return self
 
@@ -2475,49 +2569,31 @@ class Shape(GraphicObject, Transformable):
         self.apply = original
         return bbox
 
-    def _set_shape(self, s):
-        self.apply = s.apply
-        self.transform = Matrix(s.transform)
-        self.fill = s.fill
-        self.stroke = s.stroke
-        self.id = s.id
-
-    def _parse_shape(self, v):
-        self.apply = True
-        if SVG_ATTR_TRANSFORM in v:
-            self.transform = Matrix(v[SVG_ATTR_TRANSFORM])
-        if SVG_ATTR_STROKE in v:
-            self.stroke = Color.parse(v[SVG_ATTR_STROKE])
-        if SVG_ATTR_FILL in v:
-            self.fill = Color.parse(v[SVG_ATTR_FILL])
-        if SVG_ATTR_ID in v:
-            self.id = v[SVG_ATTR_ID]
-
-    def _init_shape(self, *args, **kwargs):
-        if SVG_ATTR_ID in kwargs:
-            self.id = kwargs[SVG_ATTR_ID]
+    def _init_shape(self, *args):
+        """
+        Generic SVG parsing of args. In those cases where the shape accepts finite elements we can process the last
+        four elements of the shape with this code. This will happen in simpleline, roundshape, and rect. It will not
+        happen in polyshape or paths since these can accept infinite arguments.
+        """
         arg_length = len(args)
+
         if arg_length >= 1:
-            self.transform = Matrix(args[0])
-        elif SVG_ATTR_TRANSFORM in kwargs:
-            self.transform = Matrix(kwargs[SVG_ATTR_TRANSFORM])
+            if args[0] is not None:
+                self.transform = Matrix(args[0])
         if arg_length >= 2:
             if args[1] is not None:
-                self.stroke = Color.parse(args[1])
-        elif SVG_ATTR_STROKE in kwargs:
-            self.stroke = Color.parse(kwargs[SVG_ATTR_STROKE])
+                self.stroke = Color(args[1])
         if arg_length >= 3:
             if args[2] is not None:
-                self.fill = Color.parse(args[2])
-        elif SVG_ATTR_FILL in kwargs:
-            self.fill = Color.parse(kwargs[SVG_ATTR_FILL])
+                self.fill = Color(args[2])
         if arg_length >= 4:
             if args[3] is not None:
                 self.apply = bool(args[3])
-        elif 'apply' in kwargs:
-            self.apply = bool(kwargs['apply'])
 
     def _repr_shape(self, values):
+        """
+        Generic pieces of repr shape.
+        """
         if not self.transform.is_identity():
             values.append('transform=%s' % repr(self.transform))
         if self.stroke is not None:
@@ -2525,7 +2601,9 @@ class Shape(GraphicObject, Transformable):
         if self.fill is not None:
             values.append('fill=\"%s\"' % self.fill)
         if self.apply is not None and not self.apply:
-            values.append('apply=\"%s\"' % self.apply)
+            values.append('apply=%s' % self.apply)
+        if self.id is not None:
+            values.append('id=\"%s\"' % self.id)
 
     def _name(self):
         return self.__class__.__name__
@@ -4195,43 +4273,43 @@ class Path(Shape, MutableSequence):
     the last Move command.
 
     These are soft checks made only at the time of addition and some manipulations. Modifying the points of the segments
-    can and will cause path invalidity. Some invalid operations are permitted such as arcs longer than tau radians or
-    beginning sequences without a move. The expectation is that these will eventually be used as part of a valid path
-    so these fragment paths are permitted.
+    can and will cause path invalidity. Some SVG invalid operations are permitted such as arcs longer than tau radians
+    or beginning sequences without a move. The expectation is that these will eventually be used as part of a valid path
+    so these fragment paths are permitted. In some cases these invalid paths will still have consistent path_d values,
+    in other cases, there will be no valid methods to reproduce these.
     """
 
-    def __init__(self, *segments):
-        Shape.__init__(self)
+    def __init__(self, *args, **kwargs):
+        Shape.__init__(self, *args, **kwargs)
         self._length = None
         self._lengths = None
-        if len(segments) != 1:
-            self._segments = list(segments)
+        if len(args) != 1:
+            self._segments = list(args)
         else:
-            p = segments[0]
+            p = args[0]
             if isinstance(p, dict):
                 self._segments = list()
-                self._parse_shape(p)
                 if SVG_ATTR_DATA in p:
                     self.parse(p[SVG_ATTR_DATA])
             elif isinstance(p, Subpath):
                 self._segments = []
                 self._segments.extend(map(copy, list(p)))
-            elif isinstance(segments[0], Shape):
+            elif isinstance(args[0], Shape):
                 self._segments = list()
-                self.parse(p.d())
-                self._set_shape(segments[0])
-            elif isinstance(segments[0], str):
+                self.parse(p.d(transformed=False))
+            elif isinstance(args[0], str):
                 self._segments = list()
-                self.parse(segments[0])
-            elif isinstance(segments[0], list):
-                self._segments = segments[0]
+                self.parse(args[0])
+            elif isinstance(args[0], list):
+                self._segments = args[0]
                 # We have no guarantee of the validity of the source data
                 self.validate_connections()
             else:
-                self._segments = list(segments)
+                self._segments = list(args)
 
     def __copy__(self):
-        return Path(*map(copy, self._segments))
+        return Path(*map(copy, self._segments),
+                    fill=Color(self.fill), stroke=Color(self.stroke), transform=Matrix(self.transform), id=self.id)
 
     def __getitem__(self, index):
         return self._segments[index]
@@ -4340,22 +4418,6 @@ class Path(Shape, MutableSequence):
         else:
             return NotImplemented
 
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            for e in self._segments:
-                e *= other
-        return self
-
-    def __mul__(self, other):
-        if isinstance(other, (Matrix, str)):
-            n = copy(self)
-            n *= other
-            return n
-
-    __rmul__ = __mul__
-
     def __len__(self):
         return len(self._segments)
 
@@ -4363,7 +4425,11 @@ class Path(Shape, MutableSequence):
         return self.d()
 
     def __repr__(self):
-        return 'Path(%s)' % (', '.join(repr(x) for x in self._segments))
+        values = [', '.join(repr(x) for x in self._segments)]
+        self._repr_shape(values)
+        params = ", ".join(values)
+        name = self._name()
+        return "%s(%s)" % (name, params)
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -4372,7 +4438,11 @@ class Path(Shape, MutableSequence):
             return NotImplemented
         if len(self) != len(other):
             return False
-        for s, o in zip(self._segments, other._segments):
+        p = self.__copy__()
+        p.reify()
+        q = other.__copy__()
+        q.reify()
+        for s, o in zip(q._segments, p._segments):
             if not s == o:
                 return False
         return True
@@ -4705,7 +4775,6 @@ class Path(Shape, MutableSequence):
             p += subpath
         self._segments = p._segments
         self._segments[0].start = prepoint
-        # self.validate_connections()
         return self
 
     def subpath(self, index):
@@ -4749,10 +4818,10 @@ class Path(Shape, MutableSequence):
     def reify(self):
         """
         Realizes the transform to the shape properties.
-
-        Paths do not permit the matrix to be non-identity.
         """
-        self *= self.transform
+        if isinstance(self.transform, Matrix):
+            for e in self._segments:
+                e *= self.transform
         self.transform.reset()
         return self
 
@@ -4792,7 +4861,9 @@ class Path(Shape, MutableSequence):
         return ' '.join(parts)
 
     def d(self, relative=False, transformed=True):
-        return Path.svg_d(self._segments, relative)
+        p = self.__copy__()
+        p.reify()
+        return Path.svg_d(p._segments, relative)
 
 
 class Rect(Shape):
@@ -4801,6 +4872,7 @@ class Rect(Shape):
     https://www.w3.org/TR/SVG2/shapes.html#RectElement
 
     These have geometric properties x, y, width, height, rx, ry
+    Geometric properties can be Length values.
 
     Rect(x, y, width, height)
     Rect(x, y, width, height, rx, ry)
@@ -4808,10 +4880,11 @@ class Rect(Shape):
     Rect(x, y, width, height, rx, ry, matrix, stroke, fill)
 
     Rect(dict): dictionary values read from svg.
+
     """
 
     def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
+        Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
         kwarg_length = len(kwargs)
         count_args = arg_length + kwarg_length
@@ -4825,7 +4898,6 @@ class Rect(Shape):
                 self.height = Length(rect.get(SVG_ATTR_HEIGHT, 1)).value()
                 self.rx = Length(rect.get(SVG_ATTR_RADIUS_X, None)).value()
                 self.ry = Length(rect.get(SVG_ATTR_RADIUS_Y, None)).value()
-                self._parse_shape(rect)
                 self._validate_rect()
                 return
             elif isinstance(args[0], Rect):
@@ -4836,10 +4908,8 @@ class Rect(Shape):
                 self.height = s.h
                 self.rx = s.rx
                 self.ry = s.ry
-                self._set_shape(s)
                 self._validate_rect()
                 return
-
         if arg_length >= 1:
             self.x = Length(args[0]).value()
         elif 'x' in kwargs:
@@ -4881,7 +4951,7 @@ class Rect(Shape):
             self.ry = Length(kwargs['ry']).value()
         else:
             self.ry = 0.0
-        self._init_shape(*args[6:], **kwargs)
+        self._init_shape(*args[6:])
         self._validate_rect()
 
     def _validate_rect(self):
@@ -4926,7 +4996,8 @@ class Rect(Shape):
         return "Rect(%s)" % params
 
     def __copy__(self):
-        return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry, self.transform, self.stroke, self.fill)
+        return Rect(self.x, self.y, self.width, self.height, self.rx, self.ry,
+                    transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     @property
     def implicit_position(self):
@@ -5112,7 +5183,7 @@ class Rect(Shape):
 class _RoundShape(Shape):
 
     def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
+        Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
 
         if arg_length == 1:
@@ -5140,7 +5211,6 @@ class _RoundShape(Shape):
                     cy = 0
                 self.cx = cx
                 self.cy = cy
-                self._parse_shape(ellipse)
                 return
             elif isinstance(args[0], _RoundShape):
                 s = args[0]
@@ -5148,7 +5218,6 @@ class _RoundShape(Shape):
                 self.cy = s.cy
                 self.rx = s.rx
                 self.ry = s.ry
-                self._set_shape(s)
                 return
         if 'center' in kwargs:
             center = Point(kwargs['center'])
@@ -5185,7 +5254,7 @@ class _RoundShape(Shape):
             self.ry = Length(kwargs['r']).value()
         else:
             self.ry = self.rx
-        self._init_shape(*args[4:], **kwargs)
+        self._init_shape(*args[4:])
 
     def __repr__(self):
         values = []
@@ -5437,7 +5506,8 @@ class Ellipse(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Ellipse(self.cx, self.cy, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
+        return Ellipse(self.cx, self.cy, self.rx, self.ry,
+                       transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     def _name(self):
         return self.__class__.__name__
@@ -5455,7 +5525,8 @@ class Circle(_RoundShape):
         _RoundShape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Circle(self.cx, self.cy, self.rx, self.ry, self.transform, self.stroke, self.fill, self.apply)
+        return Circle(self.cx, self.cy, self.rx, self.ry,
+                      transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     def _name(self):
         return self.__class__.__name__
@@ -5468,11 +5539,11 @@ class SimpleLine(Shape):
 
     These have geometric properties x1, y1, x2, y2
 
-    These are called Line in SVG but that name is used for Line(PathSegment)
+    These are called Line in SVG but that name is already used for Line(PathSegment)
     """
 
     def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
+        Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
         kwarg_length = len(kwargs)
         count_args = arg_length + kwarg_length
@@ -5480,82 +5551,88 @@ class SimpleLine(Shape):
         if count_args == 1:
             if isinstance(args[0], dict):
                 values = args[0]
-                x1 = Length(values.get(SVG_ATTR_X1, 0)).value()
-                y1 = Length(values.get(SVG_ATTR_Y1, 0)).value()
-                x2 = Length(values.get(SVG_ATTR_X2, 0)).value()
-                y2 = Length(values.get(SVG_ATTR_Y2, 0)).value()
-                self.start = Point(x1, y1)
-                self.end = Point(x2, y2)
-                self._parse_shape(values)
+                self.x1 = Length(values.get(SVG_ATTR_X1, 0)).value()
+                self.y1 = Length(values.get(SVG_ATTR_Y1, 0)).value()
+                self.x2 = Length(values.get(SVG_ATTR_X2, 0)).value()
+                self.y2 = Length(values.get(SVG_ATTR_Y2, 0)).value()
             elif isinstance(args[0], SimpleLine):
                 s = args[0]
-                self.start = Point(s.start)
-                self.end = Point(s.end)
-                self._set_shape(s)
-            return
-        if arg_length >= 4 and isinstance(args[0], (float, int)):
-            self.start = Point(args[0], args[1])
-            self.end = Point(args[2], args[3])
-            self._init_shape(*args[4:], **kwargs)
+                self.x1 = s.x1
+                self.y1 = s.y1
+                self.x2 = s.x2
+                self.y2 = s.y2
             return
         if arg_length >= 1:
-            self.start = Point(args[0])
-        elif SVG_ATTR_X1 in kwargs and SVG_ATTR_Y1 in kwargs:
-            self.start = Point(kwargs[SVG_ATTR_X1], kwargs[SVG_ATTR_Y1])
+            self.x1 = Length(args[0]).value()
+        elif SVG_ATTR_X1 in kwargs:
+            self.x1 = Length(kwargs[SVG_ATTR_X1]).value()
         else:
-            self.start = Point(0, 0)
+            self.x1 = 0.0
+
         if arg_length >= 2:
-            self.end = Point(args[1])
-        elif SVG_ATTR_X2 in kwargs and SVG_ATTR_Y2 in kwargs:
-            self.end = Point(kwargs[SVG_ATTR_X2], kwargs[SVG_ATTR_Y2])
+            self.y1 = Length(args[1]).value()
+        elif SVG_ATTR_Y1 in kwargs:
+            self.y1 = Length(kwargs[SVG_ATTR_Y1]).value()
         else:
-            self.end = Point(0, 0)
-        self._init_shape(*args[2:], **kwargs)
-        if 'start' in kwargs:
-            self.start = Point(kwargs['start'])
-        if 'end' in kwargs:
-            self.end = Point(kwargs['end'])
+            self.y1 = 0.0
+
+        if arg_length >= 3:
+            self.x2 = Length(args[2]).value()
+        elif SVG_ATTR_X2 in kwargs:
+            self.x2 = Length(kwargs[SVG_ATTR_X2]).value()
+        else:
+            self.x2 = 0.0
+
+        if arg_length >= 4:
+            self.y2 = Length(args[3]).value()
+        elif SVG_ATTR_Y2 in kwargs:
+            self.y2 = Length(kwargs[SVG_ATTR_Y2]).value()
+        else:
+            self.y2 = 0.0
+
+        self._init_shape(*args[4:])
 
     def __repr__(self):
         values = []
-        if self.start is not None:
-            values.append('start=%s' % repr(self.start))
-        if self.end is not None:
-            values.append('end=%s' % repr(self.end))
+        if self.x1 is not None:
+            values.append('x1=%s' % repr(self.x1))
+        if self.y1 is not None:
+            values.append('y1=%s' % repr(self.y1))
+        if self.x2 is not None:
+            values.append('x2=%s' % repr(self.x2))
+        if self.y2 is not None:
+            values.append('y2=%s' % repr(self.y2))
         self._repr_shape(values)
         params = ", ".join(values)
         return "SimpleLine(%s)" % params
 
     def __copy__(self):
-        return SimpleLine(self.start, self.end, self.transform, self.stroke, self.fill)
+        return SimpleLine(self.x1, self.y1, self.x2, self.y2,
+                          transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     @property
     def implicit_x1(self):
-        return self.implicit_start[0]
+        point = Point(self.x1, self.y1)
+        point *= self.transform
+        return point[0]
 
     @property
     def implicit_y1(self):
-        return self.implicit_start[1]
-
-    @property
-    def implicit_start(self):
-        point = Point(self.start)
+        point = Point(self.x1, self.y1)
         point *= self.transform
-        return point
+        return point[1]
 
     @property
     def implicit_x2(self):
-        return self.implicit_end[0]
+        point = Point(self.x2, self.y2)
+        point *= self.transform
+        return point[0]
 
     @property
     def implicit_y2(self):
-        return self.implicit_end[1]
-
-    @property
-    def implicit_end(self):
-        point = Point(self.end)
+        point = Point(self.x2, self.y2)
         point *= self.transform
-        return point
+        return point[1]
 
     def d(self, relative=False, transformed=True):
         """
@@ -5566,38 +5643,61 @@ class SimpleLine(Shape):
 
         :returns Path_d path for line.
         """
-        start = Point(self.start)
-        end = Point(self.end)
-        start *= self.transform
-        end *= self.transform
+        start = Point(self.x1, self.y1)
+        end = Point(self.x2, self.y2)
+        if transformed:
+            start *= self.transform
+            end *= self.transform
+        if relative:
+            return 'm %s l %s' % (start, end-start)
         return 'M %s L %s' % (start, end)
 
     def reify(self):
         """Realizes the transform to the shape properties."""
         matrix = self.transform
-        self.start *= matrix
-        self.end *= matrix
+        p = Point(self.x1, self.y1)
+        p *= matrix
+        self.x1 = p[0]
+        self.y1 = p[1]
+
+        p = Point(self.x2, self.y2)
+        p *= matrix
+        self.x2 = p[0]
+        self.y2 = p[1]
+
         matrix.reset()
         return self
+
+    def render(self, width=None, height=None, relative_length=None, **kwargs):
+        if width is None and relative_length is not None:
+            width = relative_length
+        if height is None and relative_length is not None:
+            height = relative_length
+        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+        if isinstance(self.x1, Length):
+            self.x1 = self.x1.value(relative_length=width, **kwargs)
+        if isinstance(self.y1, Length):
+            self.y1 = self.y1.value(relative_length=height, **kwargs)
+        if isinstance(self.x2, Length):
+            self.x2 = self.x2.value(relative_length=width, **kwargs)
+        if isinstance(self.y2, Length):
+            self.y2 = self.y2.value(relative_length=height, **kwargs)
 
 
 class _Polyshape(Shape):
     """Base form of Polygon and Polyline since the objects are nearly the same."""
 
     def __init__(self, *args, **kwargs):
-        Shape.__init__(self)
+        Shape.__init__(self, *args, **kwargs)
         arg_length = len(args)
         if arg_length == 0:
             self._init_points(kwargs)
-            self._init_shape(*args[:], **kwargs)
         else:
             if isinstance(args[0], dict):
                 self._init_points(args[0])
-                self._parse_shape(args[0])
             elif isinstance(args[0], Polyline):
                 s = args[0]
                 self._init_points(s.points)
-                self._set_shape(s)
             elif isinstance(args[0], (float, int, list, tuple, Point, str, complex)):
                 self._init_points(args)
             else:
@@ -5666,7 +5766,7 @@ class _Polyshape(Shape):
 
         if len(self.points) == 0:
             return ''
-        if self.transform.is_identity():
+        if self.transform.is_identity() or not transformed:
             s = ", L ".join(map(str, self.points))
         else:
             s = ", L ".join(map(str, map(self.transform.point_in_matrix_space, map(Point, self.points))))
@@ -5695,10 +5795,10 @@ class Polyline(_Polyshape):
         _Polyshape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Polyline(*self.points)
+        return Polyline(*self.points, transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     def _name(self):
-        return __class__.__name__
+        return self.__class__.__name__
 
 
 class Polygon(_Polyshape):
@@ -5713,10 +5813,10 @@ class Polygon(_Polyshape):
         _Polyshape.__init__(self, *args, **kwargs)
 
     def __copy__(self):
-        return Polygon(*self.points)
+        return Polygon(*self.points, transform=self.transform, stroke=self.stroke, fill=self.fill, apply=self.apply)
 
     def _name(self):
-        return __class__.__name__
+        return self.__class__.__name__
 
 
 class Subpath:
@@ -5903,7 +6003,6 @@ class Subpath:
                 last.start = Point(self[-2].end)
             if last.end != self[0].end:
                 last.end = Point(self[0].end)
-        # self._path.validate_connections()
         return self
 
 
@@ -5945,9 +6044,9 @@ class SVGText(GraphicObject, Transformable):
         if SVG_ATTR_TRANSFORM in values:
             self.transform = Matrix(values[SVG_ATTR_TRANSFORM])
         if SVG_ATTR_STROKE in values:
-            self.stroke = Color.parse(values[SVG_ATTR_STROKE])
+            self.stroke = Color(values[SVG_ATTR_STROKE])
         if SVG_ATTR_FILL in values:
-            self.fill = Color.parse(values[SVG_ATTR_FILL])
+            self.fill = Color(values[SVG_ATTR_FILL])
         if SVG_ATTR_ID in values:
             self.id = values[SVG_ATTR_ID]
 
@@ -6022,9 +6121,9 @@ class SVGImage(GraphicObject, Transformable):
         if SVG_ATTR_TRANSFORM in values:
             self.transform = Matrix(values[SVG_ATTR_TRANSFORM])
         if SVG_ATTR_STROKE in values:
-            self.stroke = Color.parse(values[SVG_ATTR_STROKE])
+            self.stroke = Color(values[SVG_ATTR_STROKE])
         if SVG_ATTR_FILL in values:
-            self.fill = Color.parse(values[SVG_ATTR_FILL])
+            self.fill = Color(values[SVG_ATTR_FILL])
         if SVG_ATTR_ID in values:
             self.id = values[SVG_ATTR_ID]
 
