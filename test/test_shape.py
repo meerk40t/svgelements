@@ -81,7 +81,7 @@ class TestElementShape(unittest.TestCase):
         e3 = Polyline()
         self.assertNotEqual(e, e3)
         polyline_d = e.d()
-        self.assertEqual(Path(polyline_d), "M0, 100, 50, 25, 50, 75, 100, 0")
+        self.assertEqual(Path(polyline_d), "M 0,100 L 50,25 L 50,75 L 100,0")
 
     def test_polygon_dict(self):
         values = {
@@ -94,7 +94,7 @@ class TestElementShape(unittest.TestCase):
         e3 = Polygon()
         self.assertNotEqual(e, e3)
         polygon_d = e.d()
-        self.assertEqual(Path(polygon_d), "M0,100 50,25 50,75 100,0z")
+        self.assertEqual(Path(polygon_d), 'M 0,100 L 50,25 L 50,75 L 100,0 Z')
 
     def test_circle_ellipse_equal(self):
         self.assertTrue(Ellipse(center=(0, 0), rx=10, ry=10) == Circle(center="0,0", r=10.0))
@@ -303,3 +303,55 @@ class TestElementShape(unittest.TestCase):
         self.assertEqual(repr(s), "Polyline(points=(''), fill='#ff0000')")
         s = Path(fill='red')
         self.assertEqual(repr(s), "Path(fill='#ff0000')")
+
+    def test_rect_reify(self):
+        """Reifying a rotated rect."""
+        test_reification(self, Rect())
+
+        shape = Rect() * "rotate(-90) translate(20,0)"
+        t = Rect(0, -20, 1, 1)
+        t *= "rotate(-90, 0, -20)"
+        self.assertEqual(t, shape)
+
+    def test_circle_reify(self):
+        """Reifying a rotated circle."""
+        test_reification(self, Circle())
+
+    def test_ellipse_reify(self):
+        """Reifying a rotated ellipse."""
+        test_reification(self, Ellipse(rx=1, ry=2))
+
+    def test_polyline_reify(self):
+        """Reifying a rotated polyline."""
+        test_reification(self, Polyline("0,0 1,1 2,2"))
+
+    def test_polygon_reify(self):
+        """Reifying a rotated polygon."""
+        test_reification(self, Polygon("0,0 1,1 2,2"))
+
+    def test_line_reify(self):
+        """Reifying a rotated line."""
+        test_reification(self, SimpleLine(0, 0, 1, 1))
+
+    def test_path_reify(self):
+        """Reifying a path."""
+        test_reification(self, Path("M0,0L1,1L1,0z"))
+
+
+def test_reification(test, shape):
+    correct_reify(test, shape * "rotate(-90) translate(20,0)")
+    correct_reify(test, shape * "rotate(12turn)")
+    correct_reify(test, shape * "translate(20,0)")
+    correct_reify(test, shape * "scale(2) translate(20,0)")
+    correct_reify(test, shape * "rotate(90) scale(-1) translate(20,0)")
+    correct_reify(test, shape * "rotate(90) translate(20,0)")
+    correct_reify(test, shape * "skewX(10)")
+    correct_reify(test, shape * "skewY(10)")
+
+
+def correct_reify(test, shape):
+    path = abs(Path(shape))
+    reified = abs(copy(shape))
+    test.assertEqual(path, shape)
+    test.assertEqual(reified, shape)
+    test.assertEqual(reified, path)

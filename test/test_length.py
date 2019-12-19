@@ -21,6 +21,9 @@ class TestElementLength(unittest.TestCase):
     def test_distance_matrix(self):
         m = Matrix("Translate(20mm,50%)", ppi=1000, width=600, height=800)
         self.assertEqual(Matrix(1, 0, 0, 1, 787.402, 400), m)
+        m = Matrix("Translate(20mm,50%)")
+        m.render(ppi=1000, width=600, height=800)
+        self.assertEqual(Matrix(1, 0, 0, 1, 787.402, 400), m)
 
     def test_rect_distance_percent(self):
         rect = Rect("0%", "0%", "100%", "100%")
@@ -37,4 +40,28 @@ class TestElementLength(unittest.TestCase):
         self.assertEqual(
             shape,
             Path('M48,0A48,48 0 0,1 0,48A48,48 0 0,1-48,0A48,48 0 0,1 0,-48A48,48 0 0,1 48,0Z')
-            )
+        )
+
+    def test_length_division(self):
+        self.assertEqual(Length("1mm") // Length('1mm'), 1.0)
+        self.assertEqual(Length("1mm") / Length('1mm'), 1.0)
+        self.assertEqual(Length('1in') / '1in', 1.0)
+        self.assertEqual(Length('1cm') / '1mm', 10.0)
+
+    def test_length_compare(self):
+        self.assertTrue(Length('1in') < Length('2.6cm'))
+        self.assertTrue(Length('1in') < '2.6cm')
+        self.assertFalse(Length('1in') < '2.5cm')
+        self.assertTrue(Length('10mm') >= '1cm')
+        self.assertTrue(Length('10mm') <= '1cm')
+        self.assertTrue(Length('11mm') >= '1cm')
+        self.assertTrue(Length('10mm') <= '1.1cm')
+        self.assertFalse(Length('11mm') <= '1cm')
+        self.assertFalse(Length('10mm') >= '1.1cm')
+        self.assertTrue(Length('20%') > '10%')
+        self.assertRaises(ValueError, lambda: Length('20%') > '1in')
+        self.assertRaises(ValueError, lambda: Length('20px') > '1in')
+        self.assertRaises(ValueError, lambda: Length('20pc') > '1in')
+        self.assertRaises(ValueError, lambda: Length('20em') > '1in')
+        self.assertEqual(max(Length('1in'), Length('2.5cm')), '1in')
+

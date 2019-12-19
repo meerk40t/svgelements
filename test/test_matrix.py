@@ -134,14 +134,18 @@ class TestPathMatrix(unittest.TestCase):
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
         path *= matrix
-        self.assertEqual("M -8.81635,0 L 8.81635,100 L 108.816,100 L 91.1837,0 L -8.81635,0 Z", path.d())
+        self.assertEqual(
+            "M -8.81634903542,0 L 8.81634903542,100 L 108.816349035,100 L 91.1836509646,0 L -8.81634903542,0 Z",
+            path.d())
 
     def test_transform_skewy(self):
         matrix = Matrix("skewY(10, 50,50)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
         path *= matrix
-        self.assertEqual("M 0,-8.81635 L 0,91.1837 L 100,108.816 L 100,8.81635 L 0,-8.81635 Z", path.d())
+        self.assertEqual(
+            "M 0,-8.81634903542 L 0,91.1836509646 L 100,108.816349035 L 100,8.81634903542 L 0,-8.81634903542 Z",
+            path.d())
 
     def test_matrix_repr_rotate(self):
         """

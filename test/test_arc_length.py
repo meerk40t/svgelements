@@ -153,6 +153,10 @@ class TestElementArcLength(unittest.TestCase):
         exact = arc._exact_length()
         self.assertAlmostEqual(exact, 2.5314195265536624417)
 
+        arc = ellipse.arc_angle(Angle.degrees(360 + 180 - 50), Angle.degrees(180))
+        exact = arc._exact_length()
+        self.assertAlmostEqual(exact, 14.156360641292059)
+
     def test_arc_position_0_ortho(self):
         arc = Ellipse(0, 0, 3, 5).arc_angle(0, Angle.degrees(90))
         self.assertEqual(arc.point(0), (3, 0))
