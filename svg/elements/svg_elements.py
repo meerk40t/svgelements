@@ -2489,8 +2489,8 @@ class Transformable(SVGElement):
         """
         Realizes the transform to the attributes. Such that the attributes become actualized and the transform
         simplifies towards the identity matrix. In many cases it will become the identity matrix. In other cases the
-        transformed shape cannot be represented through the properties alone. And shall keep those parts of the matrix
-        required preserve equivolency.
+        transformed shape cannot be represented through the properties alone. And shall keep those parts of the
+        transform required preserve equivalency.
         """
         return self
 
@@ -2627,6 +2627,9 @@ class Shape(GraphicObject, Transformable):
         return m
 
     def __imatmul__(self, other):
+        """
+        The % operation with a matrix works much like multiplication except that it automatically reifies the shape.
+        """
         if isinstance(other, str):
             other = Matrix(other)
         if isinstance(other, Matrix):
@@ -4186,26 +4189,23 @@ class Arc(PathSegment):
         self.pry.matrix_transform(rotate_matrix)
         self.sweep = Angle.degrees(delta).as_radians
 
-    def as_quad_curves(self):
-        sweep_limit = tau / 12
-        arc_required = int(ceil(abs(self.sweep) / sweep_limit))
-        if arc_required == 0:
-            return
-        slice = self.sweep / float(arc_required)
-
-        start_angle = self.get_start_angle()
-        theta = self.get_rotation()
-        p_start = self.start
-        p_end = self.end
-
-        current_angle = start_angle - theta
-
-        for i in range(0, arc_required):
-            next_angle = current_angle + slice
-            q = Point(p_start[0] + tan((p_end[0] - p_start[0]) / 2.0))
-            yield QuadraticBezier(p_start, q, p_end)
-            p_start = Point(p_end)
-            current_angle = next_angle
+    # def as_quad_curves(self):
+    #     sweep_limit = tau / 12
+    #     arc_required = int(ceil(abs(self.sweep) / sweep_limit))
+    #     if arc_required == 0:
+    #         return
+    #     slice = self.sweep / float(arc_required)
+    #
+    #     current_t = 0
+    #
+    #     p_start = self.start
+    #     for i in range(0, arc_required):
+    #         end_t = current_t + slice
+    #         p_end = self.point_at_t(end_t)
+    #         q = Point(p_start[0] + tan((p_end[0] - p_start[0]) / 2.0))
+    #         yield QuadraticBezier(p_start, q, p_end)
+    #         p_start = p_end
+    #         current_t = end_t
 
     def as_cubic_curves(self):
         sweep_limit = tau / 12
@@ -4214,12 +4214,11 @@ class Arc(PathSegment):
             return
         slice = self.sweep / float(arc_required)
 
-        start_angle = self.get_start_angle()
         theta = self.get_rotation()
         rx = self.rx
         ry = self.ry
         p_start = self.start
-        current_angle = start_angle - theta
+        current_angle = self.get_start_t()
         x0 = self.center[0]
         y0 = self.center[1]
         cos_theta = cos(theta)
@@ -4978,6 +4977,8 @@ class Path(Shape, MutableSequence):
     def reify(self):
         """
         Realizes the transform to the shape properties.
+
+        Path objects reify perfectly.
         """
         if isinstance(self.transform, Matrix):
             for e in self._segments:
@@ -5021,9 +5022,12 @@ class Path(Shape, MutableSequence):
         return ' '.join(parts)
 
     def d(self, relative=False, transformed=True):
-        p = self.__copy__()
-        p.reify()
-        return Path.svg_d(p._segments, relative)
+        if transformed:
+            p = self.__copy__()
+            p.reify()
+            return Path.svg_d(p._segments, relative)
+        else:
+            return Path.svg_d(self._segments, relative)
 
     def segments(self, transformed=True):
         return self._segments
@@ -5249,14 +5253,17 @@ class Rect(Shape):
         :param transformed: provide the reified version.
         :return: path_d of shape.
         """
-        x = self.x
-        y = self.y
-        width = self.width
-        height = self.height
+        original = self.apply
+        self.apply = transformed
+        x = self.implicit_x
+        y = self.implicit_y
+        width = self.implicit_width
+        height = self.implicit_height
         if width == 0 or height == 0:
             return ''  # a computed value of zero for either dimension disables rendering.
-        rx = self.rx
-        ry = self.ry
+        rx = self.implicit_rx
+        ry = self.implicit_ry
+        self.apply = transformed
         if rx == ry == 0:
             segments = Move(None, (x, y)), \
                        Line((x, y), (x + width, y)), \
@@ -5291,7 +5298,7 @@ class Rect(Shape):
         If the realized shape can be properly represented as a rectangle with an identity matrix
         it will be, otherwise the properties will approximate the implied values.
 
-        :return:
+        Skewed and Rotated rectangles cannot be reified.
         """
 
         if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0:
@@ -5299,6 +5306,8 @@ class Rect(Shape):
             scale_y = self.transform.value_scale_y()
             translate_x = self.transform.value_trans_x()
             translate_y = self.transform.value_trans_y()
+            self.x *= scale_x
+            self.y *= scale_y
             self.x += translate_x
             self.y += translate_y
             self.transform *= Matrix.translate(-translate_x, -translate_y)
@@ -5489,13 +5498,15 @@ class _RoundShape(Shape):
         """
         Realizes the transform to the shape properties.
 
-        This is primarily solved only for transformed and scaled elements.
+        Skewed and Rotated roundshapes cannot be reified.
         """
         if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0:
             scale_x = self.transform.value_scale_x()
             scale_y = self.transform.value_scale_y()
             translate_x = self.transform.value_trans_x()
             translate_y = self.transform.value_trans_y()
+            self.cx *= scale_x
+            self.cy *= scale_y
             self.cx += translate_x
             self.cy += translate_y
             self.transform *= Matrix.translate(-translate_x, -translate_y)
@@ -5803,7 +5814,11 @@ class SimpleLine(Shape):
         return (Move(None, start), Line(start, end))
 
     def reify(self):
-        """Realizes the transform to the shape properties."""
+        """
+        Realizes the transform to the shape properties.
+
+        SimpleLines are perfectly reified.
+        """
         matrix = self.transform
         p = Point(self.x1, self.y1)
         p *= matrix
@@ -5927,7 +5942,11 @@ class _Polyshape(Shape):
         return segments
 
     def reify(self):
-        """Realizes the transform to the shape properties."""
+        """
+        Realizes the transform to the shape properties.
+
+        Polyshapes are perfectly reified.
+        """
         matrix = self.transform
         for p in self:
             p *= matrix
