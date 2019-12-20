@@ -3906,13 +3906,24 @@ class Arc(PathSegment):
                     mid[0] + sqrt(r ** 2 - hq ** 2) * (self.start[1] - self.end[1]) / q,
                     mid[1] + sqrt(r ** 2 - hq ** 2) * (self.end[0] - self.start[0]) / q
                 )
-                cw = bool(Point.orientation(self.start, self.center, self.end) == 2)
+                cw = bool(Point.orientation(self.start, self.center, self.end) == 1)
                 if 'ccw' in kwargs and kwargs['ccw'] and cw or not cw:
                     # ccw arg exists, is true, and we found the cw center, or we didn't find the cw center.
                     self.center = Point(
                         mid[0] - sqrt(r ** 2 - hq ** 2) * (self.start[1] - self.end[1]) / q,
                         mid[1] - sqrt(r ** 2 - hq ** 2) * (self.end[0] - self.start[0]) / q
                     )
+            elif 'rx' in kwargs and 'ry' in kwargs:
+                # This formulation will assume p1 and p2 are both axis aligned.
+                rx = kwargs['rx']
+                ry = kwargs['ry']
+                # We will assume rx == abs(self.start[0] - self.end[0])
+                self.center = Point(self.start[0], self.end[1])
+                cw = bool(Point.orientation(self.start, self.center, self.end) == 1)
+                if 'ccw' in kwargs and kwargs['ccw'] and cw or not cw:
+                    self.center = Point(self.end[0], self.start[1])
+                self.sweep = tau / 4.0
+
         if self.center is None:
             return  # Center must be solvable.
         if 'r' in kwargs:
@@ -5300,12 +5311,12 @@ class Rect(Shape):
 
         Skewed and Rotated rectangles cannot be reified.
         """
-
-        if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0:
-            scale_x = self.transform.value_scale_x()
-            scale_y = self.transform.value_scale_y()
-            translate_x = self.transform.value_trans_x()
-            translate_y = self.transform.value_trans_y()
+        scale_x = self.transform.value_scale_x()
+        scale_y = self.transform.value_scale_y()
+        translate_x = self.transform.value_trans_x()
+        translate_y = self.transform.value_trans_y()
+        if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0 \
+                and scale_x != 0 and scale_y != 0:
             self.x *= scale_x
             self.y *= scale_y
             self.x += translate_x
@@ -5500,11 +5511,12 @@ class _RoundShape(Shape):
 
         Skewed and Rotated roundshapes cannot be reified.
         """
-        if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0:
-            scale_x = self.transform.value_scale_x()
-            scale_y = self.transform.value_scale_y()
-            translate_x = self.transform.value_trans_x()
-            translate_y = self.transform.value_trans_y()
+        scale_x = self.transform.value_scale_x()
+        scale_y = self.transform.value_scale_y()
+        translate_x = self.transform.value_trans_x()
+        translate_y = self.transform.value_trans_y()
+        if self.transform.value_skew_x() == 0 and self.transform.value_skew_y() == 0 \
+                and scale_x != 0 and scale_y != 0:
             self.cx *= scale_x
             self.cy *= scale_y
             self.cx += translate_x
