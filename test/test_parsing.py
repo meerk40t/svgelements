@@ -4,8 +4,6 @@ import unittest
 from svg.elements import *
 
 
-
-
 class TestParser(unittest.TestCase):
 
     def test_svg_examples(self):

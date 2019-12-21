@@ -35,9 +35,11 @@ class TestPathMatrix(unittest.TestCase):
 
     def test_rotate_css_distance(self):
         matrix = Matrix("rotate(90deg,100cm,100cm)")
+        matrix.render(ppi=DEFAULT_PPI)
         path = Path("M0,0z")
         path *= matrix
-        p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % Distance.parse("1cm"))
+        d = Length("1cm").value(ppi=DEFAULT_PPI)
+        p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % d)
         self.assertEqual(p2, path)
 
     def test_skew_single_value(self):
@@ -70,12 +72,12 @@ class TestPathMatrix(unittest.TestCase):
     def test_translate_css_value(self):
         m0 = Matrix("translate(50mm,5cm)")
         m1 = Matrix("translate(5cm,5cm)")
-        self.assertEqual(repr(m0), repr(m1))
+        self.assertEqual(m0, m1)
 
     def test_rotate_css_value(self):
-        m0 = Matrix("rotate(90deg, 50cm,50cm)")
-        m1 = Matrix("rotate(0.25turn, 500mm,500mm)")
-        self.assertEqual(repr(m0), repr(m1))
+        m0 = Matrix("rotate(90deg, 50cm,50cm)", ppi=DEFAULT_PPI)
+        m1 = Matrix("rotate(0.25turn, 500mm,500mm)", ppi=DEFAULT_PPI)
+        self.assertEqual(m0, m1)
 
     def test_transform_translate(self):
         matrix = Matrix("translate(5,4)")
@@ -132,14 +134,18 @@ class TestPathMatrix(unittest.TestCase):
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
         path *= matrix
-        self.assertEqual("M -8.81635,0 L 8.81635,100 L 108.816,100 L 91.1837,0 L -8.81635,0 Z", path.d())
+        self.assertEqual(
+            "M -8.81634903542,0 L 8.81634903542,100 L 108.816349035,100 L 91.1836509646,0 L -8.81634903542,0 Z",
+            path.d())
 
     def test_transform_skewy(self):
         matrix = Matrix("skewY(10, 50,50)")
         path = Path()
         path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
         path *= matrix
-        self.assertEqual("M 0,-8.81635 L 0,91.1837 L 100,108.816 L 100,8.81635 L 0,-8.81635 Z", path.d())
+        self.assertEqual(
+            "M 0,-8.81634903542 L 0,91.1836509646 L 100,108.816349035 L 100,8.81634903542 L 0,-8.81634903542 Z",
+            path.d())
 
     def test_matrix_repr_rotate(self):
         """

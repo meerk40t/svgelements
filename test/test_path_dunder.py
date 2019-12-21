@@ -98,7 +98,8 @@ class TestPath(unittest.TestCase):
     def test_path_mult_matrix(self):
         p = Path("L20,20 40,40") * Matrix("Rotate(20)")
         self.assertEqual(p, "L11.953449549205,25.634255282232 23.906899098410,51.268510564463")
-        p = Path("L20,20 40,40") * Matrix("Rotate(20)") + "L 100, 100"
+        p.reify()
+        p += "L 100, 100"
         p += Close()
         self.assertEqual(p, Path("L11.953449549205,25.634255282232 23.906899098410,51.268510564463 100,100 z"))
 

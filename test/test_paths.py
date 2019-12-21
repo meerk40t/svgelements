@@ -582,7 +582,7 @@ class TestPath(unittest.TestCase):
         del path2[-1]
         self.assertFalse(path1 == path2)
 
-        # It's not equal to a list of it's segments
+        # It's not equal to a list of its segments
         self.assertTrue(path1 != path1[:])
         self.assertFalse(path1 == path1[:])
 
