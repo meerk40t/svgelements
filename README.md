@@ -1,6 +1,6 @@
 # svg.elements
 
-Parsing for SVG File, Path, Matrix, Angle, Distance, Color, Point and other SVG Elements. The SVG spec defines not only paths by a variety of elements. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these.
+Parsing for SVG File, Path, Matrix, Angle, Length, Color, Point and other SVG Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these elements.
 
 This project began as part of `meerK40t` which does SVG loading of files for laser cutting. It attempts to more fully map out the SVG spec, objects, and paths, while remaining easy to use and highly backwards compatible.
 
@@ -24,7 +24,7 @@ None.
 
 `svg.elements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
 
-We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There are a number of breaking changes. `svg.elements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
+We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There may be number of breaking changes. However, since `svg.elements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
 
 
 # Philosophy
@@ -87,6 +87,7 @@ Matrices define affine transformations of 2d space and objects.
     >>> Matrix("rotate(100grad)")
     Matrix(0, 1, -1, 0, 0, 0)
     
+The matrix class also supports Length translates for x, and y. In some instances CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that .render() will be called on these before they are used in a strange manner.
 
 ## Path
 
@@ -141,29 +142,22 @@ Colors define object color.
     Circle(center=Point(0,0), r=1, stroke="#ffff00")
 
 
-## Distance
+## Length
 
-Distances define the amount of linear space between two things.
+Lengths define the amount of linear space between two things.
 
 * "20cm"
 * "200mm"
 * "3in"
-* Distance.mm(200)
+* Length('200mm')
 
----
-
-    >>> Point(0,0) * "translate(20mm, 2cm)"
-    Point(75.590592,75.590592)
-    >>> Distance.inch(3).as_mm
-    76.19995885202222
-
-
+    
 # Examples
 
 Parse an SVG file:
 
     >>> svg = SVG(file)
-    >>> list(svg.nodes())
+    >>> list(svg.elements())
 
 Make a PathSegment
 
@@ -189,28 +183,19 @@ Rotate a Partial Path with an implied matrix:
 (Note: The SVG does not allow us to specify a start point for this invalid path)
 
     >>> Path("L 40,40") * "Rotate(45)"
-    Path(Line(end=Point(0,56.568542494924)))
-
-Prepend a Move to the rotated partial path:
-(Note: This rotates the partial path, then adds the start point)
-
-    >>> Move((20,20)) + Path("L 40,40") * "Rotate(45)"
-    Path(Move(end=Point(20,20)), Line(start=Point(20,20), end=Point(0,56.568542494924)))
-
-Prepend a move to the partial path, and rotate:
-
-    >>> (Move((20,20)) + Path("L 40,40")) * "Rotate(45)"
-    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+    Path(Line(end=Point(40,40)), transform=Matrix(0.707106781187, 0.707106781187, -0.707106781187, 0.707106781187, 0, 0), stroke='None', fill='None')
+    >>> abs(Path("L 40,40") * "Rotate(45)")
+    Path(Line(end=Point(0,56.568542494924)), stroke='None', fill='None')
 
 Since Move() is a qualified element we can postpend the SVG text:
 
-    >>> (Move((20,20)) + "L 40,40") * "Rotate(45)"
-    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+    >>> (Move((20,20)) + "L 40,40")
+    Path(Move(end=Point(20,20)), Line(start=Point(20,20), end=Point(40,40)), stroke='None', fill='None')
 
-Define the entire qualified path and rotate:
+Define the entire qualified path:
 
-    >>> Path("M 20,20 L 40,40") * "Rotate(45)"
-    Path(Move(end=Point(0,28.284271247462)), Line(start=Point(0,28.284271247462), end=Point(0,56.568542494924)))
+    >>> Path("M 20,20 L 40,40")"
+    Path(Move(end=Point(20,20)), Line(start=Point(20,20), end=Point(40,40)))
 
 Combine individual PathSegments together:
 
@@ -225,7 +210,7 @@ Print that as SVG path_d object:
 Scale a path:
 
     >>> Path("M1,1 1,2 2,2 2,1z") * "scale(2)"
-    Path(Move(end=Point(2,2)), Line(start=Point(2,2), end=Point(2,4)), Line(start=Point(2,4), end=Point(4,4)), Line(start=Point(4,4), end=Point(4,2)), Close(start=Point(4,2), end=Point(2,2)))
+    Path(Move(end=Point(1,1)), Line(start=Point(1,1), end=Point(1,2)), Line(start=Point(1,2), end=Point(2,2)), Line(start=Point(2,2), end=Point(2,1)), Close(start=Point(2,1), end=Point(1,1)), transform=Matrix(2, 0, 0, 2, 0, 0), stroke='None', fill='None')
  
 Print that:
 
@@ -236,6 +221,7 @@ Reverse a scaled path:
 
     >>> p = (Path("M1,1 1,2 2,2 2,1z") * "scale(2)")
     >>> p.reverse()
+    Path(Move(end=Point(2,1)), Line(start=Point(2,1), end=Point(2,2)), Line(start=Point(2,2), end=Point(1,2)), Line(start=Point(1,2), end=Point(1,1)), Close(start=Point(1,1), end=Point(2,1)), transform=Matrix(2, 0, 0, 2, 0, 0), stroke='None', fill='None')
     >>> print(p)
     M 4,2 L 4,4 L 2,4 L 2,2 Z
 
@@ -247,7 +233,10 @@ Query length of paths:
 Apply a translations:
 
     >>> Path('M 0,0 Q 50,50 100,0') * "translate(40,40)"
-    Path(Move(end=Point(40,40)), QuadraticBezier(start=Point(40,40), control=Point(90,90), end=Point(140,40)))
+    Path(Move(end=Point(0,0)), QuadraticBezier(start=Point(0,0), control=Point(50,50), end=Point(100,0)), transform=Matrix(1, 0, 0, 1, 40, 40), stroke='None', fill='None')
+    >>> abs(Path('M 0,0 Q 50,50 100,0') * "translate(40,40)")
+    Path(Move(end=Point(40,40)), QuadraticBezier(start=Point(40,40), control=Point(90,90), end=Point(140,40)), stroke='None', fill='None')
+
     
 Query lengths of translated paths:
 
@@ -267,6 +256,7 @@ Reverse a subpath:
     >>> print(p)
     M 0,0 Q 50,50 100,0 M 20,20 L 20,40 L 40,40 L 40,20 L 20,20 Z
     >>> p.subpath(1).reverse()
+    Path(Move(start=Point(100,0), end=Point(20,20)), Line(start=Point(20,20), end=Point(40,20)), Line(start=Point(40,20), end=Point(40,40)), Line(start=Point(40,40), end=Point(20,40)), Line(start=Point(20,40), end=Point(20,20)), Close(start=Point(20,20), end=Point(20,20)))
     >>> print(p)
     M 0,0 Q 50,50 100,0 M 20,20 L 40,20 L 40,40 L 20,40 L 20,20 Z
 
@@ -279,6 +269,11 @@ Query a translated bounding box:
 
     >>> (Path('M 0,0 Q 50,50 100,0') * "translate(40,40)").bbox()
     (40.0, 40.0, 140.0, 90.0)
+    
+Query a translated path's untranslated bounding box.
+
+    >>> (Path('M 0,0 Q 50,50 100,0') * "translate(40,40)").bbox(transformed=False)
+    (0.0, 0.0, 100.0, 50.0)
 
 Add a path and shape:
 
@@ -389,7 +384,7 @@ All of these objects have a ``.point()`` function which will return the
 coordinates of a point on the path, where the point is given as a floating
 point value where ``0.0`` is the start of the path and ``1.0`` is end.
 
-You can calculate the length of a Path or its segments with the ``.length()`` function. For CubicBezier and Arc segments this is done by geometric approximation and for this reason **may be very slow**. You can make it faster by passing in an ``error`` option to the method. If you don't pass in error, it defaults to ``1e-12``. While the project has no dependencies, if you have `scipy` installed the Arc.length() function will use to the hypergeometric exact formula contained and will quickly return.
+You can calculate the length of a Path or its segments with the ``.length()`` function. For CubicBezier and Arc segments this is done by geometric approximation and for this reason **may be very slow**. You can make it faster by passing in an ``error`` option to the method. If you don't pass in error, it defaults to ``1e-12``. While the project has no dependencies, if you have `scipy` installed the Arc.length() function will use to the hypergeometric exact formula contained and will quickly return with the exact answer.
 
     >>> CubicBezier(300+100j, 100+100j, 200+200j, 200+300j).length(error=1e-5)
     297.2208145656899
@@ -467,6 +462,8 @@ Note that there is no protection against you creating paths that are invalid.
 You can for example have a Close command that doesn't end at the path start:
 
     >>> wrong = Path(Line(100+100j,200+100j), Close(200+300j, 0))
+    >>> wrong.d()
+    'L 200,100 Z'
 
 ## Matrix (Transformations)
 
@@ -490,9 +487,13 @@ To be compatible with SVG 1.1 and SVG 2.0 the matrix class provided has all the 
 * skewY(y)
 
 Since we have compatibility with CSS for the SVG 2.0 spec compatibility we can perform length translations:
-(Note this converts based on the default PPI of 96)
 
     >>> Point(0,0) * Matrix("Translate(1cm,1cm)")
+    Point('1cm','1cm')
+
+Do note, however that this isn't an intended purpose. Points are expected in native units. You should render the Matrix prior to using it. This means you must give it the correct units to translate the information from one form to another. 
+
+    >>> Point(0,0) * (Matrix("Translate(1cm,1cm)").render(ppi=96.0))
     Point(37.795296,37.795296)
 
 We can also rotate by `turns`, `grad`, `deg`, `rad` which are permitted CSS angles:
@@ -513,12 +514,12 @@ A large goal of this project is to provide a more robust modifications of Path o
 The objects themselves have robust dunder methods. So if you have a path object you may simply multiply it by a matrix.
 
     >>> Path(Line(0+0j, 100+100j)) * Matrix.scale(2)
-    >>> Path(Line(start=Point(0.000000000000,0.000000000000), end=Point(200.000000000000,200.000000000000)))
+    Path(Line(start=Point(0,0), end=Point(100,100)), transform=Matrix(2, 0, 0, 2, 0, 0), stroke='None', fill='None')
 
 Or rotate a parsed path.
 
     >>> Path("M0,0L100,100") * Matrix.rotate(30)
-    Path(Move(end=Point(0,0)), Line(start=Point(0,0), end=Point(114.228307398045,-83.378017420528)))
+    Path(Move(end=Point(0,0)), Line(start=Point(0,0), end=Point(100,100)), transform=Matrix(0.154251449888, -0.988031624093, 0.988031624093, 0.154251449888, 0, 0))
 
 Or modify an SVG path.
 
@@ -541,12 +542,12 @@ Do note that the order of operations for matrices matters:
 The first version is:
  
     >>> (Matrix("scale(2)") * Matrix("Translate(40,40)"))
-    Matrix(2.000000, 0.000000, 0.000000, 2.000000, 40.000000, 40.000000)
+    Matrix(2, 0, 0, 2, 40, 40)
 
 The second is:
 
     >>>> (Matrix("Translate(40,40)") * Matrix("scale(2)"))
-    Matrix(2.000000, 0.000000, 0.000000, 2.000000, 80.000000, 80.000000)
+    Matrix(2, 0, 0, 2, 80, 80)
     
 This is:
 
@@ -556,7 +557,10 @@ This is:
 
 ### SVG Transform Parsing
 
-Within the SVG.nodes() schema where objects SVG nodes are dictionaries. The `transform` tags within objects are combined together. This means that if you get a the `d` object from an end-node in the SVG you can choose to apply the transformations. This list of transformations complies with the SVG spec. They merely applied automatically in the call for nodes().
+Within the SVG.elements() schema objects SVG elements. The `transform` tags within objects are combined together. These are automatically applied if `reify=True` is set.
+
+
+### SVG Dictionary Parsing
 
     >>> node = { 'd': "M0,0 100,0, 0,100 z", 'transform': "scale(0.5)"}
     >>> print(Path(node['d']) * Matrix(node['transform']))
@@ -566,16 +570,15 @@ Within the SVG.nodes() schema where objects SVG nodes are dictionaries. The `tra
 
 There is need in many applications to append a transformation for the viewbox, height, width. So as to prevent a variety of errors where the expected size is far vastly different from the actual size. If we have a viewbox of "0 0 100 100" but the height and width show that to be 50cm wide, then a path "M25,50L75,50" within that viewbox has a real size of length of 25cm which can be quite different from 50 (unit-less value).
 
-`parse_viewbox_transform` performs this operation. It uses the conversion of the width and height to real world units. With a variable setting of `ppi` or pixels_per_inch. The standard default value for this is 96. Though other values have been used in other places. And this property can be configured.
+This conversion is done through the `Viewbox` object. This operation is automatically done for SVG.elements() objects.
 
-This can be easily invoked calling the `nodes` generator on the SVG object. If called with `viewport_transform=True` it will parse this viewport appending the required transformation to the SVG root object, which will be passed to all the child nodes. If you then apply the transform to the path object it will be scaled to the real size.
+Viewbox objects have a call to `.transform()` which will provide the string for an equivolent transformation for the given viewbox.
 
-The `parse_viewbox_transform` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`,
- `xMidYMid`, and `meetOrSlice` values.
+The `Viewbox.transform()` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values.
 
 ## SVG Shapes
 
-One of the elements within SVG are the shapes. While all of these can be converted to paths. They can serve some usages in their original form. There are methods to deform a rectangle that simple don't exist in the path form of that object.
+Another important SVG elements are the shapes. While all of these can be converted to paths. They can serve some usages in their original form. There are methods to deform a rectangle that simple don't exist in the path form of that object.
 * Rect
 * Ellipse
 * Circle
@@ -589,7 +592,7 @@ A Shape is said to be equal to another Shape or a Path if they decompose to same
 
     >>> Circle() == Ellipse()
     True
-     >>> Rect() == Path('m0,0h1v1h-1v-1z')
+     >>> Rect() == Path('m0,0h1v1h-1z')
     True
 
 ### Rect
@@ -597,7 +600,7 @@ A Shape is said to be equal to another Shape or a Path if they decompose to same
 Rectangles are defined by x, y and height, width. Within SVG there are also rounded corners defined with `rx` and `ry`. 
 
     >>> Rect(10,10,8,4).d()
-    'M 10,10 H 18 V 14 H 10 V 10 z'
+    'M 10,10 L 18,10 L 18,14 L 10,14 Z'
 
 Much like all the paths these shapes also contain a `.d()` function that produces the path data for them. This could then be wrapped into a Path().
 
@@ -612,7 +615,7 @@ Or simply passed to the Path:
 Or simply multiplied by the matrix itself:
 
     >>> print(Rect(10,10,8,4) * "rotate(0.5turns)")
-    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0))
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0), stroke='None', fill='None')
 
 And you can equally decompose that Shape:
 
@@ -624,15 +627,17 @@ Matrices can be applied to Rect objects directly.
 
     >>> from svg.elements import *
     >>> Rect(10,10,8,4) * "rotate(0.5turns)"
-    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0))
+    Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0), stroke='None', fill='None')
     
     >>> Rect(10,10,8,4) * "rotate(0.25turns)"
     Rect(x=10, y=10, width=8, height=4, transform=Matrix(0, 1, -1, 0, 0, 0))
 
-With a caveat that rectangles only actually make sense when parallel so the results can be strange:
+Rotated Rects produce path_d srings.:
 
     >>> Rect(10,10,8,4) * "rotate(14deg)"
     Rect(x=10, y=10, width=8, height=4, transform=Matrix(0.970295726276, 0.2419218956, -0.2419218956, 0.970295726276, 0, 0))
+    >>> (Rect(10,10,8,4) * "rotate(14deg)").d()
+    'M 7.28373830676,12.1221762188 L 15.046104117,14.0575513836 L 14.0784165346,17.9387342887 L 6.31605072436,16.0033591239 Z'
     
  This also works with `rx` and `ry`:
  (Note: the path will now contain Arcs)
@@ -662,12 +667,14 @@ SimpleLine is renamed from the SVG form of `Line` since we already have `Line` o
 
     >>> s = SimpleLine(0,0,200,200)
     >>> s
-    SimpleLine(start=Point(0,0), end=Point(200,200))
+    SimpleLine(x1=0.0, y1=0.0, x2=200.0, y2=200.0)
     >>> s *= "rotate(45)"
     >>> s
-    SimpleLine(start=Point(0,0), end=Point(0,282.842712474619))
+    SimpleLine(x1=0.0, y1=0.0, x2=200.0, y2=200.0, transform=Matrix(0.707106781187, 0.707106781187, -0.707106781187, 0.707106781187, 0, 0))
+    >>> abs(s)
+    SimpleLine(x1=0.0, y1=0.0, x2=2.842170943040401e-14, y2=282.842712474619, stroke='None', fill='None')
     >>> s.d()
-    'M 0,0 L 2.84217E-14,282.843'
+    'M 0,0 L 2.84217094304E-14,282.842712475
 
 
 ### Polyline and Polygon
@@ -691,21 +698,41 @@ You can just append a "z" to the polyline path though.
     >>> Path(Polyline((20,0), (10,10), 0)) + "z" == Polygon("20,0 10,10 0,0")
     True
 
-## CSS Distance
+## CSS Length
 
-The conversion of distances to utilizes another element `Distance` It's a minor element and is a backed by a `float`. As such you can call Distance.mm(25) and it will convert 25mm to pixels with the default 96 pixels per inch. It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`. You can also parse an element like the string '25mm' calling Distance.parse('25mm') and get the expected results. You can also call `Distance.parse('25mm').as_inch` which will return  25mm in inches.
+The conversion of lengths to utilizes another element `Length` It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`, `%`. You can also parse an element like the string '25mm' calling Length('25mm').value(ppi=96) and get the expected results. You can also call `Length('25mm').in_inches()` which will return  25mm in inches.
 
-    >>> Distance.parse('25mm').as_inch
-    0.9842524999999999
+    >>> Length('25mm').in_inches()
+    0.9842525
 
 ## Color
 
-Color is another important element it is back by `int` in the form of an ARGB 32-bit integer. It will parse all the SVG color functions.
+Color is another important element it contains an 'int' as 'value' in the form of an ARGB 32-bit integer. It will parse all the SVG color functions.
 
 If we get the fill or stroke of an object from a node be a text element. This needs to be converted to a consistent form. We could have a 3, 4, 6, or 8 digit hex. rgb(r,g,b) value, a static dictionary name or percent rgb(r,g,b). And must be properly parsed according to the spec.
 
-    >>> Color.parse("red").hex
+    >>> Color("red").hex
     '#ff0000'
+    
+    >>> Color('red').red
+    255
+    
+    >>>Color('hsl(120, 100%, 50%)')
+    Color('#00ff00')
+    
+    >>> c = Color('hsl(120, 100%, 50%)')
+    >>> c.blue = 50
+    >>> c
+    Color('#00ff32')
+    
+In addition you can set various properties of a particular color. Check distances to other colors.
+
+    >>> Color.distance('red', 'lightred')
+    25.179356624028344
+    >>> Color.distance('red', 'blue')
+    403.97524676643246
+    >>> Color('red').distance_to('blue')
+    403.97524676643246
 
 ## Angle
 
@@ -737,7 +764,7 @@ It includes a number of point functions like:
 
 This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by 5cm.
 
-    >>> Point(0).polar_to(Angle.turns(0.125), Distance.cm(5))
+    >>> Point(0).polar_to(Angle.turns(0.125), Length("5cm").value(ppi=96))
     Point(133.626550492764,133.626550492764)
 
 
