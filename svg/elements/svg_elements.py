@@ -6534,6 +6534,9 @@ class Viewbox:
         # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
         # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
         # or if meetOrSlice is missing from this value.
+        if e_x is None or e_y is None or e_width is None or e_height is None or\
+                vb_x is None or vb_y is None or vb_width is None or vb_height is None:
+            return ''
         if aspect is not None:
             aspect_slice = aspect.split(' ')
             try:
