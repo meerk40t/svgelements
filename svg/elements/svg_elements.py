@@ -1575,7 +1575,10 @@ class Point:
         a0 = self[0]
         a1 = self[1]
         if isinstance(other, str):
-            other = Point(other)
+            try:
+                other = Point(other)
+            except IndexError: # This string doesn't parse to a point.
+                return False
         if isinstance(other, (Point, list, tuple)):
             b0 = other[0]
             b1 = other[1]

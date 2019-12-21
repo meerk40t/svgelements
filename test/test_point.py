@@ -22,3 +22,6 @@ class TestElementPoint(unittest.TestCase):
             r = random() * 50
             m = Point.polar(p, a, r)
             self.assertAlmostEqual(Point.angle(p, m), a)
+
+    def test_not_equal_unparsed(self):
+        self.assertNotEqual(Point(0,0), "string that doesn't parse to point")
