@@ -637,9 +637,9 @@ class Length(object):
 
     def in_inches(self):
         if self.units == 'mm':
-            return self.amount / 0.0393701
+            return self.amount * 0.0393701
         if self.units == 'cm':
-            return self.amount / 0.393701
+            return self.amount * 0.393701
         if self.units == 'in':
             return self.amount
         return None
@@ -1454,11 +1454,11 @@ class Color(object):
         :return: square of color distance
         """
         if isinstance(c1, str):
-            c1 = Color.parse(c1)
+            c1 = Color(c1)
         elif isinstance(c1, int):
             c1 = Color(c1)
         if isinstance(c2, str):
-            c2 = Color.parse(c2)
+            c2 = Color(c2)
         elif isinstance(c2, int):
             c2 = Color(c2)
         red_mean = int((c1.red + c2.red) / 2.0)
@@ -2146,6 +2146,7 @@ class Matrix:
         if isinstance(self.f, Length):
             self.f = self.f.value(ppi=ppi, relative_length=height, font_size=font_size,
                                   font_height=font_height, viewbox=viewbox)
+        return self
 
     def value_trans_x(self):
         return self.e
@@ -2500,6 +2501,7 @@ class Transformable(SVGElement):
         will be the pixel-length form.
         """
         self.transform.render(**kwargs)
+        return self
 
     @property
     def rotation(self):
@@ -2640,8 +2642,10 @@ class Shape(GraphicObject, Transformable):
     def segments(self, transformed=True):
         """
         Returns PathSegments which correctly produce this shape.
+
+        This should be implemented by subclasses.
         """
-        return Path(self.d(transformed=transformed)).segments(transformed=False)
+        raise NotImplementedError
 
     def d(self, relative=False, transformed=True):
         """
@@ -2654,11 +2658,7 @@ class Shape(GraphicObject, Transformable):
         return Path(self.segments(transformed=transformed)).d(relative=relative)
 
     def bbox(self, transformed=True):
-        original = self.apply
-        self.apply = transformed
-        bbox = Path(self).bbox()
-        self.apply = original
-        return bbox
+        return Path(self).bbox(transformed=transformed)
 
     def _init_shape(self, *args):
         """
@@ -4974,7 +4974,7 @@ class Path(Shape, MutableSequence):
 
     def bbox(self, transformed=True):
         """returns a bounding box for the input Path"""
-        bbs = [seg.bbox() for seg in self._segments if not isinstance(Close, Move)]
+        bbs = [seg.bbox() for seg in self.segments(transformed=transformed) if not isinstance(Close, Move)]
         try:
             xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
         except ValueError:
@@ -5041,6 +5041,8 @@ class Path(Shape, MutableSequence):
             return Path.svg_d(self._segments, relative)
 
     def segments(self, transformed=True):
+        if transformed:
+            return [s * self.transform for s in self._segments]
         return self._segments
 
 
@@ -5264,43 +5266,35 @@ class Rect(Shape):
         :param transformed: provide the reified version.
         :return: path_d of shape.
         """
-        original = self.apply
-        self.apply = transformed
-        x = self.implicit_x
-        y = self.implicit_y
-        width = self.implicit_width
-        height = self.implicit_height
+        x = self.x
+        y = self.y
+        width = self.width
+        height = self.height
         if width == 0 or height == 0:
             return ''  # a computed value of zero for either dimension disables rendering.
-        rx = self.implicit_rx
-        ry = self.implicit_ry
-        self.apply = transformed
+        rx = self.rx
+        ry = self.ry
         if rx == ry == 0:
-            segments = Move(None, (x, y)), \
-                       Line((x, y), (x + width, y)), \
-                       Line((x + width, y), (x + width, y + height)), \
-                       Line((x + width, y + height), (x, y + height)), \
-                       Close((x, y + height), (x, y))
-            if not transformed or self.transform.is_identity():
-                return segments
-            p = Path(segments)
-            p *= self.transform
-            return p.segments()
-        segments = Move(None, (x + rx, y)), \
-                   Line((x + rx, y), (x + width - rx, y)), \
-                   Arc((x + width - rx, y), (x + width, y + ry), rx=rx, ry=ry), \
-                   Line((x + width, y + ry), (x + width, y + height - ry)), \
-                   Arc((x + width, y + height - ry), (x + width - rx, y + height), rx=rx, ry=ry), \
-                   Line((x + width - rx, y + height), (x + rx, y + height)), \
-                   Arc((x + rx, y + height), (x, y + height - ry), rx=rx, ry=ry), \
-                   Line((x, y + height - ry), (x, y + ry)), \
-                   Arc((x, y + ry), (x + rx, y), rx=rx, ry=ry), \
-                   Close((x + rx, y), (x + rx, y))
+            segments = (Move(None, (x, y)),
+                       Line((x, y), (x + width, y)),
+                       Line((x + width, y), (x + width, y + height)),
+                       Line((x + width, y + height), (x, y + height)),
+                       Close((x, y + height), (x, y)))
+        else:
+            segments = (Move(None, (x + rx, y)),
+                   Line((x + rx, y), (x + width - rx, y)),
+                   Arc((x + width - rx, y), (x + width, y + ry), rx=rx, ry=ry),
+                   Line((x + width, y + ry), (x + width, y + height - ry)),
+                   Arc((x + width, y + height - ry), (x + width - rx, y + height), rx=rx, ry=ry),
+                   Line((x + width - rx, y + height), (x + rx, y + height)),
+                   Arc((x + rx, y + height), (x, y + height - ry), rx=rx, ry=ry),
+                   Line((x, y + height - ry), (x, y + ry)),
+                   Arc((x, y + ry), (x + rx, y), rx=rx, ry=ry),
+                   Close((x + rx, y), (x + rx, y)))
         if not transformed or self.transform.is_identity():
             return segments
-        p = Path(segments)
-        p *= self.transform
-        return p.segments()
+        else:
+            return [s * self.transform for s in segments]
 
     def reify(self):
         """
@@ -5347,6 +5341,7 @@ class Rect(Shape):
             self.rx = self.rx.value(relative_length=width, **kwargs)
         if isinstance(self.ry, Length):
             self.ry = self.ry.value(relative_length=height, **kwargs)
+        return self
 
 
 class _RoundShape(Shape):
@@ -5541,6 +5536,7 @@ class _RoundShape(Shape):
             self.rx = self.rx.value(relative_length=width, **kwargs)
         if isinstance(self.ry, Length):
             self.ry = self.ry.value(relative_length=height, **kwargs)
+        return self
 
     def unit_matrix(self):
         """
@@ -5859,6 +5855,7 @@ class SimpleLine(Shape):
             self.x2 = self.x2.value(relative_length=width, **kwargs)
         if isinstance(self.y2, Length):
             self.y2 = self.y2.value(relative_length=height, **kwargs)
+        return self
 
 
 class _Polyshape(Shape):
@@ -6273,6 +6270,7 @@ class SVGText(GraphicObject, Transformable):
             self.dx = self.dx.value(relative_length=width, **kwargs)
         if isinstance(self.dy, Length):
             self.dy = self.dy.value(relative_length=height, **kwargs)
+        return self
 
 
 class SVGDesc:
@@ -6505,6 +6503,7 @@ class Viewbox:
             self.element_width = self.element_width.value(relative_length=width, **kwargs)
         if isinstance(self.element_height, Length):
             self.element_height = self.element_height.value(relative_length=height, **kwargs)
+        return self
 
     def transform(self):
         return Viewbox.viewbox_transform(

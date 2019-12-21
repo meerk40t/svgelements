@@ -304,6 +304,15 @@ class TestElementShape(unittest.TestCase):
         s = Path(fill='red')
         self.assertEqual(repr(s), "Path(fill='#ff0000')")
 
+    def test_rect_rot_equal_rect_path_rotate(self):
+        r = Rect(10, 10, 8, 4)
+        a = r.d()
+        b = Path(a).d()
+        self.assertEqual(a, b)
+        a = (Path(r.d()) * "rotate(0.5turns)").d()
+        b = (r * "rotate(0.5turns)").d()
+        self.assertEqual(a,b)
+
     def test_rect_reify(self):
         """Reifying a rotated rect."""
         test_reification(self, Rect())
