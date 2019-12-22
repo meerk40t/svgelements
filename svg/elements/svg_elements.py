@@ -1577,7 +1577,7 @@ class Point:
         if isinstance(other, str):
             try:
                 other = Point(other)
-            except IndexError: # This string doesn't parse to a point.
+            except IndexError:  # This string doesn't parse to a point.
                 return False
         if isinstance(other, (Point, list, tuple)):
             b0 = other[0]
@@ -2509,6 +2509,15 @@ class Transformable(SVGElement):
             self.transform *= other
         return self
 
+    def __abs__(self):
+        """
+        The absolute value is taken to be the actual shape transformed.
+        :return: transformed version of the given shape.
+        """
+        m = copy(self)
+        m.reify()
+        return m
+
     def reify(self):
         """
         Realizes the transform to the attributes. Such that the attributes become actualized and the transform
@@ -2525,6 +2534,15 @@ class Transformable(SVGElement):
         """
         self.transform.render(**kwargs)
         return self
+
+    def bbox(self, transformed=True):
+        """
+        Returns the bounding box of the given object.
+
+        :param transformed: whether this is the transformed bounds or default.
+        :return:
+        """
+        raise NotImplementedError
 
     @property
     def rotation(self):
@@ -2636,11 +2654,6 @@ class Shape(GraphicObject, Transformable):
 
     __add__ = __iadd__
 
-    def __abs__(self):
-        m = copy(self)
-        m.reify()
-        return m
-
     def __matmul__(self, other):
         m = copy(self)
         m.__imatmul__(other)
@@ -2681,7 +2694,19 @@ class Shape(GraphicObject, Transformable):
         return Path(self.segments(transformed=transformed)).d(relative=relative)
 
     def bbox(self, transformed=True):
-        return Path(self).bbox(transformed=transformed)
+        """
+        Get the bounding box for the given shape.
+        """
+        bbs = [seg.bbox() for seg in self.segments(transformed=transformed) if not isinstance(Close, Move)]
+        try:
+            xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
+        except ValueError:
+            return None  # No bounding box items existed. So no bounding box.
+        xmin = min(xmins)
+        xmax = max(xmaxs)
+        ymin = min(ymins)
+        ymax = max(ymaxs)
+        return xmin, ymin, xmax, ymax
 
     def _init_shape(self, *args):
         """
@@ -4995,19 +5020,6 @@ class Path(Shape, MutableSequence):
                 else:
                     yield p
 
-    def bbox(self, transformed=True):
-        """returns a bounding box for the input Path"""
-        bbs = [seg.bbox() for seg in self.segments(transformed=transformed) if not isinstance(Close, Move)]
-        try:
-            xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
-        except ValueError:
-            return None  # No bounding box items existed. So no bounding box.
-        xmin = min(xmins)
-        xmax = max(xmaxs)
-        ymin = min(ymins)
-        ymax = max(ymaxs)
-        return xmin, ymin, xmax, ymax
-
     def reify(self):
         """
         Realizes the transform to the shape properties.
@@ -5299,21 +5311,21 @@ class Rect(Shape):
         ry = self.ry
         if rx == ry == 0:
             segments = (Move(None, (x, y)),
-                       Line((x, y), (x + width, y)),
-                       Line((x + width, y), (x + width, y + height)),
-                       Line((x + width, y + height), (x, y + height)),
-                       Close((x, y + height), (x, y)))
+                        Line((x, y), (x + width, y)),
+                        Line((x + width, y), (x + width, y + height)),
+                        Line((x + width, y + height), (x, y + height)),
+                        Close((x, y + height), (x, y)))
         else:
             segments = (Move(None, (x + rx, y)),
-                   Line((x + rx, y), (x + width - rx, y)),
-                   Arc((x + width - rx, y), (x + width, y + ry), rx=rx, ry=ry),
-                   Line((x + width, y + ry), (x + width, y + height - ry)),
-                   Arc((x + width, y + height - ry), (x + width - rx, y + height), rx=rx, ry=ry),
-                   Line((x + width - rx, y + height), (x + rx, y + height)),
-                   Arc((x + rx, y + height), (x, y + height - ry), rx=rx, ry=ry),
-                   Line((x, y + height - ry), (x, y + ry)),
-                   Arc((x, y + ry), (x + rx, y), rx=rx, ry=ry),
-                   Close((x + rx, y), (x + rx, y)))
+                        Line((x + rx, y), (x + width - rx, y)),
+                        Arc((x + width - rx, y), (x + width, y + ry), rx=rx, ry=ry),
+                        Line((x + width, y + ry), (x + width, y + height - ry)),
+                        Arc((x + width, y + height - ry), (x + width - rx, y + height), rx=rx, ry=ry),
+                        Line((x + width - rx, y + height), (x + rx, y + height)),
+                        Arc((x + rx, y + height), (x, y + height - ry), rx=rx, ry=ry),
+                        Line((x, y + height - ry), (x, y + ry)),
+                        Arc((x, y + ry), (x + rx, y), rx=rx, ry=ry),
+                        Close((x + rx, y), (x + rx, y)))
         if not transformed or self.transform.is_identity():
             return segments
         else:
@@ -5969,8 +5981,8 @@ class _Polyshape(Shape):
             current = points[i]
             segments.append(Line(last, current))
             last = current
-        if isinstance(self,Polygon):
-            segments.append(Close(last,points[0]))
+        if isinstance(self, Polygon):
+            segments.append(Close(last, points[0]))
         return segments
 
     def reify(self):
@@ -6216,6 +6228,11 @@ class Subpath:
 class SVGText(GraphicObject, Transformable):
     """
     SVG Text are defined in SVG 2.0 Chapter 11
+
+    No methods are implemented to perform a text to path conversion.
+    However, if such a method exists the assumption is that the results will be
+    placed in the path attribute, and functions like bbox() will check if such
+    a value exists.
     """
 
     def __init__(self, *args, **kwargs):
@@ -6252,6 +6269,7 @@ class SVGText(GraphicObject, Transformable):
         self.y = Length(values.get(SVG_ATTR_Y, self.y)).value()
         self.dx = Length(values.get(SVG_ATTR_DX, self.dx)).value()
         self.dy = Length(values.get(SVG_ATTR_DY, self.dy)).value()
+        self.path = None
 
     def _set_values_by_dict(self, values):
         if SVG_TAG_TEXT in values:
@@ -6294,6 +6312,14 @@ class SVGText(GraphicObject, Transformable):
         if isinstance(self.dy, Length):
             self.dy = self.dy.value(relative_length=height, **kwargs)
         return self
+
+    def bbox(self, transformed=True):
+        """
+        Get the bounding box for the given text object.
+        """
+        if self.path is not None:
+            return (self.path * self.transform).bbox(transformed=True)
+        return self.x, self.y, self.x, self.y
 
 
 class SVGDesc:
@@ -6409,6 +6435,34 @@ class SVGImage(GraphicObject, Transformable):
         self.viewbox.render(width=self.image_width, height=self.image_height)
         viewbox_transform = self.viewbox.transform()
         self.transform = Matrix(viewbox_transform) * self.transform
+
+    def bbox(self, transformed=True):
+        """
+        Get the bounding box for the given image object
+        """
+        if self.image_width is None or self.image_height is None:
+            p = Point(0, 0)
+            p *= self.transform
+            return p[0], p[1], p[0], p[1]
+        width = self.image_width
+        height = self.image_height
+        if transformed:
+            p = (Point(0, 0) * self.transform,
+                 Point(width, 0) * self.transform,
+                 Point(width, height) * self.transform,
+                 Point(0, height) * self.transform)
+        else:
+            p = (Point(0, 0),
+                 Point(width, 0),
+                 Point(width, height),
+                 Point(0, height))
+        x_vals = list(s[0] for s in p)
+        y_vals = list(s[1] for s in p)
+        min_x = min(x_vals)
+        min_y = min(y_vals)
+        max_x = max(x_vals)
+        max_y = max(y_vals)
+        return min_x, min_y, max_x, max_y
 
 
 class Viewbox:
@@ -6549,7 +6603,7 @@ class Viewbox:
         # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
         # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
         # or if meetOrSlice is missing from this value.
-        if e_x is None or e_y is None or e_width is None or e_height is None or\
+        if e_x is None or e_y is None or e_width is None or e_height is None or \
                 vb_x is None or vb_y is None or vb_width is None or vb_height is None:
             return ''
         if aspect is not None:

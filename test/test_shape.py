@@ -304,6 +304,48 @@ class TestElementShape(unittest.TestCase):
         s = Path(fill='red')
         self.assertEqual(repr(s), "Path(fill='#ff0000')")
 
+    def test_shape_bbox(self):
+        s = Rect() * 'scale(20)'
+        self.assertEqual(s.bbox(False), (0, 0, 1, 1))
+        self.assertEqual(s.bbox(True), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(False), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(True), (0, 0, 1, 1))
+        s = Circle() * 'scale(20)'
+        self.assertEqual(s.bbox(False), (-1, -1, 1, 1))
+        self.assertEqual(s.bbox(True), (-20, -20, 20, 20))
+        self.assertNotEqual(s.bbox(False), (-20, -20, 20, 20))
+        self.assertNotEqual(s.bbox(True), (-1, -1, 1, 1))
+        s = Ellipse() * 'scale(20)'
+        self.assertEqual(s.bbox(False), (-1, -1, 1, 1))
+        self.assertEqual(s.bbox(True), (-20, -20, 20, 20))
+        self.assertNotEqual(s.bbox(False), (-20, -20, 20, 20))
+        self.assertNotEqual(s.bbox(True), (-1, -1, 1, 1))
+        s = Polygon() * 'scale(20)'
+        self.assertEqual(s.bbox(False), None)
+        self.assertEqual(s.bbox(True), None)
+        self.assertNotEqual(s.bbox(False), (0, 0, 0, 0))
+        self.assertNotEqual(s.bbox(True), (0, 0, 0, 0))
+        s = Polyline() * 'scale(20)'
+        self.assertEqual(s.bbox(False), None)
+        self.assertEqual(s.bbox(True), None)
+        self.assertNotEqual(s.bbox(False), (0, 0, 0, 0))
+        self.assertNotEqual(s.bbox(True), (0, 0, 0, 0))
+        s = Polygon("0,0 0,1 1,1 1,0 0,0") * 'scale(20)'
+        self.assertEqual(s.bbox(False), (0, 0, 1, 1))
+        self.assertEqual(s.bbox(True), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(False), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(True), (0, 0, 1, 1))
+        s = Polyline("0,0 0,1 1,1 1,0 0,0") * 'scale(20)'
+        self.assertEqual(s.bbox(False), (0, 0, 1, 1))
+        self.assertEqual(s.bbox(True), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(False), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(True), (0, 0, 1, 1))
+        s = SimpleLine(0, 0, 1, 1) * 'scale(20)'
+        self.assertEqual(s.bbox(False), (0, 0, 1, 1))
+        self.assertEqual(s.bbox(True), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(False), (0, 0, 20, 20))
+        self.assertNotEqual(s.bbox(True), (0, 0, 1, 1))
+
     def test_rect_rot_equal_rect_path_rotate(self):
         r = Rect(10, 10, 8, 4)
         a = r.d()
@@ -311,7 +353,7 @@ class TestElementShape(unittest.TestCase):
         self.assertEqual(a, b)
         a = (Path(r.d()) * "rotate(0.5turns)").d()
         b = (r * "rotate(0.5turns)").d()
-        self.assertEqual(a,b)
+        self.assertEqual(a, b)
 
     def test_rect_reify(self):
         """Reifying a rotated rect."""
