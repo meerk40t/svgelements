@@ -6373,9 +6373,13 @@ class SVGImage(GraphicObject, Transformable):
                     self.data = b64decode(self.url[23:])
                 elif self.url.startswith("data:image/svg+xml;base64,"):
                     self.data = b64decode(self.url[26:])
-        self.image = None
-        self.image_width = None
-        self.image_height = None
+        if 'image' in kwargs:
+            self.image = kwargs['image']
+            self.image_width, self.image_height = self.image.size
+        else:
+            self.image = None
+            self.image_width = None
+            self.image_height = None
         if SVG_ATTR_WIDTH in kwargs:
             self.viewbox.physical_width = Length(kwargs[SVG_ATTR_WIDTH]).value()
         if SVG_ATTR_HEIGHT in kwargs:
