@@ -2440,17 +2440,39 @@ class Matrix:
 
 
 class SVGElement(object):
-    """Any element within the SVG namespace."""
+    """
+    Any element within the SVG namespace.
+    """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.id = None
+        self.values = None
+        if len(args) == 1:
+            if isinstance(args[0], dict):
+                v = args[0]
+                if SVG_ATTR_TRANSFORM in v:
+                    self.transform = Matrix(v[SVG_ATTR_TRANSFORM])
+                if SVG_ATTR_ID in v:
+                    self.id = v[SVG_ATTR_ID]
+                self.values = dict(v)
+            elif isinstance(args[0], SVGElement):
+                s = args[0]
+                self.id = s.id
+                self.values = dict(s.values)
+                return
+        if SVG_ATTR_ID in kwargs:
+            self.id = kwargs[SVG_ATTR_ID]
+        if self.values is not None:
+            self.values.update(kwargs)
+        else:
+            self.values = dict(kwargs)
 
 
 class Transformable(SVGElement):
     """Any element that is transformable and has a transform property."""
 
     def __init__(self, *args, **kwargs):
-        SVGElement.__init__(self)
+        SVGElement.__init__(self, *args, **kwargs)
         self.transform = Matrix()
         self.apply = True
         if len(args) == 1:
@@ -2466,8 +2488,6 @@ class Transformable(SVGElement):
                 self.transform = Matrix(s.transform)
                 self.id = s.id
                 return
-        if SVG_ATTR_ID in kwargs:
-            self.id = kwargs[SVG_ATTR_ID]
         if SVG_ATTR_TRANSFORM in kwargs:
             self.transform = Matrix(kwargs[SVG_ATTR_TRANSFORM])
         if 'apply' in kwargs:
@@ -6313,6 +6333,7 @@ class SVGImage(GraphicObject, Transformable):
                     self.url = values[SVG_HREF]
                 else:
                     self.url = None
+            self.viewbox = Viewbox(values)
             self.data = None
         if self.url is not None:
             if self.url.startswith("data:image/"):
@@ -6329,17 +6350,10 @@ class SVGImage(GraphicObject, Transformable):
         self.image = None
         self.image_width = None
         self.image_height = None
-
         if SVG_ATTR_WIDTH in kwargs:
-            self.physical_width = Length(kwargs[SVG_ATTR_WIDTH]).value()
-        else:
-            self.physical_width = 100
-
+            self.viewbox.physical_width = Length(kwargs[SVG_ATTR_WIDTH]).value()
         if SVG_ATTR_HEIGHT in kwargs:
-            self.physical_height = Length(kwargs[SVG_ATTR_HEIGHT]).value()
-        else:
-            self.physical_height = 100
-        self.viewbox = Viewbox(values, width=self.physical_width, height=self.physical_height)
+            self.viewbox.physical_height = Length(kwargs[SVG_ATTR_HEIGHT]).value()
 
     def load(self, directory=None):
         try:
@@ -6392,6 +6406,7 @@ class SVGImage(GraphicObject, Transformable):
             return
         viewbox = "0 0 %d %d" % (self.image_width, self.image_height)
         self.viewbox.set_viewbox(viewbox)
+        self.viewbox.render(width=self.image_width, height=self.image_height)
         viewbox_transform = self.viewbox.transform()
         self.transform = Matrix(viewbox_transform) * self.transform
 
