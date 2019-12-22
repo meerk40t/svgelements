@@ -6683,7 +6683,7 @@ class SVG:
     def __init__(self, f):
         self.f = f
 
-    def elements(self, reify=True, ppi=DEFAULT_PPI, width=1, height=1, color="black"):
+    def elements(self, reify=True, ppi=DEFAULT_PPI, width=1, height=1, color="black", transform=None):
         """
         Parses the SVG file.
         Style elements are split into their proper values.
@@ -6749,7 +6749,11 @@ class SVG:
                     viewbox = Viewbox(values)
                     viewbox.render(ppi=ppi, width=width, height=height)
                     yield viewbox
-                    new_transform = viewbox.transform()
+                    if transform is not None:
+                        new_transform = transform + ' ' + viewbox.transform()
+                        transform = None
+                    else:
+                        new_transform = viewbox.transform()
                     width = viewbox.viewbox_width
                     height = viewbox.viewbox_height
                     values[SVG_VIEWBOX_TRANSFORM] = new_transform
