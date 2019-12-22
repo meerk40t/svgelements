@@ -4505,8 +4505,8 @@ class Path(Shape, MutableSequence):
                 if SVG_ATTR_DATA in p:
                     self.parse(p[SVG_ATTR_DATA])
             elif isinstance(p, Subpath):
-                self._segments = []
-                self._segments.extend(map(copy, list(p)))
+                self._segments = list(p.segments(transformed=False))
+                Shape.__init__(self,p._path)
             elif isinstance(args[0], Shape):
                 self._segments = list(p.segments(transformed=False))
             elif isinstance(args[0], str):
@@ -4656,10 +4656,8 @@ class Path(Shape, MutableSequence):
             return NotImplemented
         if len(self) != len(other):
             return False
-        p = self.__copy__()
-        p.reify()
-        q = other.__copy__()
-        q.reify()
+        p = abs(self)
+        q = abs(other)
         for s, o in zip(q._segments, p._segments):
             if not s == o:
                 return False
@@ -5117,8 +5115,8 @@ class Rect(Shape):
                 s = args[0]
                 self.x = s.x
                 self.y = s.y
-                self.width = s.w
-                self.height = s.h
+                self.width = s.width
+                self.height = s.height
                 self.rx = s.rx
                 self.ry = s.ry
                 self._validate_rect()
@@ -6156,6 +6154,12 @@ class Subpath:
         if not isinstance(other, (Path, Subpath, str)):
             return NotImplemented
         return not self == other
+
+    def segments(self, transformed=True):
+        path = self._path
+        if transformed:
+            return [s * path.transform for s in path._segments[self._start:self._end + 1]]
+        return path._segments[self._start:self._end + 1]
 
     def index_to_path_index(self, index):
         if index < 0:
