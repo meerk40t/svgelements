@@ -278,3 +278,35 @@ class TestPathMatrix(unittest.TestCase):
     def test_matrix_eval_repr(self):
         self.assertTrue(Matrix("rotate(20)") == eval(repr(Matrix("rotate(20)"))))
         self.assertFalse(Matrix("rotate(20)") != eval(repr(Matrix("rotate(20)"))))
+
+    def test_matrix_reverse_scale(self):
+        m1 = Matrix("scale(2)")
+        m1.inverse()
+        m2 = Matrix("scale(0.5)")
+        self.assertEqual(m1, m2)
+        m1.inverse()
+        self.assertEqual(m1, "scale(2)")
+
+    def test_matrix_reverse_translate(self):
+        m1 = Matrix("translate(20,20)")
+        m1.inverse()
+        self.assertEqual(m1, Matrix("translate(-20,-20)"))
+
+    def test_matrix_reverse_rotate(self):
+        m1 = Matrix("rotate(30)")
+        m1.inverse()
+        self.assertEqual(m1, Matrix("rotate(-30)"))
+
+    def test_matrix_reverse_skew(self):
+        m1 = Matrix("skewX(1)")
+        m1.inverse()
+        self.assertEqual(m1, Matrix("skewX(-1)"))
+
+        m1 = Matrix("skewY(1)")
+        m1.inverse()
+        self.assertEqual(m1, Matrix("skewY(-1)"))
+
+    def test_matrix_reverse_scale_translate(self):
+        m1 = Matrix("scale(2) translate(40,40)")
+        m1.inverse()
+        self.assertEqual(m1, Matrix("translate(-40,-40) scale(0.5)"))

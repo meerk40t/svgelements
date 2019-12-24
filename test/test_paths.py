@@ -6,7 +6,7 @@ from math import sqrt, pi, cos, sin
 from svg.elements import *
 tau = 2 * pi
 
-# Most of these test points are not calculated serparately, as that would
+# Most of these test points are not calculated separately, as that would
 # take too long and be too error prone. Instead the curves have been verified
 # to be correct visually, by drawing them with the turtle module, with code
 # like this:

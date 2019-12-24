@@ -1966,6 +1966,10 @@ class Matrix:
     def __len__(self):
         return 6
 
+    def __invert__(self):
+        m = self.__copy__()
+        return m.inverse()
+
     def __matmul__(self, other):
         m = copy(self)
         m.__imatmul__(other)
@@ -2181,24 +2185,26 @@ class Matrix:
 
     def inverse(self):
         """
+        SVG Matrix:
         [a c e]
         [b d f]
         """
-        m48s75 = self.d * 1 - self.f * 0
-        m38s56 = 0 * self.e - self.c * 1
-        m37s46 = self.c * self.f - self.d * self.e
-        det = self.a * m48s75 + self.c * m38s56 + 0 * m37s46
-        inverse_det = 1.0 / float(det)
+        m00 = self.a
+        m01 = self.c
+        m02 = self.e
+        m10 = self.b
+        m11 = self.d
+        m12 = self.f
+        determinant = m00 * m11 - m01 * m10
+        inverse_determinant = 1.0 / determinant
+        self.a = m11 * inverse_determinant
+        self.c = -m01 * inverse_determinant
+        self.b = -m10 * inverse_determinant
+        self.d = m00 * inverse_determinant
 
-        self.a = float(m48s75 * inverse_det)
-        self.b = float((0 * self.f - self.c * 1) * inverse_det)
-        # self.g = (self.c * self.h - self.g * self.d) * inverse_det
-        self.c = float(m38s56 * inverse_det)
-        self.d = float((self.a * 1 - 0 * self.e) * inverse_det)
-        # self.h = (self.c * self.g - self.a * self.h) * inverse_det
-        self.e = m37s46 * inverse_det
-        self.f = (0 * self.c - self.a * self.f) * inverse_det
-        # self.i = (self.a * self.d - self.c * self.c) * inverse_det
+        self.e = (m01 * m12 - m02 * m11) * inverse_determinant
+        self.f = (m10 * m02 - m00 * m12) * inverse_determinant
+        return self
 
     def vector(self):
         """
