@@ -2,7 +2,7 @@ from __future__ import division
 
 import unittest
 
-from svg.elements import *
+from svgelements import *
 
 paths = [
     'M 100,100 L 300,100 L 200,300 Z',

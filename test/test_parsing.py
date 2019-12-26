@@ -1,7 +1,7 @@
 from __future__ import division
 import unittest
 
-from svg.elements import *
+from svgelements import *
 
 
 class TestParser(unittest.TestCase):

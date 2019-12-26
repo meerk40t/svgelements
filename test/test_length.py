@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import unittest
 
-from svg.elements import *
+from svgelements import *
 
 
 class TestElementLength(unittest.TestCase):
