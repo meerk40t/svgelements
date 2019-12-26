@@ -1,4 +1,4 @@
-# svg.elements
+# svgelements
 
 Parsing for SVG File, Path, Matrix, Angle, Length, Color, Point and other SVG Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these elements.
 
@@ -10,11 +10,11 @@ This module is under a MIT License.
 
 
 # Installing
-`pip install svg.elements`
+`pip install svgelements`
 
 Then in a script:
 
-`from svg.elements import *`
+`from svgelements import *`
 
 # Requirements
 
@@ -22,9 +22,9 @@ None.
 
 # Compatibility
 
-`svg.elements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
+`svgelements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
 
-We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There may be number of breaking changes. However, since `svg.elements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
+We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There may be number of breaking changes. However, since `svgelements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
 
 
 # Philosophy
@@ -33,7 +33,7 @@ The goal of this project is to provide SVG spec-like elements and structures. Th
 
 The primary goal is to make a more robust version of `svg.path` including other elements like `Point` and `Matrix` with clear emphasis on conforming to the SVG spec in all ways that realworld uses for SVG demands.
 
-`svg.elements` should conform to the SVG Conforming Interpreter class (2.5.4. Conforming SVG Interpreters):
+`svgelements` should conform to the SVG Conforming Interpreter class (2.5.4. Conforming SVG Interpreters):
 
 >An SVG interpreter is a program which can parse and process SVG document fragments. Examples of SVG interpreters are server-side transcoding tools or optimizer (e.g., a tool which converts SVG content into modified SVG content) or analysis tools (e.g., a tool which extracts the text content from SVG content, or a validity checker).
 
@@ -157,7 +157,7 @@ Lengths define the amount of linear space between two things.
 Parse an SVG file:
 
     >>> svg = SVG(file)
-    >>> list(svg.elements())
+    >>> list(svgelements())
 
 Make a PathSegment
 
@@ -301,10 +301,10 @@ The elements are the core functionality of this class. These are svg-based objec
 
 ## Path
 
-The Path element is based on regebro's code and methods from the `svg.path` project. The primary methodology is to use different PathSegment classes for each segment within a pathd code. These should always have a high degree of backwards compatibility. And for most purposes importing the relevant classes from `svg.elements` should be highly compatible with any existing code.
+The Path element is based on regebro's code and methods from the `svg.path` project. The primary methodology is to use different PathSegment classes for each segment within a pathd code. These should always have a high degree of backwards compatibility. And for most purposes importing the relevant classes from `svgelements` should be highly compatible with any existing code.
 
 
-For this reason `svg.elements` tests include `svg.path` tests in this project. And while the Point class accepts and works like a `complex` it is not actually a complex. This permits code from other projects to quickly port without requiring an extensive rewrite. But, the custom class allows for improvements like making the `Matrix` object easy.
+For this reason `svgelements` tests include `svg.path` tests in this project. And while the Point class accepts and works like a `complex` it is not actually a complex. This permits code from other projects to quickly port without requiring an extensive rewrite. But, the custom class allows for improvements like making the `Matrix` object easy.
 
 * ``Path(*segments)``
 
@@ -378,7 +378,7 @@ or likewise `.reverse()`
 There are 6 PathSegment objects:
 ``Line``, ``Arc``, ``CubicBezier``, ``QuadraticBezier``, ``Move`` and ``Close``. These have a 1:1 correspondence to the commands in a `pathd`.
 
-    >>> from svg.elements import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
+    >>> from svgelements import Path, Line, Arc, CubicBezier, QuadraticBezier, Close
 
 All of these objects have a ``.point()`` function which will return the
 coordinates of a point on the path, where the point is given as a floating
@@ -404,7 +404,7 @@ given segment.
 Unlike `svg.path` the preferred method of getting a Path from a `pathd` string is
 as an argument:
 
-    >>> from svg.elements import Path
+    >>> from svgelements import Path
     >>> Path('M 100 100 L 300 100')
     Path(Move(end=Point(100,100)), Line(start=Point(100,100), end=Point(300,100)))
 
@@ -625,7 +625,7 @@ And you can equally decompose that Shape:
 
 Matrices can be applied to Rect objects directly.
 
-    >>> from svg.elements import *
+    >>> from svgelements import *
     >>> Rect(10,10,8,4) * "rotate(0.5turns)"
     Rect(x=10, y=10, width=8, height=4, transform=Matrix(-1, 0, -0, -1, 0, 0), stroke='None', fill='None')
     

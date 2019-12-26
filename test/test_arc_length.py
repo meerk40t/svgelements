@@ -3,7 +3,7 @@ from __future__ import print_function
 import unittest
 from random import *
 
-from svg.elements import *
+from svgelements import *
 
 
 def get_random_arc():

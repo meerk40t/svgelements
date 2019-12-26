@@ -3,7 +3,7 @@ from __future__ import division
 import unittest
 from math import sqrt, pi, cos, sin
 
-from svg.elements import *
+from svgelements import *
 tau = 2 * pi
 
 # Most of these test points are not calculated separately, as that would

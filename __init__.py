@@ -1,1 +1,2 @@
-name = "svg.elements"
+name = "svgelements"
+
