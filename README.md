@@ -22,7 +22,12 @@ None.
 
 # Compatibility
 
-`svgelements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
+`svgelements` was compatible with Python 2.7 and 3.6 at at Python 2 End-Of-Life January 1, 2020, when this branch was made.
+
+It is recommended that you upgrade to Python 3 and use the main branch. Any compatibility with Python 2.7 in the master branch is merely coincidental.
+
+--
+
 
 We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There may be number of breaking changes. However, since `svgelements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
 
@@ -776,3 +781,4 @@ The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Br
 ( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
 also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
 correspondence "'Free and open source' means you can do anything with it like the MIT licence[sic]."
+
