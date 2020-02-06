@@ -2097,7 +2097,10 @@ class Matrix:
                     self.pre_rotate(angle, x_param)
             elif SVG_TRANSFORM_SKEW == name:
                 angle_a = Angle.parse(params[0])
-                angle_b = Angle.parse(params[1])
+                try:
+                    angle_b = Angle.parse(params[1])
+                except IndexError: # this isn't valid.
+                    continue
                 try:
                     x_param = Length(params[2]).value()
                 except IndexError:
@@ -4512,7 +4515,7 @@ class Path(Shape, MutableSequence):
                     self.parse(p[SVG_ATTR_DATA])
             elif isinstance(p, Subpath):
                 self._segments = list(p.segments(transformed=False))
-                Shape.__init__(self,p._path)
+                Shape.__init__(self, p._path)
             elif isinstance(args[0], Shape):
                 self._segments = list(p.segments(transformed=False))
             elif isinstance(args[0], str):
@@ -6362,13 +6365,21 @@ class SVGImage(GraphicObject, Transformable):
         if len(args) == 1:
             if isinstance(args[0], dict):
                 values = args[0]
-            if isinstance(values, dict):
                 if XLINK_HREF in values:
                     self.url = values[XLINK_HREF]
                 elif SVG_HREF in values:
                     self.url = values[SVG_HREF]
                 else:
                     self.url = None
+            elif isinstance(args[0], SVGImage):
+                s = args[0]
+                self.url = s.url
+                self.data = s.data
+                self.viewbox = s.viewbox
+                self.image = s.image
+                self.image_width = s.image_width
+                self.image_height = s.image_height
+                return
             self.viewbox = Viewbox(values)
             self.data = None
         if self.url is not None:
