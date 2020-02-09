@@ -5908,7 +5908,7 @@ class _Polyshape(Shape):
         else:
             if isinstance(args[0], dict):
                 self._init_points(args[0])
-            elif isinstance(args[0], Polyline):
+            elif isinstance(args[0], _Polyshape):
                 s = args[0]
                 self._init_points(s.points)
             elif isinstance(args[0], (float, int, list, tuple, Point, str, complex)):
