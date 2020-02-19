@@ -758,7 +758,7 @@ class Color(object):
     """
 
     def __init__(self, *args):
-        if len(args) == 1:
+        if 1 <= len(args) <= 2:
             v = args[0]
             if isinstance(v, Color):
                 self.value = v.value
@@ -766,6 +766,8 @@ class Color(object):
                 self.value = v
             else:
                 self.value = Color.parse(v)
+            if len(args) == 2:
+                self.opacity = float(args[1])
         elif len(args) == 3:
             r = args[0]
             g = args[1]
@@ -6355,6 +6357,8 @@ class SVGImage(GraphicObject, Transformable):
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
         self.url = None
+        self.data = None
+        self.viewbox = None
         if len(args) == 1:
             if isinstance(args[0], dict):
                 values = args[0]
