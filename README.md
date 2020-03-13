@@ -772,7 +772,3 @@ This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by
 
 The Path element of this project is based in part on the `regebro/svg.path` ( https://github.com/regebro/svg.path ) project. It is also may be based, in part, on some elements of `mathandy/svgpathtools` ( https://github.com/mathandy/svgpathtools ).
 
-The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Bresenham's Algorithm"
-( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
-also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
-correspondence "'Free and open source' means you can do anything with it like the MIT licence[sic]."
