@@ -1,8 +1,8 @@
 # svgelements
 
-Parsing for SVG File, Path, Matrix, Angle, Length, Color, Point and other SVG Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to deal with the parsing and interactions of these elements.
+Parsing for SVG Files, Path, Matrix, Angle, Length, Color, Point and other SVG and CSS Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to correctly deal with the parsing and interactions of these elements.
 
-This project began as part of `meerK40t` which does SVG loading of files for laser cutting. It attempts to more fully map out the SVG spec, objects, and paths, while remaining easy to use and highly backwards compatible.
+This project began as part of `meerK40t` which does SVG loading of files for laser cutting. It attempts to more fully map out the SVG specification, objects, and paths, while remaining easy to use and largely backwards compatible.
 
 # License
 
@@ -20,18 +20,20 @@ Then in a script:
 
 None.
 
+However, some common additions do modify the functionality slightly. If `scipy` is installed then the arc length code quickly provide the exact correct answer. Some of the SVGImage code is able to load the images if given access to PIL/Pillow. 
+
 # Compatibility
 
-`svgelements` is compatible with Python 2.7 and Python 3.6.  Support for 2.7 will be dropped at Python 2 End-Of-Life January 1, 2020.
+`svgelements` is compatible with Python 3+.  Support for 2.7 was dropped at Python 2 End-Of-Life January 1, 2020.
 
-We remain nominally backwards compatible with `svg.path`, passing the same robust tests in that project. There may be number of breaking changes. However, since `svgelements` permit a lot of leeway in what is accepted and how it's accepted, so it will have a huge degree of compatibility with projects seen and unseen. 
+We remain nominally backwards compatible with `svg.path`, passing the same robust tests from that project. There may be number of breaking changes. However, since `svgelements` permit a lot of leeway in what is accepted and how it's accepted it will have a huge degree of compatibility with projects seen and unseen. 
 
 
 # Philosophy
 
 The goal of this project is to provide SVG spec-like elements and structures. The SVG standard 1.1 and elements of 2.0 will be used to provide much of the decisions making for implementation objects. If there is a question on implementation and the SVG documentation has a methodology, that is the preferred methodology.
 
-The primary goal is to make a more robust version of `svg.path` including other elements like `Point` and `Matrix` with clear emphasis on conforming to the SVG spec in all ways that realworld uses for SVG demands.
+The primary goal of this project is to make a more robust version of `svg.path` including other elements like `Point` and `Matrix` with clear emphasis on conforming to the SVG spec in all ways that realworld uses for SVG demands.
 
 `svgelements` should conform to the SVG Conforming Interpreter class (2.5.4. Conforming SVG Interpreters):
 
@@ -44,9 +46,11 @@ Real world functionality demands we must correctly and reasonably provide readin
 
 The versatility of the project is provided through through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d characters to a Path or multiplying an element by the SVG Transform string elements.
 
+While many objects perform a lot of interoperations, a lot many svg elements are designed to also work independently.
+
 ## Point
 
-Points define a single location in 2D space.
+Points define a single location in 2D space. The Point class is intended to take a wide variety of different initial definitions to wrap them into being a point.
 
 * Point(x,y)
 * (x,y)
@@ -54,6 +58,8 @@ Points define a single location in 2D space.
 * "x, y"
 * x + yj (complex number)
 * a class with .x and .y as methods.
+
+Most objects requiring a point will wrap that object with the included Point class meaning any of these initial arguments is acceptable. Including independent x and y parameters, a tuple of x and y, a list of x and y, a string that parses akin to points within `polyline` objects, complex numbers with a real x and imag y values. And any class with `.x` or `.y` attributes.
 
 ---
 
@@ -87,7 +93,7 @@ Matrices define affine transformations of 2d space and objects.
     >>> Matrix("rotate(100grad)")
     Matrix(0, 1, -1, 0, 0, 0)
     
-The matrix class also supports Length translates for x, and y. In some instances CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that .render() will be called on these before they are used in a strange manner.
+The matrix class also supports Length translates for x, and y. In some instances CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that .render() will be called on these before they are used in some manner.
 
 ## Path
 
@@ -772,7 +778,3 @@ This for example takes the 0,0 point turns 1/8th of a turn, and moves forward by
 
 The Path element of this project is based in part on the `regebro/svg.path` ( https://github.com/regebro/svg.path ) project. It is also may be based, in part, on some elements of `mathandy/svgpathtools` ( https://github.com/mathandy/svgpathtools ).
 
-The Zingl-Bresenham plotting algorithms are from Alois Zingl's "The Beauty of Bresenham's Algorithm"
-( http://members.chello.at/easyfilter/bresenham.html ). They are all MIT Licensed and this library is
-also MIT licensed. In the case of Zingl's work this isn't explicit from his website, however from personal
-correspondence "'Free and open source' means you can do anything with it like the MIT licence[sic]."

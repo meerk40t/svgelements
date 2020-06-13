@@ -1,4 +1,6 @@
 from __future__ import division
+
+import io
 import unittest
 
 from svgelements import *
@@ -177,3 +179,24 @@ class TestParser(unittest.TestCase):
         arc_path_parsed_scaled = Path('M 0 25 A1,1 0.0 0 0 0,-25')
         self.assertEqual(arc_path_declared, arc_path_parsed)
         self.assertEqual(arc_path_parsed_scaled, arc_path_declared)
+
+    def test_svg_parse(self):
+        s = io.StringIO('<svg><path d="M0,0 L1,0 z"/></svg>')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L1,0 z")
+
+    def test_svg_parse_group(self):
+        s = io.StringIO('<svg><g transform="scale(10,10)"><path d="M0,0 L1,0 z"/></g></svg>')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L10,0 z")
+
+    def test_svg_parse_group_2(self):
+        s = io.StringIO('<svg><g><path d="M0,0 L1,0 z"/><path d="M0,0 L1,0 z"/></g></svg>')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L1,0 z")

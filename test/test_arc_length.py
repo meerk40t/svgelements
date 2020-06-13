@@ -121,7 +121,7 @@ class TestElementArcLength(unittest.TestCase):
         angle = atan(a * tan(radians(50)) / b)
         x = cos(angle) * a
         y = sin(angle) * b
-        arc0 = Arc(start=3.05 + 0j, radius=3.05 + 2.23j, rotation=0, sweep=1, arc=0, end=x + 1j * y)
+        arc0 = Arc(start=3.05 + 0j, radius=3.05 + 2.23j, rotation=0, sweep_flag=1, arc_flag=0, end=x + 1j * y)
 
         ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc1 = ellipse.arc_angle(0, Angle.degrees(50))

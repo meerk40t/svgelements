@@ -170,3 +170,13 @@ class TestPath(unittest.TestCase):
         p = Path("M0,0 L 1,1 L 2,2 L 3,3 L 4,4z")
         p[3] = "M3,3"
         self.assertEqual(p, Path("M0,0 L 1,1 L 2,2 M3,3 L 4,4z"))
+
+    def test_arc_start_t(self):
+        m = Path("m 0,0 a 5.01,5.01 180 0,0 0,10 z"
+                 "m 0,0 a 65,65 180 0,0 65,66 z")
+        for a in m:
+            if isinstance(a, Arc):
+                start_t = a.get_start_t()
+                a_start = a.point_at_t(start_t)
+                self.assertEqual(a.start, a_start)
+                self.assertEqual(a.end, a.point_at_t(a.get_end_t()))
