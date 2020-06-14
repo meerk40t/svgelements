@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestElementElement(unittest.TestCase):
+    """These tests ensure the performance of the SVGElement basecase."""
 
     def test_element_id(self):
         values = {'id': 'my_id', 'random': True}

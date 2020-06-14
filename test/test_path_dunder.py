@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestPath(unittest.TestCase):
+    """Tests of dunder methods of the SVG Path element."""
 
     def test_path_iadd_str(self):
         p1 = Path("M0,0")

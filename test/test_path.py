@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestPath(unittest.TestCase):
+    """Tests of the SVG Path element."""
 
     def test_subpaths(self):
         path = Path("M0,0 50,50 100,100z M0,100 50,50, 100,0")

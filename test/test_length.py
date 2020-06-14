@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestElementLength(unittest.TestCase):
+    """Tests the functionality of the Length Element."""
 
     def test_length_parsing(self):
         self.assertAlmostEqual(Length('10cm'), (Length('100mm')))
