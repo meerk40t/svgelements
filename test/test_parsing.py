@@ -200,3 +200,23 @@ class TestParser(unittest.TestCase):
         for e in svg.elements():
             if isinstance(e, Path):
                 self.assertEqual(e, "M0,0 L1,0 z")
+
+    def test_solo_move(self):
+        move_only = Path("M0,0")
+        self.assertEqual(move_only.point(0), 0 + 0j)
+        self.assertEqual(move_only.point(0.5), 0 + 0j)
+        self.assertEqual(move_only.point(1), 0 + 0j)
+        self.assertEqual(move_only.length(), 0)
+
+        move_onlyz = Path("M0,0Z")
+        self.assertEqual(move_onlyz.point(0), 0 + 0j)
+        self.assertEqual(move_onlyz.point(0.5), 0 + 0j)
+        self.assertEqual(move_onlyz.point(1), 0 + 0j)
+        self.assertEqual(move_onlyz.length(), 0)
+
+        move_2_places = Path("M0,0M1,1")
+        self.assertEqual(move_2_places.point(0), 0 + 0j)
+        self.assertEqual(move_2_places.point(0.49), 0 + 0j)
+        self.assertEqual(move_2_places.point(0.51), 1 + 1j)
+        self.assertEqual(move_2_places.point(1), 1 + 1j)
+        self.assertEqual(move_2_places.length(), 0)
