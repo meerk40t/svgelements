@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestPathMatrix(unittest.TestCase):
+    """Tests the functionality of the Matrix element."""
 
     def test_rotate_css_angles(self):
         matrix = Matrix("rotate(90, 100,100)")

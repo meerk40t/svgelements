@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestElementColor(unittest.TestCase):
+    """These tests test the basic functions of the Color element."""
 
     def test_color_red(self):
         r0 = Color('red')
