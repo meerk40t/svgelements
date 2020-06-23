@@ -4340,10 +4340,13 @@ class Path(Shape, MutableSequence):
         self._segments[index].end = Point(self._segments[0].end)
         # If move is never found, just the end point of the first element.
 
-    def _validate_connection(self, index):
+    def _validate_connection(self, index, prefer_second=False):
         """
         Validates the connection at the index.
         Connection 0 is the connection between getitem(0) and getitem(1)
+
+        prefer_second is for those cases where failing the connection requires replacing
+        a existing value. It will prefer the authority of right side, second value.
         """
         if index < 0 or index + 1 >= len(self._segments):
             return  # This connection doesn't exist.
@@ -4354,7 +4357,11 @@ class Path(Shape, MutableSequence):
         elif first.end is None and second.start is not None:
             first.end = Point(second.start)
         elif first.end != second.start:
-            second.start = Point(first.end)
+            # The two values exist but are not equal. One must replace the other.
+            if prefer_second:
+                first.end = Point(second.start)
+            else:
+                second.start = Point(first.end)
 
     def __setitem__(self, index, new_element):
         if isinstance(new_element, str):
@@ -4756,7 +4763,7 @@ class Path(Shape, MutableSequence):
         self._validate_subpath(index)
 
     def reverse(self):
-        if len(self._segments) == 0:  # M 1,0 L 22,7 Q 17,17 91,2
+        if len(self._segments) == 0:
             return
         prepoint = self._segments[0].start
         self._segments[0].start = None
@@ -5899,21 +5906,21 @@ class Subpath:
     def _reverse_segments(self, start, end):
         """Reverses segments between the given indexes in the subpath space."""
         segments = self._path._segments  # must avoid path validation.
-        start = self.index_to_path_index(start)
-        end = self.index_to_path_index(end)
-        while start <= end:
-            start_segment = segments[start]
-            end_segment = segments[end]
+        s = self.index_to_path_index(start)
+        e = self.index_to_path_index(end)
+        while s <= e:
+            start_segment = segments[s]
+            end_segment = segments[e]
             start_segment.reverse()
             if start_segment is not end_segment:
                 end_segment.reverse()
-                segments[start] = end_segment
-                segments[end] = start_segment
-            start += 1
-            end -= 1
+                segments[s] = end_segment
+                segments[e] = start_segment
+            s += 1
+            e -= 1
         start = self.index_to_path_index(start)
         end = self.index_to_path_index(end)
-        self._path._validate_connection(start - 1)
+        self._path._validate_connection(start - 1, prefer_second=True)
         self._path._validate_connection(end)
 
     def reverse(self):
@@ -5996,6 +6003,8 @@ class SVGText(GraphicObject, Transformable):
         self.text = s.text
         self.x = s.x
         self.y = s.y
+        self.width = s.width
+        self.height = s.height
         self.dx = s.dx
         self.dy = s.dy
         self.anchor = s.anchor
@@ -6093,13 +6102,30 @@ class SVGText(GraphicObject, Transformable):
         """
         if self.path is not None:
             return (self.path * self.transform).bbox(transformed=True)
-        if not transformed:
-            return self.x, self.y - self.height, self.x + self.width, self.y
-        p = Point(self.x, self.y- self.height)
-        p *= self.transform
-        q = Point(self.x + self.width, self.y)
-        q *= self.transform
-        return p[0], p[1], q[0], q[1]
+        width = self.width
+        height = self.height
+        xmin = self.x
+        ymin = self.y - height
+        xmax = self.x + width
+        ymax = self.y
+        if not hasattr(self, 'anchor') or self.anchor == 'start':
+            pass
+        elif self.anchor == 'middle':
+            xmin -= (width / 2)
+            xmax -= (width / 2)
+        elif self.anchor == 'end':
+            xmin -= width
+            xmax -= width
+        if transformed:
+            p0 = self.transform.transform_point([xmin, ymin])
+            p1 = self.transform.transform_point([xmin, ymax])
+            p2 = self.transform.transform_point([xmax, ymin])
+            p3 = self.transform.transform_point([xmax, ymax])
+            xmin = min(p0[0], p1[0], p2[0], p3[0])
+            ymin = min(p0[1], p1[1], p2[1], p3[1])
+            xmax = max(p0[0], p1[0], p2[0], p3[0])
+            ymax = max(p0[1], p1[1], p2[1], p3[1])
+        return xmin, ymin, xmax, ymax
 
 
 class SVGDesc:
