@@ -81,6 +81,15 @@ class TestPath(unittest.TestCase):
             "M 2,2 L 20,20 Q 34,34 182,4 T 18,18 C 80,80 40,0 18,18 S 120,100 0,0 A 50,50 -30 0,1 60,60 ZM100,100z")
 
     def test_subpath_reverse(self):
+        #Issue 45
+        p = Path("M0,0 1,1")
+        p.reverse()
+        self.assertEqual(p, "M1,1 0,0")
+
+        p = Path("M0,0 M1,1")
+        p.reverse()
+        self.assertEqual(p, "M1,1 M0,0")
+
         p = Path("M1,1 L5,5M2,1 L6,5M3,1 L7,5")
         subpaths = list(p.as_subpaths())
         subpaths[1].reverse()
@@ -98,6 +107,8 @@ class TestPath(unittest.TestCase):
         subpaths = list(p.as_subpaths())
         subpaths[1].reverse()
         self.assertEqual("M 1,1 L 5,5 M 200,200 L 100,100 L 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
+
+
 
     def test_validation_delete(self):
         p = Path("M1,1 M2,2 M3,3 M4,4")
