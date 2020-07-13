@@ -10,23 +10,23 @@ class TestPathMatrix(unittest.TestCase):
 
     def test_rotate_css_angles(self):
         matrix = Matrix("rotate(90, 100,100)")
-        path = Path("M0,0z")
+        path = Path("M0,0Z")
         path *= matrix
         self.assertEqual("M 200,0 Z", path.d())
         matrix = Matrix("rotate(90deg, 100,100)")
-        path = Path("M0,0z")
+        path = Path("M0,0Z")
         path *= matrix
         self.assertEqual("M 200,0 Z", path.d())
         matrix = Matrix("rotate(0.25turn, 100,100)")
-        path = Path("M0,0z")
+        path = Path("M0,0Z")
         path *= matrix
         self.assertEqual("M 200,0 Z", path.d())
         matrix = Matrix("rotate(100grad, 100,100)")
-        path = Path("M0,0z")
+        path = Path("M0,0Z")
         path *= matrix
         self.assertEqual("M 200,0 Z", path.d())
         matrix = Matrix("rotate(1.5707963267948966rad, 100,100)")
-        path = Path("M0,0z")
+        path = Path("M0,0Z")
         path *= matrix
         self.assertEqual("M 200,0 Z", path.d())
 
