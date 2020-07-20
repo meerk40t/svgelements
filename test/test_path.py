@@ -9,7 +9,7 @@ class TestPath(unittest.TestCase):
     """Tests of the SVG Path element."""
 
     def test_subpaths(self):
-        path = Path("M0,0 50,50 100,100z M0,100 50,50, 100,0")
+        path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
         for i, p in enumerate(path.as_subpaths()):
             if i == 0:
                 self.assertEqual(p.d(), "M 0,0 L 50,50 L 100,100 Z")
@@ -21,14 +21,14 @@ class TestPath(unittest.TestCase):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
         path.quad((20, 33), (100, 100))
-        path.smooth_quad((13, 45), (16, 16), (34, 56), "z")
+        path.smooth_quad((13, 45), (16, 16), (34, 56), "z").closed()
         self.assertEqual(path.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 13,45 T 16,16 T 34,56 T 4,4 Z")
 
     def test_move_cubic_smooth(self):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
         path.cubic((20, 33), (25, 25), (100, 100))
-        path.smooth_cubic((13, 45), (16, 16), (34, 56), "z")
+        path.smooth_cubic((13, 45), (16, 16), (34, 56), "z").closed()
         self.assertEqual(path.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 20,33 25,25 100,100 S 13,45 16,16 S 34,56 4,4 Z")
 
     def test_convex_hull(self):
@@ -97,18 +97,16 @@ class TestPath(unittest.TestCase):
         subpaths[1].reverse()
         self.assertEqual("M 1,1 L 5,5 M 2,1 L 6,5 M 3,1 L 7,5", str(p))
 
-        p = Path("M1,1 L5,5M2,1 L6,5zM3,1 L7,5")
+        p = Path("M1,1 L5,5M2,1 L6,5ZM3,1 L7,5")
         subpaths = list(p.as_subpaths())
         subpaths[1].reverse()
         self.assertEqual("M 6,5 L 2,1 Z", str(subpaths[1]))
         self.assertEqual("M 1,1 L 5,5 M 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
 
-        p = Path("M1,1 L5,5M2,1 6,5 100,100 200,200 zM3,1 L7,5")
+        p = Path("M1,1 L5,5M2,1 6,5 100,100 200,200 ZM3,1 L7,5")
         subpaths = list(p.as_subpaths())
         subpaths[1].reverse()
         self.assertEqual("M 1,1 L 5,5 M 200,200 L 100,100 L 6,5 L 2,1 Z M 3,1 L 7,5", str(p))
-
-
 
     def test_validation_delete(self):
         p = Path("M1,1 M2,2 M3,3 M4,4")
@@ -192,3 +190,30 @@ class TestPath(unittest.TestCase):
                 a_start = a.point_at_t(start_t)
                 self.assertEqual(a.start, a_start)
                 self.assertEqual(a.end, a.point_at_t(a.get_end_t()))
+
+    def test_relative_roundabout(self):
+        m = Path("m 0,0 a 5.01,5.01 180 0,0 0,10 z")
+        self.assertEqual(m.d(), "m 0,0 a 5.01,5.01 180 0,0 0,10 z")
+        m = Path("M0,0 1,1 z")
+        self.assertEqual(m.d(), "M 0,0 L 1,1 z")
+        self.assertEqual(m.d(relative=True), "m 0,0 l 1,1 z")
+        self.assertEqual(m.d(relative=False), "M 0,0 L 1,1 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 T 16,16 T 34,56 T 4,4 z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 T 16,16 T 34,56 T 4,4 z")
+        self.assertEqual(m.d(smooth=False), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 Q -154,-77 16,16 Q 186,109 34,56 Q -118,3 4,4 z")
+        self.assertEqual(m.d(smooth=True), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 13,45 T 16,16 T 34,56 T 4,4 z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 T 16,16 T 34,56 T 4,4 z")
+
+    def test_path_z_termination(self):
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 Z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T Z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 z")
+        m = Path("m 0,0 1,1 A 5.01,5.01 180 0,0 z")
+        self.assertEqual(m.d(), "m 0,0 l 1,1 A 5.01,5.01 180 0,0 0,0 z")
+        m = Path("m0,0z")
+        self.assertEqual(m.d(), "m 0,0 z")
+        m = Path("M0,0Lz")
+        self.assertEqual(m.d(), "M 0,0 L 0,0 z")
