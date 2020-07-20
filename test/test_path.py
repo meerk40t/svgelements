@@ -21,14 +21,14 @@ class TestPath(unittest.TestCase):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
         path.quad((20, 33), (100, 100))
-        path.smooth_quad((13, 45), (16, 16), (34, 56), "z")
+        path.smooth_quad((13, 45), (16, 16), (34, 56), "z").closed()
         self.assertEqual(path.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 13,45 T 16,16 T 34,56 T 4,4 Z")
 
     def test_move_cubic_smooth(self):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
         path.cubic((20, 33), (25, 25), (100, 100))
-        path.smooth_cubic((13, 45), (16, 16), (34, 56), "z")
+        path.smooth_cubic((13, 45), (16, 16), (34, 56), "z").closed()
         self.assertEqual(path.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 20,33 25,25 100,100 S 13,45 16,16 S 34,56 4,4 Z")
 
     def test_convex_hull(self):
@@ -202,13 +202,18 @@ class TestPath(unittest.TestCase):
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 T 16,16 T 34,56 T 4,4 z")
         self.assertEqual(m.d(smooth=False), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 Q -154,-77 16,16 Q 186,109 34,56 Q -118,3 4,4 z")
         self.assertEqual(m.d(smooth=True), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 13,45 T 16,16 T 34,56 T 4,4 z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 Q 180,167 13,45 T 16,16 T 34,56 T 4,4 z")
 
     def test_path_z_termination(self):
-        m = Path("m 0,0 a 5.01,5.01 180 0,0 z")
-        self.assertEqual(m.d(), "m 0,0 a 5.01,5.01 180 0,0 0,0 z")
         m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 Z")
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 4,4 Z")
         m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T Z")
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 Z")
         m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T z")
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 z")
+        m = Path("m 0,0 1,1 A 5.01,5.01 180 0,0 z")
+        self.assertEqual(m.d(), "m 0,0 l 1,1 A 5.01,5.01 180 0,0 0,0 z")
+        m = Path("m0,0z")
+        self.assertEqual(m.d(), "m 0,0 z")
+        m = Path("M0,0Lz")
+        self.assertEqual(m.d(), "M 0,0 L 0,0 z")

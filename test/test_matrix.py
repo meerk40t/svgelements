@@ -83,14 +83,14 @@ class TestPathMatrix(unittest.TestCase):
     def test_transform_translate(self):
         matrix = Matrix("translate(5,4)")
         path = Path()
-        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
+        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z").closed()
         path *= matrix
         self.assertEqual("M 5,4 L 5,104 L 105,104 L 105,4 L 5,4 Z", path.d())
 
     def test_transform_scale(self):
         matrix = Matrix("scale(2)")
         path = Path()
-        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
+        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, 'z').closed()
         path *= matrix
         self.assertEqual("M 0,0 L 0,200 L 200,200 L 200,0 L 0,0 Z", path.d())
 
@@ -133,7 +133,7 @@ class TestPathMatrix(unittest.TestCase):
     def test_transform_skewx(self):
         matrix = Matrix("skewX(10,50,50)")
         path = Path()
-        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
+        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z").closed()
         path *= matrix
         self.assertEqual(
             "M -8.81634903542,0 L 8.81634903542,100 L 108.816349035,100 L 91.1836509646,0 L -8.81634903542,0 Z",
@@ -142,7 +142,7 @@ class TestPathMatrix(unittest.TestCase):
     def test_transform_skewy(self):
         matrix = Matrix("skewY(10, 50,50)")
         path = Path()
-        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z")
+        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z").closed()
         path *= matrix
         self.assertEqual(
             "M 0,-8.81634903542 L 0,91.1836509646 L 100,108.816349035 L 100,8.81634903542 L 0,-8.81634903542 Z",
