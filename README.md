@@ -162,8 +162,8 @@ Lengths define the amount of linear space between two things.
 
 Parse an SVG file:
 
-    >>> svg = SVG(file)
-    >>> list(svgelements())
+    >>> svg = SVG.parse(file)
+    >>> list(svg.elements())
 
 Make a PathSegment
 
