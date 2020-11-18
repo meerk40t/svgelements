@@ -5545,7 +5545,7 @@ class _RoundShape(Shape):
                    self.implicit_center,
                    rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=t1 - t0)
 
-    def arc_angle(self, a0, a1):
+    def arc_angle(self, a0, a1, ccw=None):
         """
         return the arc found between the given angles on the ellipse.
 
@@ -5553,11 +5553,13 @@ class _RoundShape(Shape):
         :param a1: end angle
         :return: arc
         """
+        if ccw is None:
+            ccw = a0 > a1
         return Arc(self.point_at_angle(a0),
                    self.point_at_angle(a1),
                    self.implicit_center,
                    rx=self.implicit_rx, ry=self.implicit_ry,
-                   rotation=self.rotation, ccw=a0 > a1)
+                   rotation=self.rotation, ccw=ccw)
 
     def point_at_angle(self, angle):
         """
@@ -6858,7 +6860,7 @@ class SVG(Group):
             elif event == "start-ns":
                 yield event, elem
                 continue
-            if def_depth == 0:
+            if def_depth == 0 or elem.tag == SVG_TAG_STYLE:
                 yield event, elem
 
     @staticmethod
@@ -6919,14 +6921,20 @@ class SVG(Group):
                     svg_id = attributes[SVG_ATTR_ID]
                     css_tag = '#%s' % svg_id
                     if css_tag in styles:
+                        if len(style) != 0:
+                            style += ';'
                         style += styles[css_tag]
                 if SVG_ATTR_CLASS in attributes:  # Selector class .class
                     for svg_class in attributes[SVG_ATTR_CLASS].split(' '):
                         css_tag = '.%s' % svg_class
                         if css_tag in styles:
+                            if len(style) != 0:
+                                style += ';'
                             style += styles[css_tag]
                         css_tag = '%s.%s' % (tag, svg_class)  # Selector type/class type.class
                         if css_tag in styles:
+                            if len(style) != 0:
+                                style += ';'
                             style += styles[css_tag]
                 # Split style element into parts; priority highest
                 if SVG_ATTR_STYLE in attributes:
