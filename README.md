@@ -1,8 +1,12 @@
 # svgelements
 
-Parsing for SVG Files, Path, Matrix, Angle, Length, Color, Point and other SVG and CSS Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to correctly deal with the parsing and interactions of these elements.
+`svgelements` does high fidelity SVG parsing. The goal is to successfully and correctly SVG, for use with any scripts that may need or want to use SVG files.
 
-This project began as part of `meerK40t` which does SVG loading of files for laser cutting. It attempts to more fully map out the SVG specification, objects, and paths, while remaining easy to use and largely backwards compatible.
+This is both facilitated by, and results in, very useful elements within the SVG spec: Path, Matrix, Angle, Length, Color, Point and other SVG and CSS Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to correctly deal with the parsing and interactions of these elements.
+
+This project began as part of `meerK40t` which does SVG loading of files for laser cutting. It attempts to more fully map out the SVG specification, objects, and paths, while remaining easy to use and largely backwards compatible. These elements are quite useful in their own right. For example, the zooming and panning within `meerK40t` is done using the SVG matrix which more robust than the wxPython one. Internal console commands within `meerK40t` allows specifying robustly parsed angles of rotation, colors of objects, and naively uses the Path() and SVGImage objects. The ability to have these robustly manipulated with affine transformations provides considerable utility. There is significant utility in the interactions between these objects, however if you just want to robustly parse some SVG and convert the data to your own structures that is entirely reasonable.
+
+Without robust SVG parsing you'll find repeated edge cases of some svg files that do not parse correctly. `svgelements` aims to avoid those pitfalls with robust adherence to the SVG spec.
 
 # License
 
