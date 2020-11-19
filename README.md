@@ -7,7 +7,7 @@ This project began as part of `meerK40t` which does SVG loading of files for las
 # License
 
 This module is under a MIT License.
-
+https://github.com/meerk40t/svgelements/blob/master/LICENSE
 
 # Installing
 `pip install svgelements`
@@ -20,7 +20,7 @@ Then in a script:
 
 None.
 
-However, some common additions do modify the functionality slightly. If `scipy` is installed then the arc length code quickly provide the exact correct answer. Some of the SVGImage code is able to load the images if given access to PIL/Pillow. 
+However, there are some soft dependencies, with some common additions do modify the functionality slightly. If `scipy` is installed then the arc length code quickly provide the exact correct answer. Some of the SVGImage code is able to load the images if given access to PIL/Pillow. 
 
 # Compatibility
 
@@ -31,9 +31,9 @@ We remain nominally backwards compatible with `svg.path`, passing the same robus
 
 # Philosophy
 
-The goal of this project is to provide SVG spec-like elements and structures. The SVG standard 1.1 and elements of 2.0 will be used to provide much of the decisions making for implementation objects. If there is a question on implementation and the SVG documentation has a methodology, that is the preferred methodology.
+The goal of this project is to provide SVG spec-like elements and structures. Conforming to the SVG standard 1.1 and elements of 2.0. These provide much of the implementation decisions, with regard to the implementation of the objects. If there is a question on implementation and the SVG documentation has a methodology, that is the preferred methodology. If the SVG spec says one thing, and `svgelements` does something else, that is a bug.
 
-The primary goal of this project is to make a more robust version of `svg.path` including other elements like `Point` and `Matrix` with clear emphasis on conforming to the SVG spec in all ways that realworld uses for SVG demands.
+The primary goal of this project is to make a more robust version of `svg.path` to fully parse SVG files. This requires including other elements like `Point`, `Matrix`, and `Color`, etc. with clear emphasis on conforming to the SVG spec in all ways that realworld uses for SVG demands.
 
 `svgelements` should conform to the SVG Conforming Interpreter class (2.5.4. Conforming SVG Interpreters):
 
@@ -41,12 +41,72 @@ The primary goal of this project is to make a more robust version of `svg.path` 
 
 Real world functionality demands we must correctly and reasonably provide reading, transcoding, and manipulation of SVG content.
 
+The svgelements code should not include any hard dependencies. It should remain a single file with emphasis on allowing projects to merely include a copy of `svgelements.py` to do any SVG parsing required. 
+
+# Parsing
+
+The primary function of `svgelements` is to parse svg files. There are two main functions to facilitate this
+```python
+    def parse(source,
+              reify=True,
+              ppi=DEFAULT_PPI,
+              width=1,
+              height=1,
+              color="black",
+              transform=None,
+              context=None):
+```
+This parse function takes in values that cannot be known to the SVG but which are essential to the the rendering of the shapes. Parsing will pre-apply things like the relative translation by the viewport. It will solve the structural changes for the with the `<use>` and `<defs>`, and any items that are known SVG elements will be turned into their requisite values and parsed accordingly. So the `.fill` and `.stroke` of a `Path` will be filled in with a type of `Color` and the `.transform` of the Shape will be a type of `Matrix`. The `.values` for all the `SVGElement` will have the relevant inherited values. This permits parsing to deal with even unknown types of objects within the SVG by falling back to something akin to DOM parsing of the file. In cases of `<use>` and `<defs>` these unknown elements can still reference other. Since this structural shadow tree will be solved during the parse.
+
+`parse()` is a static function which takes a `source` file or stream of svg data to be parsed. This will return an `SVG` object which is a type of `Group`. There are several values which can be configured with other values as needed. `reify` determines whether the parsed elements in the `SVG` should have their transform matrix applied or not. This includes the effective matrix resulting from viewport.
+
+The `ppi` value defaults to `96` as this is quite common some other graphics programs use `72` and other values are permitted. Since there's nothing directly in the SVG spec setting this value and other places can vary with their value here. We can't predetermine this value. However it regulates all the relationships between physical values like a 1in by 1in `rect` to the unitless pixel values of the SVG. 
+
+The `width` and `height` values are unknown to the SVG parsing. This is the physical view size of the svg itself. This often will have little impact in the SVG rendering however sometimes things widths are set to `100%` or heights to `50%` and those are according to the spec relative to the actual view we're using. The svg has no direct access to this. If we have a `ppi` value these height and width can be set to absolute units like `6in` or any other acceptable `Length` value that can be solved with `ppi`.
+
+The `color` is the value of the `currentColor` within the SVG spec. Usually the default stroke and fill values are set but in some cases these are set to `currentColor` which is a property of the CSS outside the scope of the SVG. In this case that color needs to be provided. It will be a rare edge case.
+
+The `transform` value is typical CSS/SVG transform matrix code to be preappended to the matrix before even the viewbox. If you need to set some units or apply something to the entire svg without changing things within the CSS this value becomes important. Especially when dealing with edge cases like the difference of `transform` applied directly to the `SVG` tag itself.
+
+The `context` permits giving a context of already set values that are come from outside the current svg context, such as we would find if we had SVG files embedded into SVG files. 
+
+The second function within parsing that matters is the `.elements()` this is a function that exists on any `SVG` object and will flatten the elements yielding them in order.
+
+Here's an example parser with elements().
+```python
+       for element in svg.elements():
+            try:
+                if element.values['visibility'] == 'hidden':
+                    continue
+            except (KeyError, AttributeError):
+                pass
+            if isinstance(element, SVGText):
+                elements.append(element)
+            elif isinstance(element, Path):
+                if len(element) != 0:
+                    elements.append(element)
+            elif isinstance(element, Shape):
+                e = Path(element)
+                e.reify()  # In some cases the shape could not have reified, the path must.
+                if len(e) != 0:
+                    elements.append(e)
+            elif isinstance(element, SVGImage):
+                try:
+                    element.load(os.path.dirname(pathname))
+                    if element.image is not None:
+                        elements.append(element)
+                except OSError:
+                    pass  
+ ```
+
+Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditonal function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path.
+
 
 # Overview
 
 The versatility of the project is provided through through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d characters to a Path or multiplying an element by the SVG Transform string elements.
 
-While many objects perform a lot of interoperations, a lot many svg elements are designed to also work independently.
+While many objects perform a lot of interoperations, a lot many svg elements are designed to also work independently, and be independently useful.
 
 ## Point
 
@@ -93,7 +153,7 @@ Matrices define affine transformations of 2d space and objects.
     >>> Matrix("rotate(100grad)")
     Matrix(0, 1, -1, 0, 0, 0)
     
-The matrix class also supports Length translates for x, and y. In some instances CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that .render() will be called on these before they are used in some manner.
+The matrix class also supports Length translates for x, and y. In some instances, CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that `.render()` will be called on these before they are used in some manner.
 
 ## Path
 
@@ -440,7 +500,7 @@ This SVG path example draws a triangle:
     >>> path1 = Path('M 100 100 L 300 100 L 200 300 z')
 
 You can format SVG paths in many different ways, all valid paths should be
-accepted::
+accepted:
 
     >>> path2 = Path('M100,100L300,100L200,300z')
 
@@ -511,10 +571,10 @@ We can also rotate by `turns`, `grad`, `deg`, `rad` which are permitted CSS angl
     >>> Point(10,0) * Matrix("Rotate(360deg)")
     Point(10,-0)
     
-A large goal of this project is to provide a more robust modifications of Path objects including matrix transformations. This is done by three major shifts from `svg.path`s methods. 
+A goal of this project is to provide a robust modifications of Path objects including matrix transformations. This is done by three major shifts from `svg.path`s methods. 
 
 * Points are not stored as complex numbers. These are stored as Point objects, which have backwards compatibility with complex numbers, without the data actually being backed by a `complex`.
-* A matrix is added which conforms to the SVGMatrix Element. The matrix contains valid versions of all the affine transformations elements required by the SVG Spec.
+* A matrix is added which conforms to the SVGMatrix element. The matrix contains valid versions of all the affine transformations elements required by the SVG Spec.
 * The `Arc` object is fundamentally backed by a different point-based parameterization.
 
 The objects themselves have robust dunder methods. So if you have a path object you may simply multiply it by a matrix.
@@ -561,11 +621,6 @@ This is:
     Point(280,280)
 
 
-### SVG Transform Parsing
-
-Within the SVG.elements() schema objects SVG elements. The `transform` tags within objects are combined together. These are automatically applied if `reify=True` is set.
-
-
 ### SVG Dictionary Parsing
 
     >>> node = { 'd': "M0,0 100,0, 0,100 z", 'transform': "scale(0.5)"}
@@ -574,13 +629,13 @@ Within the SVG.elements() schema objects SVG elements. The `transform` tags with
 
 ### SVG Viewport Scaling, Unit Scaling
 
-There is need in many applications to append a transformation for the viewbox, height, width. So as to prevent a variety of errors where the expected size is far vastly different from the actual size. If we have a viewbox of "0 0 100 100" but the height and width show that to be 50cm wide, then a path "M25,50L75,50" within that viewbox has a real size of length of 25cm which can be quite different from 50 (unit-less value).
+There is need in many applications to append a transformation for the viewbox, height, width. So as to prevent a variety of errors where the expected size is vastly different from the actual size. If we have a viewbox of "0 0 100 100" but the height and width show that to be 50cm wide, then a path "M25,50L75,50" within that viewbox has a real size of length of 25cm which can be quite different from 50 (unitless value).
 
-This conversion is done through the `Viewbox` object. This operation is automatically done for SVG.elements() objects.
+This conversion is done through the `Viewbox` object. This operation is automatically done for during SVG parsing.
 
 Viewbox objects have a call to `.transform()` which will provide the string for an equivolent transformation for the given viewbox.
 
-The `Viewbox.transform()` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values.
+The `Viewbox.transform()` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values for the viewboxes.
 
 ## SVG Shapes
 
@@ -706,16 +761,16 @@ You can just append a "z" to the polyline path though.
 
 ## CSS Length
 
-The conversion of lengths to utilizes another element `Length` It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`, `%`. You can also parse an element like the string '25mm' calling Length('25mm').value(ppi=96) and get the expected results. You can also call `Length('25mm').in_inches()` which will return  25mm in inches.
+The conversion of lengths to utilizes another element `Length` It provides conversions for `mm`, `cm`, `in`, `px`, `pt`, `pc`, `%`. You can also parse an element like the string '25mm' calling Length('25mm').value(ppi=96) and get the expected results. You can also call `Length('25mm').in_inches()` which will return  25mm in inches. This can be independently useful when dealing with lengths, etc.
 
     >>> Length('25mm').in_inches()
     0.9842525
 
 ## Color
 
-Color is another important element it contains an 'int' as 'value' in the form of an ARGB 32-bit integer. It will parse all the SVG color functions.
+Color is another fundamental element within SVG that is also useful elsewhere. The object contains an 'int' as 'value' in the form of an ARGB 32-bit integer. It will parse all the SVG color functions.
 
-If we get the fill or stroke of an object from a node be a text element. This needs to be converted to a consistent form. We could have a 3, 4, 6, or 8 digit hex. rgb(r,g,b) value, a static dictionary name or percent rgb(r,g,b). And must be properly parsed according to the spec.
+If we get the `.fill` or `.stroke` of an object. This can be expressed in many ways, and needs to be converted to a consistent form. We could have a 3, 4, 6, or 8 digit hex. rgb(r,g,b) value, a static dictionary name or percent rgb(r,g,b). And must be properly parsed according to the spec.
 
     >>> Color("red").hex
     '#ff0000'
@@ -754,7 +809,7 @@ The Angle element is used automatically with the Skew and Rotate for matrix.
 
 ## Point
 
-Point is used in all the SVG path segment objects. With regard to `svg.path` it is not back by, but implements all the same functionality as a `complex` and will take a complex as an input. So older `svg.path` code will remain valid. While also allowing for additional functionality like finding a distance.
+Point is used in all the SVG path segment objects. With regard to `svg.path` it is not back by, but implements all the same functionality as a `complex` and will take a complex as an input. This is so that older `svg.path` code will remain valid. While also allowing for additional functionality like finding a distance.
 
     >>> Point(0+100j).distance_to([0,0])
     100.0
