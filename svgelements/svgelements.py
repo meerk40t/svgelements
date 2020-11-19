@@ -28,6 +28,8 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
+SVGELEMENTS_VERSION = "1.2.7"
+
 MIN_DEPTH = 5
 ERROR = 1e-12
 
@@ -3696,7 +3698,7 @@ class CubicBezier(PathSegment):
         """Calculate the length of the path up to a certain position"""
         try:
             return self._length_scipy(error)
-        except ModuleNotFoundError:
+        except ImportError:
             return self._length_default(error, min_depth)
 
     def is_smooth_from(self, previous):
