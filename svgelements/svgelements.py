@@ -870,6 +870,8 @@ class Length(object):
 
     @staticmethod
     def str(s):
+        if s is None:
+            return "n/a"
         if isinstance(s, Length):
             if s.units == '':
                 s = s.amount

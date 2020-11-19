@@ -32,3 +32,10 @@ class TestElementViewbox(unittest.TestCase):
     def test_viewbox_translate(self):
         v = Viewbox({'viewBox': '-50 -50 100 100', 'height': 100, 'width': 100})
         self.assertEqual(v.transform(), 'translate(50, 50)')
+
+    def test_viewbox_incomplete_print(self):
+        v = Viewbox({'viewBox': None, 'height': 200, 'width': 200})
+        try:
+            str(v)
+        except TypeError:
+            self.fail("str(viewbox) should not fail for incomplete viewbox")
