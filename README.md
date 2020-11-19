@@ -103,12 +103,13 @@ Here's an example parser with elements().
                     pass  
  ```
 
-Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditonal function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path.
+Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditional function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path.
 
 
 # Overview
 
-The versatility of the project is provided through through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d characters to a Path or multiplying an element by the SVG Transform string elements.
+The versatility of the project is provided through through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d
+ characters to a Path or multiplying an element by the SVG Transform string elements.
 
 While many objects perform a lot of interoperations, a lot many svg elements are designed to also work independently, and be independently useful.
 
@@ -157,7 +158,7 @@ Matrices define affine transformations of 2d space and objects.
     >>> Matrix("rotate(100grad)")
     Matrix(0, 1, -1, 0, 0, 0)
     
-The matrix class also supports Length translates for x, and y. In some instances, CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid tranformations. However, these will cause issues for objects which require non-native units so it is expected that `.render()` will be called on these before they are used in some manner.
+The matrix class also supports Length translates for x, and y. In some instances, CSS transforms permit length transforms so "translate(20cm, 200mm)" are valid transformations. However, these will cause issues for objects which require non-native units so it is expected that `.render()` will be called on these before they are used in some manner.
 
 ## Path
 
@@ -422,7 +423,8 @@ And to use scaling factors as needed.
 
 ---
 
-A ``Path`` object that is a collection of the PathSegment objects. These can be defined by combining a PathSegment with another PathSegment initializing it with `Path()` or `Path(*segments)` or `Path(<svg_text>)`.
+A ``Path`` object
+ that is a collection of the PathSegment objects. These can be defined by combining a PathSegment with another PathSegment initializing it with `Path()` or `Path(*segments)` or `Path(<svg_text>)`.
 
 ### Subpaths
 
@@ -637,7 +639,7 @@ There is need in many applications to append a transformation for the viewbox, h
 
 This conversion is done through the `Viewbox` object. This operation is automatically done for during SVG parsing.
 
-Viewbox objects have a call to `.transform()` which will provide the string for an equivolent transformation for the given viewbox.
+Viewbox objects have a call to `.transform()` which will provide the string for an equivalent transformation for the given viewbox.
 
 The `Viewbox.transform()` code conforms to the algorithm given in SVG 1.1 7.2, SVG 2.0 8.2 'equivalent transform of an SVG viewport.' This will also fully implement the `preserveAspectRatio`, `xMidYMid`, and `meetOrSlice` values for the viewboxes.
 
@@ -651,7 +653,8 @@ Another important SVG elements are the shapes. While all of these can be convert
 * Polyline
 * Polygon
 
-The Line shape is converted into a shape called SimpleLine to not interfere with the Line(PathSegment).
+The Line shape is converted
+ into a shape called SimpleLine to not interfere with the Line(PathSegment).
 
 A Shape is said to be equal to another Shape or a Path if they decompose to same Path.
 
@@ -697,7 +700,7 @@ Matrices can be applied to Rect objects directly.
     >>> Rect(10,10,8,4) * "rotate(0.25turns)"
     Rect(x=10, y=10, width=8, height=4, transform=Matrix(0, 1, -1, 0, 0, 0))
 
-Rotated Rects produce path_d srings.:
+Rotated Rects produce path_d strings.:
 
     >>> Rect(10,10,8,4) * "rotate(14deg)"
     Rect(x=10, y=10, width=8, height=4, transform=Matrix(0.970295726276, 0.2419218956, -0.2419218956, 0.970295726276, 0, 0))
