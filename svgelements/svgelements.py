@@ -3261,8 +3261,8 @@ class LinearPathSegment(PathSegment):
 
     def __init__(self, start=None, end=None, **kwargs):
         PathSegment.__init__(self, **kwargs)
-        self.start = Point(start) if start else None
-        self.end = Point(end) if end else None
+        self.start = Point(start) if start is not None else None
+        self.end = Point(end) if end is not None else None
 
     def __copy__(self):
         return self.__class__(self.start, self.end, relative=self.relative)
