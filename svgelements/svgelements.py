@@ -16,6 +16,11 @@ try:
 except ImportError:
     tau = pi * 2
 
+try:
+    import numpy as np
+except ImportError:
+    pass
+
 """
 The path elements are derived from regebro's svg.path project ( https://github.com/regebro/svg.path ) with
 some of the math from mathandy's svgpathtools project ( https://github.com/mathandy/svgpathtools ).
@@ -1896,6 +1901,9 @@ class Point:
         """Emulate svg.path use of complex numbers"""
         return self.y
 
+    def as_complex(self):
+        return complex(self.x, self.y)
+
     def matrix_transform(self, matrix):
         v = matrix.point_in_matrix_space(self)
         self[0] = v[0]
@@ -3248,20 +3256,26 @@ class Move(PathSegment):
         return 'm %s' % (self.end - current_point)
 
 
-class Close(PathSegment):
-    """Represents close commands. If this exists at the end of the shape then the shape is closed.
-    the methodology of a single flag close fails in a couple ways. You can have multi-part shapes
-    which can close or not close several times.
-    """
+class LinearPathSegment(PathSegment):
+    """Represents line commands."""
 
     def __init__(self, start=None, end=None, **kwargs):
         PathSegment.__init__(self, **kwargs)
-        self.end = None
-        self.start = None
-        if start is not None:
-            self.start = Point(start)
-        if end is not None:
-            self.end = Point(end)
+        self.start = Point(start) if start else None
+        self.end = Point(end) if end else None
+
+    def __copy__(self):
+        return self.__class__(self.start, self.end, relative=self.relative)
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self.start == other.start and self.end == other.end
+
+    def __ne__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return not self == other
 
     def __imul__(self, other):
         if isinstance(other, str):
@@ -3272,30 +3286,6 @@ class Close(PathSegment):
             if self.end is not None:
                 self.end *= other
         return self
-
-    def __repr__(self):
-        if self.start is None and self.end is None:
-            return 'Close()'
-        s = self.start
-        if s is not None:
-            s = repr(s)
-        e = self.end
-        if e is not None:
-            e = repr(e)
-        return 'Close(start=%s, end=%s)' % (s, e)
-
-    def __copy__(self):
-        return Close(self.start, self.end, relative=self.relative)
-
-    def __eq__(self, other):
-        if not isinstance(other, Close):
-            return NotImplemented
-        return self.start == other.start and self.end == other.end
-
-    def __ne__(self, other):
-        if not isinstance(other, Close):
-            return NotImplemented
-        return not self == other
 
     def __len__(self):
         return 2
@@ -3310,76 +3300,15 @@ class Close(PathSegment):
 
     def point(self, position):
         return Point.towards(self.start, self.end, position)
+
+    def _point_numpy(self, position):
+        return np.interp(position, [0, 1], [self.start.as_complex(), self.end.as_complex()])
 
     def length(self, error=None, min_depth=None):
         if self.start is not None and self.end is not None:
             return Point.distance(self.end, self.start)
         else:
             return 0
-
-    def d(self, current_point=None, relative=None, smooth=None):
-        if current_point is None or (relative is None and self.relative) or (relative is not None and not relative):
-            return 'Z'
-        else:
-            return 'z'
-
-
-class Line(PathSegment):
-    """Represents line commands."""
-
-    def __init__(self, start, end, **kwargs):
-        PathSegment.__init__(self, **kwargs)
-        self.end = None
-        self.start = None
-        if start is not None:
-            self.start = Point(start)
-        if end is not None:
-            self.end = Point(end)
-
-    def __repr__(self):
-        if self.start is None:
-            return 'Line(end=%s)' % (repr(self.end))
-        return 'Line(start=%s, end=%s)' % (repr(self.start), repr(self.end))
-
-    def __copy__(self):
-        return Line(self.start, self.end, relative=self.relative)
-
-    def __eq__(self, other):
-        if not isinstance(other, Line):
-            return NotImplemented
-        return self.start == other.start and self.end == other.end
-
-    def __ne__(self, other):
-        if not isinstance(other, Line):
-            return NotImplemented
-        return not self == other
-
-    def __imul__(self, other):
-        if isinstance(other, str):
-            other = Matrix(other)
-        if isinstance(other, Matrix):
-            if self.start is not None:
-                self.start *= other
-            if self.end is not None:
-                self.end *= other
-        return self
-
-    def __len__(self):
-        return 2
-
-    def __getitem__(self, item):
-        if item == 0:
-            return self.start
-        elif item == 1:
-            return self.end
-        else:
-            raise IndexError
-
-    def point(self, position):
-        return Point.towards(self.start, self.end, position)
-
-    def length(self, error=None, min_depth=None):
-        return Point.distance(self.end, self.start)
 
     def closest_segment_point(self, p, respect_bounds=True):
         """ Gives the t value of the point on the line closest to the given point. """
@@ -3400,6 +3329,42 @@ class Line(PathSegment):
             if amount < 0:
                 amount = 0
         return self.point(amount)
+
+    def d(self, current_point=None, relative=None, smooth=None):
+        raise NotImplementedError
+
+
+class Close(LinearPathSegment):
+    """Represents close commands. If this exists at the end of the shape then the shape is closed.
+    the methodology of a single flag close fails in a couple ways. You can have multi-part shapes
+    which can close or not close several times.
+    """
+
+    def __repr__(self):
+        if self.start is None and self.end is None:
+            return 'Close()'
+        s = self.start
+        if s is not None:
+            s = repr(s)
+        e = self.end
+        if e is not None:
+            e = repr(e)
+        return 'Close(start=%s, end=%s)' % (s, e)
+
+    def d(self, current_point=None, relative=None, smooth=None):
+        if current_point is None or (relative is None and self.relative) or (relative is not None and not relative):
+            return 'Z'
+        else:
+            return 'z'
+
+
+class Line(LinearPathSegment):
+    """Represents line commands."""
+
+    def __repr__(self):
+        if self.start is None:
+            return 'Line(end=%s)' % (repr(self.end))
+        return 'Line(start=%s, end=%s)' % (repr(self.start), repr(self.end))
 
     def d(self, current_point=None, relative=None, smooth=None):
         if current_point is None or (relative is None and self.relative) or (relative is not None and not relative):
@@ -3465,14 +3430,23 @@ class QuadraticBezier(PathSegment):
             return self.end
         raise IndexError
 
-    def point(self, position):
-        """Calculate the x,y position at a certain position of the path"""
+    def _point_base(self, position):
         x0, y0 = self.start
         x1, y1 = self.control
         x2, y2 = self.end
         x = (1 - position) * (1 - position) * x0 + 2 * (1 - position) * position * x1 + position * position * x2
         y = (1 - position) * (1 - position) * y0 + 2 * (1 - position) * position * y1 + position * position * y2
-        return Point(x, y)
+        return x, y
+
+    def point(self, position):
+        """Calculate the x,y position at a certain position of the path"""
+        return Point(*self._point_base(position))
+
+    def _point_numpy(self, position):
+        """Same as point() but position is a 1D numpy array of float in [0, 1]"""
+        out = np.empty(shape=position.shape, dtype=complex)
+        out.real, out.imag = self._point_base(position)
+        return out
 
     def bbox(self):
         """
@@ -3624,7 +3598,7 @@ class CubicBezier(PathSegment):
         self.control2 = self.control1
         self.control1 = c2
 
-    def point(self, position):
+    def _point_base(self, position):
         """Calculate the x,y position at a certain position of the path"""
         x0, y0 = self.start
         x1, y1 = self.control1
@@ -3638,7 +3612,17 @@ class CubicBezier(PathSegment):
             3 * (1 - position) * (1 - position) * position * y1 + \
             3 * (1 - position) * position * position * y2 + \
             position * position * position * y3
-        return Point(x, y)
+        return x, y
+
+    def point(self, position):
+        """Calculate the x,y position at a certain position of the path"""
+        return Point(*self._point_base(position))
+
+    def _point_numpy(self, position):
+        """Same as point() but position is a 1D numpy array of float in [0, 1]"""
+        out = np.empty(shape=position.shape, dtype=complex)
+        out.real, out.imag = self._point_base(position)
+        return out
 
     def bbox(self):
         """returns the tight fitting bounding box of the bezier curve.
@@ -4032,8 +4016,34 @@ class Arc(PathSegment):
             # This is equivalent of omitting the segment
             return self.start
 
-        t = self.get_start_t() + self.sweep * position
-        return self.point_at_t(t)
+        if position == 0:
+            return self.start
+        elif position == 1:
+            return self.end
+        else:
+            t = self.get_start_t() + self.sweep * position
+            return self.point_at_t(t)
+
+    def _point_numpy(self, position):
+        """Vectorized version of `point()`.
+
+        :param position: 1D numpy array of float in [0, 1]
+        :return: 1D numpy array of complex
+        """
+
+        out = np.empty(position.shape, dtype=complex)
+
+        if self.start == self.end and self.sweep == 0:
+            out[:] = self.start.as_complex()
+        else:
+            t = self.get_start_t() + self.sweep * position
+            self._point_at_t_numpy(t, out)
+
+            # ensure clean endings
+            out[position == 0] = self.start.as_complex()
+            out[position == 1] = self.end.as_complex()
+
+        return out
 
     def _integral_length(self):
         def ellipse_part_integral(t1, t2, a, b, n=100000):
@@ -4382,6 +4392,25 @@ class Arc(PathSegment):
         px = cx + a * cos_t * cos_rot - b * sin_t * sin_rot
         py = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
         return Point(px, py)
+
+    def _point_at_t_numpy(self, t, out):
+        """Same as point_at_t(t) for numpy array t
+
+        :param t: 1D array of float
+        :param out: 1D array of complex, must have the same size as t
+        """
+
+        rotation = self.get_rotation()
+        a = self.rx
+        b = self.ry
+        cx = self.center[0]
+        cy = self.center[1]
+        cos_rot = cos(rotation)
+        sin_rot = sin(rotation)
+        cos_t = np.cos(t)
+        sin_t = np.sin(t)
+        out.real = cx + a * cos_t * cos_rot - b * sin_t * sin_rot
+        out.imag = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
 
     def get_ellipse(self):
         return Ellipse(self.center, self.rx, self.ry, self.get_rotation())
