@@ -363,3 +363,25 @@ class TestElementArcLength(unittest.TestCase):
             error += c
             self.assertAlmostEqual(exact, length, places=1)
         print("Average arc-line error: %g" % (error / n))
+
+
+class TestElementArcPoint(unittest.TestCase):
+
+    def test_arc_point_start_stop(self):
+        for _ in range(1000):
+            arc = get_random_arc()
+            self.assertEqual(arc.start, arc.point(0))
+            self.assertEqual(arc.end, arc.point(1))
+            self.assertEqual(arc.start, arc._point_numpy(np.array([0]))[0])
+            self.assertEqual(arc.end, arc._point_numpy(np.array([1]))[0])
+
+    def test_arc_point_implementations_match(self):
+        for _ in range(1000):
+            arc = get_random_arc()
+
+            pos = np.linspace(0, 1, 100)
+            vec_res = arc._point_numpy(pos)
+
+            for p, v in zip(pos, vec_res):
+                self.assertEqual(arc.point(p), v)
+
