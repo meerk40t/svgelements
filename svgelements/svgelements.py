@@ -28,7 +28,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.2.9"
+SVGELEMENTS_VERSION = "1.2.10"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -882,7 +882,10 @@ class Length(object):
                 if '.' in a:
                     a = a.rstrip('0').rstrip('.')
                 return '\'%s%s\'' % (a, s.units)
-        s = '%.12f' % (s)
+        try:
+            s = '%.12f' % (s)
+        except TypeError:
+            return str(s)
         if '.' in s:
             s = s.rstrip('0').rstrip('.')
         return s
