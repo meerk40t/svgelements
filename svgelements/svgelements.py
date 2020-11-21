@@ -18,8 +18,9 @@ except ImportError:
 
 try:
     import numpy as np
+    _NUMPY = True
 except ImportError:
-    pass
+    _NUMPY = False
 
 """
 The path elements are derived from regebro's svg.path project ( https://github.com/regebro/svg.path ) with
@@ -1714,6 +1715,12 @@ class Point:
                 string_x, string_y = REGEX_COORD_PAIR.findall(x)[0]
                 x = float(string_x)
                 y = float(string_y)
+            elif _NUMPY and isinstance(x, np.ndarray):
+                if x.dtype == complex:
+                    x, y = x.real, x.imag
+                else:
+                    # assume Nx2 array
+                    x, y = x[:, 0], x[:, 1]
             else:
                 try:  # try subscription.
                     y = x[1]
@@ -1740,27 +1747,21 @@ class Point:
         return hash(self.__key())
 
     def __eq__(self, other):
-        a0 = self[0]
-        a1 = self[1]
-        if isinstance(other, str):
-            try:
-                other = Point(other)
-            except IndexError:  # This string doesn't parse to a point.
-                return False
-        if isinstance(other, (Point, list, tuple)):
-            b0 = other[0]
-            b1 = other[1]
-        elif isinstance(other, complex):
-            b0 = other.real
-            b1 = other.imag
-        else:
-            return NotImplemented
         try:
-            c0 = abs(a0 - b0) <= ERROR
-            c1 = abs(a1 - b1) <= ERROR
+            if not isinstance(other, Point):
+                other = Point(other)
+        except Exception:
+            return NotImplemented
+
+        try:
+            if _NUMPY and isinstance(self.x, np.ndarray):
+                return self.x.shape == other.x.shape and self.y.shape == other.y.shape \
+                       and np.allclose(self.x, other.x, atol=ERROR) \
+                       and np.allclose(self.y, other.y, atol=ERROR)
+            else:
+                return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
         except TypeError:
             return False
-        return c0 and c1
 
     def __ne__(self, other):
         return not self == other
@@ -1906,9 +1907,6 @@ class Point:
     def imag(self):
         """Emulate svg.path use of complex numbers"""
         return self.y
-
-    def as_complex(self):
-        return complex(self.x, self.y)
 
     def matrix_transform(self, matrix):
         v = matrix.point_in_matrix_space(self)
@@ -3262,7 +3260,7 @@ class Move(PathSegment):
         return 'm %s' % (self.end - current_point)
 
 
-class LinearPathSegment(PathSegment):
+class _Linear(PathSegment):
     """Represents line commands."""
 
     def __init__(self, start=None, end=None, **kwargs):
@@ -3305,10 +3303,8 @@ class LinearPathSegment(PathSegment):
             raise IndexError
 
     def point(self, position):
+        """Position may be a float or a Numpy array"""
         return Point.towards(self.start, self.end, position)
-
-    def _point_numpy(self, position):
-        return np.interp(position, [0, 1], [self.start.as_complex(), self.end.as_complex()])
 
     def length(self, error=None, min_depth=None):
         if self.start is not None and self.end is not None:
@@ -3340,7 +3336,7 @@ class LinearPathSegment(PathSegment):
         raise NotImplementedError
 
 
-class Close(LinearPathSegment):
+class Close(_Linear):
     """Represents close commands. If this exists at the end of the shape then the shape is closed.
     the methodology of a single flag close fails in a couple ways. You can have multi-part shapes
     which can close or not close several times.
@@ -3364,7 +3360,7 @@ class Close(LinearPathSegment):
             return 'z'
 
 
-class Line(LinearPathSegment):
+class Line(_Linear):
     """Represents line commands."""
 
     def __repr__(self):
@@ -3436,23 +3432,23 @@ class QuadraticBezier(PathSegment):
             return self.end
         raise IndexError
 
-    def _point_base(self, position):
+    def point(self, pos):
+        """Calculate the x,y position at a certain position of the path. `pos` maybe either
+        a float or a NumPy array."""
+
         x0, y0 = self.start
         x1, y1 = self.control
         x2, y2 = self.end
-        x = (1 - position) * (1 - position) * x0 + 2 * (1 - position) * position * x1 + position * position * x2
-        y = (1 - position) * (1 - position) * y0 + 2 * (1 - position) * position * y1 + position * position * y2
-        return x, y
 
-    def point(self, position):
-        """Calculate the x,y position at a certain position of the path"""
-        return Point(*self._point_base(position))
+        n_pos = 1 - pos
+        pos_2 = pos ** 2
+        n_pos_2 = n_pos ** 2
+        n_pos_pos = n_pos * pos
 
-    def _point_numpy(self, position):
-        """Same as point() but position is a 1D numpy array of float in [0, 1]"""
-        out = np.empty(shape=position.shape, dtype=complex)
-        out.real, out.imag = self._point_base(position)
-        return out
+        x = n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2
+        y = n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2
+
+        return Point(x, y)
 
     def bbox(self):
         """
@@ -3604,31 +3600,25 @@ class CubicBezier(PathSegment):
         self.control2 = self.control1
         self.control1 = c2
 
-    def _point_base(self, position):
-        """Calculate the x,y position at a certain position of the path"""
+    def point(self, pos):
+        """Calculate the x,y position at a certain position of the path. `pos` may be a
+        float or a NumPy array."""
+
         x0, y0 = self.start
         x1, y1 = self.control1
         x2, y2 = self.control2
         x3, y3 = self.end
-        x = (1 - position) * (1 - position) * (1 - position) * x0 + \
-            3 * (1 - position) * (1 - position) * position * x1 + \
-            3 * (1 - position) * position * position * x2 + \
-            position * position * position * x3
-        y = (1 - position) * (1 - position) * (1 - position) * y0 + \
-            3 * (1 - position) * (1 - position) * position * y1 + \
-            3 * (1 - position) * position * position * y2 + \
-            position * position * position * y3
-        return x, y
 
-    def point(self, position):
-        """Calculate the x,y position at a certain position of the path"""
-        return Point(*self._point_base(position))
+        # compute factors
+        pos_3 = pos ** 3
+        n_pos = 1 - pos
+        n_pos_3 = n_pos ** 3
+        pos_2_n_pos = pos * pos * n_pos
+        n_pos_2_pos = n_pos * n_pos * pos
 
-    def _point_numpy(self, position):
-        """Same as point() but position is a 1D numpy array of float in [0, 1]"""
-        out = np.empty(shape=position.shape, dtype=complex)
-        out.real, out.imag = self._point_base(position)
-        return out
+        x = n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3
+        y = n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3
+        return Point(x, y)
 
     def bbox(self):
         """returns the tight fitting bounding box of the bezier curve.
@@ -4017,6 +4007,9 @@ class Arc(PathSegment):
         self.sweep = -self.sweep
 
     def point(self, position):
+        if _NUMPY and isinstance(position, np.ndarray):
+            return self._point_numpy(position)
+
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
             return self.start
@@ -4036,19 +4029,30 @@ class Arc(PathSegment):
         :return: 1D numpy array of complex
         """
 
-        out = np.empty(position.shape, dtype=complex)
+        xy = np.empty((len(position), 2), dtype=float)
 
         if self.start == self.end and self.sweep == 0:
-            out[:] = self.start.as_complex()
+            xy[:] = self.start
         else:
             t = self.get_start_t() + self.sweep * position
-            self._point_at_t_numpy(t, out)
+
+            rotation = self.get_rotation()
+            a = self.rx
+            b = self.ry
+            cx = self.center[0]
+            cy = self.center[1]
+            cos_rot = cos(rotation)
+            sin_rot = sin(rotation)
+            cos_t = np.cos(t)
+            sin_t = np.sin(t)
+            xy[:, 0] = cx + a * cos_t * cos_rot - b * sin_t * sin_rot
+            xy[:, 1] = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
 
             # ensure clean endings
-            out[position == 0] = self.start.as_complex()
-            out[position == 1] = self.end.as_complex()
+            xy[position == 0, :] = list(self.start)
+            xy[position == 1, :] = list(self.end)
 
-        return out
+        return Point(xy)
 
     def _integral_length(self):
         def ellipse_part_integral(t1, t2, a, b, n=100000):
@@ -4397,25 +4401,6 @@ class Arc(PathSegment):
         px = cx + a * cos_t * cos_rot - b * sin_t * sin_rot
         py = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
         return Point(px, py)
-
-    def _point_at_t_numpy(self, t, out):
-        """Same as point_at_t(t) for numpy array t
-
-        :param t: 1D array of float
-        :param out: 1D array of complex, must have the same size as t
-        """
-
-        rotation = self.get_rotation()
-        a = self.rx
-        b = self.ry
-        cx = self.center[0]
-        cy = self.center[1]
-        cos_rot = cos(rotation)
-        sin_rot = sin(rotation)
-        cos_t = np.cos(t)
-        sin_t = np.sin(t)
-        out.real = cx + a * cos_t * cos_rot - b * sin_t * sin_rot
-        out.imag = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
 
     def get_ellipse(self):
         return Ellipse(self.center, self.rx, self.ry, self.get_rotation())
