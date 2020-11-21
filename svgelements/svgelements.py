@@ -28,7 +28,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.2.10"
+SVGELEMENTS_VERSION = "1.2.9"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -882,10 +882,7 @@ class Length(object):
                 if '.' in a:
                     a = a.rstrip('0').rstrip('.')
                 return '\'%s%s\'' % (a, s.units)
-        try:
-            s = '%.12f' % (s)
-        except TypeError:
-            return str(s)
+        s = '%.12f' % (s)
         if '.' in s:
             s = s.rstrip('0').rstrip('.')
         return s
@@ -3682,20 +3679,19 @@ class CubicBezier(PathSegment):
         local_extrema = [self.point(t)[v] for t in local_extremizers]
         return min(local_extrema), max(local_extrema)
 
-    def _derivative(self, t):
-        """returns the nth derivative of the segment at t.
-        Note: Bezier curves can have points where their derivative vanishes.
-        If you are interested in the tangent direction, use the unit_tangent()
-        method instead."""
-        p = [self.start, self.control1, self.control2, self.end]
-        return 3 * (p[1] - p[0]) * (1 - t) ** 2 + 6 * (p[2] - p[1]) * (
-                    1 - t) * t + 3 * (
-                           p[3] - p[2]) * t ** 2
-
     def _length_scipy(self, error=ERROR):
         from scipy.integrate import quad
-        return quad(lambda tau: abs(self._derivative(tau)), 0., 1.,
-                    epsabs=error, limit=1000)[0]
+
+        p0 = complex(*self.start)
+        p1 = complex(*self.control1)
+        p2 = complex(*self.control2)
+        p3 = complex(*self.end)
+
+        def _abs_derivative(t):
+            return abs(3 * (p1 - p0) * (1 - t) ** 2 + 6 * (p2 - p1) * (1 - t) * t + 3 \
+                       * (p3 - p2) * t ** 2)
+
+        return quad(_abs_derivative, 0., 1., epsabs=error, limit=1000)[0]
 
     def _length_default(self, error=ERROR, min_depth=MIN_DEPTH):
         return self._line_length(0, 1, error, min_depth)
