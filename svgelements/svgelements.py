@@ -1791,7 +1791,10 @@ class Point:
         return Point(self.x, self.y)
 
     def __str__(self):
-        x_str = ('%.12G' % (self.x))
+        try:
+            x_str = ('%.12G' % (self.x))
+        except TypeError:
+            return self.__repr__()
         if '.' in x_str:
             x_str = x_str.rstrip('0').rstrip('.')
         y_str = ('%.12G' % (self.y))
@@ -2725,6 +2728,8 @@ class Transformable(SVGElement):
     """Any element that is transformable and has a transform property."""
 
     def __init__(self, *args, **kwargs):
+        self._length = None
+        self._lengths = None
         self.transform = None
         self.apply = None
         SVGElement.__init__(self, *args, **kwargs)
@@ -2774,6 +2779,8 @@ class Transformable(SVGElement):
         The default method will be called by submethods but will only scale properties like stroke_width which should
         scale with the transform.
         """
+        self._lengths = None
+        self._length = None
         if SVG_ATTR_STROKE_WIDTH in self.values:
             width = Length(self.values[SVG_ATTR_STROKE_WIDTH]).value()
             t = self.transform
@@ -2924,6 +2931,103 @@ class Shape(GraphicObject, Transformable):
             self.transform *= other
         self.reify()
         return self
+
+    def _calc_lengths(self, error=ERROR, min_depth=MIN_DEPTH, segments=None):
+        """
+        Calculate the length values for the segments of the Shape.
+
+        :param error: error permitted for length calculations.
+        :param min_depth: minimum depth for the length calculation.
+        :param segments: optional segments to use.
+        :return:
+        """
+        if segments is None:
+            segments = self.segments(False)
+        if self._length is not None:
+            return
+        lengths = [each.length(error=error, min_depth=min_depth) for each in segments]
+        self._length = sum(lengths)
+        if self._length == 0:
+            self._lengths = lengths
+        else:
+            self._lengths = [each / self._length for each in lengths]
+
+    def _point_numpy(self, position, error=ERROR):
+        """
+        Find a points between 0 and 1 within the shape. Numpy acceleration allows points to be an array of floats.
+        """
+        segments = self.segments(False)
+        if len(segments) == 0:
+            return None
+        # Shortcuts
+        if self._length is None:
+            self._calc_lengths(error=error, segments=segments)
+        xy = np.empty((len(position), 2), dtype=float)
+        if self._length == 0:
+            i = int(round(position * (len(segments) - 1)))
+            point = segments[i].point(0.0)
+            xy[:] = point
+            return Point(xy)
+        # Find which segment the point we search for is located on:
+        segment_start = 0
+        for index, segment in enumerate(segments):
+            segment_end = segment_start + self._lengths[index]
+            position_subset = ((segment_start <= position) & (position < segment_end))
+            v0 = position[position_subset]
+            if not len(v0):
+                continue  # Nothing matched.
+            d = segment_end - segment_start
+            if d == 0:  # This segment is 0 length.
+                segment_pos = 0.0
+            else:
+                segment_pos = (v0 - segment_start) / d
+            c = segment.point(segment_pos)
+            xy[position_subset, 0] = c.x
+            xy[position_subset, 1] = c.y
+            segment_start = segment_end
+        return Point(xy)
+
+    def point(self, position, error=ERROR):
+        """
+        Find a point between 0 and 1 within the Shape, going through the shape with regard to position.
+
+        :param position: value between 0 and 1 within the shape.
+        :param error: Length error permitted.
+        :return: Point at the given location.
+        """
+        segments = self.segments(False)
+        if len(segments) == 0:
+            return None
+        # Shortcuts
+        try:
+            if position <= 0.0:
+                return segments[0].point(position)
+            if position >= 1.0:
+                return segments[-1].point(position)
+        except ValueError:
+            return self._point_numpy(position, error=error)
+        if self._length is None:
+            self._calc_lengths(error=error, segments=segments)
+
+        if self._length == 0:
+            i = int(round(position * (len(segments) - 1)))
+            return segments[i].point(0.0)
+        # Find which segment the point we search for is located on:
+        segment_start = 0
+        segment_pos = 0
+        segment = segments[0]
+        for index, segment in enumerate(segments):
+            segment_end = segment_start + self._lengths[index]
+            if segment_end >= position:
+                # This is the segment! How far in on the segment is the point?
+                segment_pos = (position - segment_start) / (segment_end - segment_start)
+                break
+            segment_start = segment_end
+        return segment.point(segment_pos)
+
+    def length(self, error=ERROR, min_depth=MIN_DEPTH):
+        self._calc_lengths(error, min_depth)
+        return self._length
 
     def segments(self, transformed=True):
         """
@@ -3432,7 +3536,7 @@ class QuadraticBezier(PathSegment):
             return self.end
         raise IndexError
 
-    def point(self, pos):
+    def point(self, position):
         """Calculate the x,y position at a certain position of the path. `pos` maybe either
         a float or a NumPy array."""
 
@@ -3440,10 +3544,10 @@ class QuadraticBezier(PathSegment):
         x1, y1 = self.control
         x2, y2 = self.end
 
-        n_pos = 1 - pos
-        pos_2 = pos ** 2
+        n_pos = 1 - position
+        pos_2 = position ** 2
         n_pos_2 = n_pos ** 2
-        n_pos_pos = n_pos * pos
+        n_pos_pos = n_pos * position
 
         x = n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2
         y = n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2
@@ -3600,7 +3704,7 @@ class CubicBezier(PathSegment):
         self.control2 = self.control1
         self.control1 = c2
 
-    def point(self, pos):
+    def point(self, position):
         """Calculate the x,y position at a certain position of the path. `pos` may be a
         float or a NumPy array."""
 
@@ -3610,11 +3714,11 @@ class CubicBezier(PathSegment):
         x3, y3 = self.end
 
         # compute factors
-        pos_3 = pos ** 3
-        n_pos = 1 - pos
+        pos_3 = position ** 3
+        n_pos = 1 - position
         n_pos_3 = n_pos ** 3
-        pos_2_n_pos = pos * pos * n_pos
-        n_pos_2_pos = n_pos * n_pos * pos
+        pos_2_n_pos = position * position * n_pos
+        n_pos_2_pos = n_pos * n_pos * position
 
         x = n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3
         y = n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3
@@ -4904,47 +5008,6 @@ class Path(Shape, MutableSequence):
         self.append(segment)
         return self
 
-    def _calc_lengths(self, error=ERROR, min_depth=MIN_DEPTH):
-        if self._length is not None:
-            return
-        lengths = [each.length(error=error, min_depth=min_depth) for each in self._segments]
-        self._length = sum(lengths)
-        if self._length == 0:
-            self._lengths = lengths
-        else:
-            self._lengths = [each / self._length for each in lengths]
-
-    def point(self, position, error=ERROR):
-        if len(self._segments) == 0:
-            return None
-        # Shortcuts
-        if position <= 0.0:
-            return self._segments[0].point(position)
-        if position >= 1.0:
-            return self._segments[-1].point(position)
-
-        self._calc_lengths(error=error)
-
-        if self._length == 0:
-            i = int(round(position * (len(self._segments) - 1)))
-            return self._segments[i].point(0.0)
-        # Find which segment the point we search for is located on:
-        segment_start = 0
-        segment_pos = 0
-        segment = self._segments[0]
-        for index, segment in enumerate(self._segments):
-            segment_end = segment_start + self._lengths[index]
-            if segment_end >= position:
-                # This is the segment! How far in on the segment is the point?
-                segment_pos = (position - segment_start) / (segment_end - segment_start)
-                break
-            segment_start = segment_end
-        return segment.point(segment_pos)
-
-    def length(self, error=ERROR, min_depth=MIN_DEPTH):
-        self._calc_lengths(error, min_depth)
-        return self._length
-
     def append(self, value):
         if isinstance(value, str):
             value = Path(value)
@@ -5680,7 +5743,7 @@ class _RoundShape(Shape):
         py = cy + a * cosT * sinTheta + b * sinT * cosTheta
         return Point(px, py)
 
-    def point(self, position):
+    def point(self, position, error=ERROR):
         """
         find the point that corresponds to given value [0,1].
         Where t=0 is the first point and t=1 is the final point.
