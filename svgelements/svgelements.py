@@ -2972,16 +2972,18 @@ class Shape(GraphicObject, Transformable):
         segment_start = 0
         for index, segment in enumerate(segments):
             segment_end = segment_start + self._lengths[index]
-            v0 = position[((segment_start < position) & (position < segment_end))]
+            position_subset = ((segment_start <= position) & (position < segment_end))
+            v0 = position[position_subset]
             if not len(v0):
-                continue
+                continue  # Nothing matched.
             d = segment_end - segment_start
-            if d == 0:
-                continue
-            segment_pos = (v0 - segment_start) / d
+            if d == 0:  # This segment is 0 length.
+                segment_pos = 0.0
+            else:
+                segment_pos = (v0 - segment_start) / d
             c = segment.point(segment_pos)
-            xy[((segment_start < position) & (position < segment_end)), 0] = c.x
-            xy[((segment_start < position) & (position < segment_end)), 1] = c.y
+            xy[position_subset, 0] = c.x
+            xy[position_subset, 1] = c.y
             segment_start = segment_end
         return Point(xy)
 
