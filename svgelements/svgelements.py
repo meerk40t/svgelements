@@ -3364,7 +3364,7 @@ class Move(PathSegment):
         return 'm %s' % (self.end - current_point)
 
 
-class _Linear(PathSegment):
+class Linear(PathSegment):
     """Represents line commands."""
 
     def __init__(self, start=None, end=None, **kwargs):
@@ -3440,7 +3440,7 @@ class _Linear(PathSegment):
         raise NotImplementedError
 
 
-class Close(_Linear):
+class Close(Linear):
     """Represents close commands. If this exists at the end of the shape then the shape is closed.
     the methodology of a single flag close fails in a couple ways. You can have multi-part shapes
     which can close or not close several times.
@@ -3464,7 +3464,7 @@ class Close(_Linear):
             return 'z'
 
 
-class Line(_Linear):
+class Line(Linear):
     """Represents line commands."""
 
     def __repr__(self):
