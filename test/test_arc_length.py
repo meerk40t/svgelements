@@ -373,7 +373,7 @@ class TestElementArcPoint(unittest.TestCase):
             self.assertEqual(arc.start, arc.point(0))
             self.assertEqual(arc.end, arc.point(1))
             self.assertTrue(np.all(np.array([list(arc.start), list(arc.end)])
-                                   == arc.points([0, 1])))
+                                   == arc.npoint([0, 1])))
 
     def test_arc_point_implementations_match(self):
         for _ in range(1000):
@@ -381,9 +381,9 @@ class TestElementArcPoint(unittest.TestCase):
 
             pos = np.linspace(0, 1, 100)
 
-            v1 = arc.points(pos)
+            v1 = arc.npoint(pos)
             with disable_numpy():
-                v2 = arc.points(pos)
+                v2 = arc.npoint(pos)
 
             for p, p1, p2 in zip(pos, v1, v2):
                 self.assertEqual(arc.point(p), Point(p1))

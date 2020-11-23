@@ -2949,7 +2949,7 @@ class Shape(GraphicObject, Transformable):
         else:
             self._lengths = [each / self._length for each in lengths]
 
-    def points(self, positions, error=ERROR):
+    def npoint(self, positions, error=ERROR):
         """
         Find a points between 0 and 1 within the shape. Numpy acceleration allows points to be an array of floats.
         """
@@ -2982,7 +2982,7 @@ class Shape(GraphicObject, Transformable):
                 segment_pos = 0.0
             else:
                 segment_pos = (v0 - segment_start) / d
-            c = segment.points(segment_pos)
+            c = segment.npoint(segment_pos)
             xy[position_subset] = c[:]
             segment_start = segment_end
 
@@ -3008,7 +3008,7 @@ class Shape(GraphicObject, Transformable):
             if position >= 1.0:
                 return segments[-1].point(position)
         except ValueError:
-            return self.points([position], error=error)[0]
+            return self.npoint([position], error=error)[0]
 
         if self._length is None:
             self._calc_lengths(error=error, segments=segments)
@@ -3254,9 +3254,9 @@ class PathSegment:
         :param position:  t value between 0 and 1
         :return: Point instance
         """
-        return Point(self.points([position])[0])
+        return Point(self.npoint([position])[0])
 
-    def points(self, positions):
+    def npoint(self, positions):
         """
         Returns the points at given positions along the path segment
         :param positions: N-sized sequence of t value between 0 and 1
@@ -3418,7 +3418,7 @@ class Linear(PathSegment):
         else:
             raise IndexError
 
-    def points(self, positions):
+    def npoint(self, positions):
         if _NUMPY:
             xy = np.empty(shape=(len(positions), 2), dtype=float)
             xy[:, 0] = np.interp(positions, [0, 1], [self.start.x, self.end.x])
@@ -3553,7 +3553,7 @@ class QuadraticBezier(PathSegment):
             return self.end
         raise IndexError
 
-    def points(self, positions):
+    def npoint(self, positions):
         """Calculate the x,y position at a certain position of the path. `pos` may be a
         float or a NumPy array."""
         x0, y0 = self.start
@@ -3727,7 +3727,7 @@ class CubicBezier(PathSegment):
         self.control2 = self.control1
         self.control1 = c2
 
-    def points(self, positions):
+    def npoint(self, positions):
         """Calculate the x,y position at a certain position of the path. `pos` may be a
         float or a NumPy array."""
         x0, y0 = self.start
@@ -4138,7 +4138,7 @@ class Arc(PathSegment):
         PathSegment.reverse(self)
         self.sweep = -self.sweep
 
-    def points(self, positions):
+    def npoint(self, positions):
         if _NUMPY:
             return self._points_numpy(np.array(positions))
 

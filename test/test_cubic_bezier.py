@@ -34,7 +34,7 @@ class TestElementCubicBezierPoint(unittest.TestCase):
             self.assertEqual(b.start, b.point(0))
             self.assertEqual(b.end, b.point(1))
             self.assertTrue(np.all(np.array([list(b.start), list(b.end)])
-                                   == b.points([0, 1])))
+                                   == b.npoint([0, 1])))
 
     def test_cubic_bezier_point_implementations_match(self):
         for _ in range(1000):
@@ -42,9 +42,9 @@ class TestElementCubicBezierPoint(unittest.TestCase):
 
             pos = np.linspace(0, 1, 100)
 
-            v1 = b.points(pos)
+            v1 = b.npoint(pos)
             with disable_numpy():
-                v2 = b.points(pos)
+                v2 = b.npoint(pos)
 
             for p, p1, p2 in zip(pos, v1, v2):
                 self.assertEqual(b.point(p), Point(p1))
