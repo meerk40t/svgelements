@@ -3008,7 +3008,8 @@ class Shape(GraphicObject, Transformable):
             if position >= 1.0:
                 return segments[-1].point(position)
         except ValueError:
-            return self._point_numpy(position, error=error)
+            return self.points([position], error=error)[0]
+
         if self._length is None:
             self._calc_lengths(error=error, segments=segments)
 
