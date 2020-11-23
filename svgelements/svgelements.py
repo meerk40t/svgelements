@@ -19,6 +19,17 @@ except ImportError:
 try:
     import numpy as np
     _NUMPY = True
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def disable_numpy():
+        """Utility to temporarily disable numpy optimisation. Mostly useful for testing
+        purposes."""
+        global _NUMPY
+        _NUMPY = False
+        yield
+        _NUMPY = True
 except ImportError:
     _NUMPY = False
 
@@ -1715,12 +1726,6 @@ class Point:
                 string_x, string_y = REGEX_COORD_PAIR.findall(x)[0]
                 x = float(string_x)
                 y = float(string_y)
-            elif _NUMPY and isinstance(x, np.ndarray):
-                if x.dtype == complex:
-                    x, y = x.real, x.imag
-                else:
-                    # assume Nx2 array
-                    x, y = x[:, 0], x[:, 1]
             else:
                 try:  # try subscription.
                     y = x[1]
@@ -1753,15 +1758,7 @@ class Point:
         except Exception:
             return NotImplemented
 
-        try:
-            if _NUMPY and isinstance(self.x, np.ndarray):
-                return self.x.shape == other.x.shape and self.y.shape == other.y.shape \
-                       and np.allclose(self.x, other.x, atol=ERROR) \
-                       and np.allclose(self.y, other.y, atol=ERROR)
-            else:
-                return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
-        except TypeError:
-            return False
+        return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
 
     def __ne__(self, other):
         return not self == other
@@ -2952,28 +2949,32 @@ class Shape(GraphicObject, Transformable):
         else:
             self._lengths = [each / self._length for each in lengths]
 
-    def _point_numpy(self, position, error=ERROR):
+    def points(self, positions, error=ERROR):
         """
         Find a points between 0 and 1 within the shape. Numpy acceleration allows points to be an array of floats.
         """
+        if not _NUMPY:
+            return [self.point(pos) for pos in positions]
+
         segments = self.segments(False)
         if len(segments) == 0:
             return None
         # Shortcuts
         if self._length is None:
             self._calc_lengths(error=error, segments=segments)
-        xy = np.empty((len(position), 2), dtype=float)
+        xy = np.empty((len(positions), 2), dtype=float)
         if self._length == 0:
-            i = int(round(position * (len(segments) - 1)))
+            i = int(round(positions * (len(segments) - 1)))
             point = segments[i].point(0.0)
             xy[:] = point
-            return Point(xy)
+            return xy
+
         # Find which segment the point we search for is located on:
         segment_start = 0
         for index, segment in enumerate(segments):
             segment_end = segment_start + self._lengths[index]
-            position_subset = ((segment_start <= position) & (position < segment_end))
-            v0 = position[position_subset]
+            position_subset = ((segment_start <= positions) & (positions < segment_end))
+            v0 = positions[position_subset]
             if not len(v0):
                 continue  # Nothing matched.
             d = segment_end - segment_start
@@ -2981,11 +2982,13 @@ class Shape(GraphicObject, Transformable):
                 segment_pos = 0.0
             else:
                 segment_pos = (v0 - segment_start) / d
-            c = segment.point(segment_pos)
-            xy[position_subset, 0] = c.x
-            xy[position_subset, 1] = c.y
+            c = segment.points(segment_pos)
+            xy[position_subset] = c[:]
             segment_start = segment_end
-        return Point(xy)
+
+        # the loop above will miss position == 1
+        xy[positions == 1] = np.array(list(segments[-1].end))
+        return xy
 
     def point(self, position, error=ERROR):
         """
@@ -3248,9 +3251,17 @@ class PathSegment:
         """
         Returns the point at a given amount through the path segment.
         :param position:  t value between 0 and 1
-        :return:
+        :return: Point instance
         """
-        return self.end
+        return Point(self.points([position])[0])
+
+    def points(self, positions):
+        """
+        Returns the points at given positions along the path segment
+        :param positions: N-sized sequence of t value between 0 and 1
+        :return: N-sized sequence of 2-sized sequence of float
+        """
+        return [self.end] * len(positions)
 
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         """
@@ -3406,9 +3417,14 @@ class Linear(PathSegment):
         else:
             raise IndexError
 
-    def point(self, position):
-        """Position may be a float or a Numpy array"""
-        return Point.towards(self.start, self.end, position)
+    def points(self, positions):
+        if _NUMPY:
+            xy = np.empty(shape=(len(positions), 2), dtype=float)
+            xy[:, 0] = np.interp(positions, [0, 1], [self.start.x, self.end.x])
+            xy[:, 1] = np.interp(positions, [0, 1], [self.start.y, self.end.y])
+            return xy
+        else:
+            return [Point.towards(self.start, self.end, pos) for pos in positions]
 
     def length(self, error=None, min_depth=None):
         if self.start is not None and self.end is not None:
@@ -3536,23 +3552,29 @@ class QuadraticBezier(PathSegment):
             return self.end
         raise IndexError
 
-    def point(self, position):
-        """Calculate the x,y position at a certain position of the path. `pos` maybe either
-        a float or a NumPy array."""
-
+    def points(self, positions):
+        """Calculate the x,y position at a certain position of the path. `pos` may be a
+        float or a NumPy array."""
         x0, y0 = self.start
         x1, y1 = self.control
         x2, y2 = self.end
 
-        n_pos = 1 - position
-        pos_2 = position ** 2
-        n_pos_2 = n_pos ** 2
-        n_pos_pos = n_pos * position
+        def _compute_point(position):
+            # compute factors
+            n_pos = 1 - position
+            pos_2 = position ** 2
+            n_pos_2 = n_pos ** 2
+            n_pos_pos = n_pos * position
 
-        x = n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2
-        y = n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2
+            return (n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2,
+                    n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2)
 
-        return Point(x, y)
+        if _NUMPY and len(positions) > 1:
+            xy = np.empty(shape=(len(positions), 2))
+            xy[:, 0], xy[:, 1] = _compute_point(np.array(positions))
+            return xy
+        else:
+            return [Point(*_compute_point(position)) for position in positions]
 
     def bbox(self):
         """
@@ -3704,25 +3726,30 @@ class CubicBezier(PathSegment):
         self.control2 = self.control1
         self.control1 = c2
 
-    def point(self, position):
+    def points(self, positions):
         """Calculate the x,y position at a certain position of the path. `pos` may be a
         float or a NumPy array."""
-
         x0, y0 = self.start
         x1, y1 = self.control1
         x2, y2 = self.control2
         x3, y3 = self.end
 
-        # compute factors
-        pos_3 = position ** 3
-        n_pos = 1 - position
-        n_pos_3 = n_pos ** 3
-        pos_2_n_pos = position * position * n_pos
-        n_pos_2_pos = n_pos * n_pos * position
+        def _compute_point(position):
+            # compute factors
+            pos_3 = position ** 3
+            n_pos = 1 - position
+            n_pos_3 = n_pos ** 3
+            pos_2_n_pos = position * position * n_pos
+            n_pos_2_pos = n_pos * n_pos * position
+            return (n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3,
+                    n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3)
 
-        x = n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3
-        y = n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3
-        return Point(x, y)
+        if _NUMPY and len(positions) > 1:
+            xy = np.empty(shape=(len(positions), 2))
+            xy[:, 0], xy[:, 1] = _compute_point(np.array(positions))
+            return xy
+        else:
+            return [Point(*_compute_point(position)) for position in positions]
 
     def bbox(self):
         """returns the tight fitting bounding box of the bezier curve.
@@ -4110,35 +4137,31 @@ class Arc(PathSegment):
         PathSegment.reverse(self)
         self.sweep = -self.sweep
 
-    def point(self, position):
-        if _NUMPY and isinstance(position, np.ndarray):
-            return self._point_numpy(position)
+    def points(self, positions):
+        if _NUMPY:
+            return self._points_numpy(np.array(positions))
 
         if self.start == self.end and self.sweep == 0:
             # This is equivalent of omitting the segment
-            return self.start
+            return [self.start] * len(positions)
 
-        if position == 0:
-            return self.start
-        elif position == 1:
-            return self.end
-        else:
-            t = self.get_start_t() + self.sweep * position
-            return self.point_at_t(t)
+        start_t = self.get_start_t()
+        return [self.start if pos == 0 else self.end if pos == 1 else
+                self.point_at_t(start_t + self.sweep * pos) for pos in positions]
 
-    def _point_numpy(self, position):
+    def _points_numpy(self, positions):
         """Vectorized version of `point()`.
 
-        :param position: 1D numpy array of float in [0, 1]
+        :param positions: 1D numpy array of float in [0, 1]
         :return: 1D numpy array of complex
         """
 
-        xy = np.empty((len(position), 2), dtype=float)
+        xy = np.empty((len(positions), 2), dtype=float)
 
         if self.start == self.end and self.sweep == 0:
-            xy[:] = self.start
+            xy[:, 0], xy[:, 1] = self.start
         else:
-            t = self.get_start_t() + self.sweep * position
+            t = self.get_start_t() + self.sweep * positions
 
             rotation = self.get_rotation()
             a = self.rx
@@ -4153,10 +4176,10 @@ class Arc(PathSegment):
             xy[:, 1] = cy + a * cos_t * sin_rot + b * sin_t * cos_rot
 
             # ensure clean endings
-            xy[position == 0, :] = list(self.start)
-            xy[position == 1, :] = list(self.end)
+            xy[positions == 0, :] = list(self.start)
+            xy[positions == 1, :] = list(self.end)
 
-        return Point(xy)
+        return xy
 
     def _integral_length(self):
         def ellipse_part_integral(t1, t2, a, b, n=100000):

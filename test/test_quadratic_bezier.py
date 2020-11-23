@@ -18,15 +18,19 @@ class TestElementQuadraticBezierPoint(unittest.TestCase):
             b = get_random_quadratic_bezier()
             self.assertEqual(b.start, b.point(0))
             self.assertEqual(b.end, b.point(1))
-            self.assertEqual(Point(np.array([list(b.start), list(b.end)])),
-                             b.point(np.array([0, 1])))
+            self.assertTrue(np.all(np.array([list(b.start), list(b.end)])
+                                   == b.points([0, 1])))
 
     def test_quadratic_bezier_point_implementations_match(self):
         for _ in range(1000):
             b = get_random_quadratic_bezier()
 
             pos = np.linspace(0, 1, 100)
-            vec_res = b.point(pos)
 
-            for p, x, y in zip(pos, vec_res.x, vec_res.y):
-                self.assertEqual(b.point(p), Point(x, y))
+            v1 = b.points(pos)
+            with disable_numpy():
+                v2 = b.points(pos)
+
+            for p, p1, p2 in zip(pos, v1, v2):
+                self.assertEqual(b.point(p), Point(p1))
+                self.assertEqual(Point(p1), Point(p2))
