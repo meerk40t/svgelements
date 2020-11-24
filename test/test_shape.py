@@ -395,6 +395,27 @@ class TestElementShape(unittest.TestCase):
         test_reification(self, Path("M0,0L1,1L1,0z"))
         test_reification(self, Path("M100,100L70,70L45,0z"))
 
+    def test_shape_npoints(self):
+        shapes = [
+            Rect(10, 20, 300, 340),
+            Circle(10, 10, 5),
+            Ellipse(50, 50, 30, 20),
+            Polygon(points=((10, 10), (20, 30), (50, 20))),
+            Polyline(points=((10, 10), (20, 30), (50, 20), (100, 120))),
+        ]
+
+        for shape in shapes:
+            pos = np.linspace(0, 1, 1000)
+            with disable_numpy():
+                pts1 = shape.npoint(pos)
+
+            pts2 = shape.npoint(pos)
+
+            for p, p1, p2 in zip(pos, pts1, pts2):
+                self.assertEqual(shape.point(p), Point(p1))
+                self.assertEqual(Point(p1), Point(p2))
+
+
 
 def test_reification(test, shape):
     correct_reify(test, shape * "rotate(-90) translate(20,0)")
