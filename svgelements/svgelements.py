@@ -1763,6 +1763,9 @@ class Point:
     def __ne__(self, other):
         return not self == other
 
+    def __len__(self):
+        return 2
+
     def __getitem__(self, item):
         if item == 0:
             return self.x
