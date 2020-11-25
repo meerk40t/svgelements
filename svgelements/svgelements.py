@@ -45,7 +45,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.0"
+SVGELEMENTS_VERSION = "1.3.1"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -1762,9 +1762,6 @@ class Point:
 
     def __ne__(self, other):
         return not self == other
-
-    def __len__(self):
-        return 2
 
     def __getitem__(self, item):
         if item == 0:
@@ -7036,8 +7033,8 @@ class SVG(Group):
         root = context
         styles = {}
         stack = []
-        values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: "black",
-                  SVG_ATTR_STROKE: "none"}
+        values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: "black", SVG_ATTR_STROKE: "none",
+                  SVG_ATTR_HEIGHT: "100%", SVG_ATTR_WIDTH: "100%"}
         if transform is not None:
             values[SVG_ATTR_TRANSFORM] = transform
         for event, elem in SVG.svg_structure_parse(source):
