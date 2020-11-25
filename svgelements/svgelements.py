@@ -7016,8 +7016,8 @@ class SVG(Group):
     def parse(source,
               reify=True,
               ppi=DEFAULT_PPI,
-              width=1,
-              height=1,
+              width=1000,
+              height=1000,
               color="black",
               transform=None,
               context=None):
