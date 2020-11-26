@@ -45,7 +45,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.1"
+SVGELEMENTS_VERSION = "1.3.2"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -7125,7 +7125,13 @@ class SVG(Group):
                     s.render(ppi=ppi, width=width, height=height)
 
                     # viewbox was rendered here.
-                    viewport_transform = s.viewbox.transform()
+                    try:
+                        viewport_transform = s.viewbox.transform()
+                    except ZeroDivisionError:
+                        # The width or height was zero.
+                        # https://www.w3.org/TR/SVG11/struct.html#SVGElementWidthAttribute
+                        # "A value of zero disables rendering of the element."
+                        return s  # No more parsing will be done.
                     if SVG_ATTR_TRANSFORM in values:
                         # transform on SVG element applied as if svg had parent with transform.
                         values[SVG_ATTR_TRANSFORM] += " " + viewport_transform
