@@ -45,7 +45,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.2"
+SVGELEMENTS_VERSION = "1.3.3"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -1752,6 +1752,8 @@ class Point:
         return hash(self.__key())
 
     def __eq__(self, other):
+        if other is None:
+            return False
         try:
             if not isinstance(other, Point):
                 other = Point(other)
@@ -4330,12 +4332,13 @@ class Arc(PathSegment):
         self.pry.matrix_transform(rotate_matrix)
         self.sweep = Angle.degrees(delta).as_radians
 
-    def as_quad_curves(self):
-        sweep_limit = tau / 12
-        arc_required = int(ceil(abs(self.sweep) / sweep_limit))
-        if arc_required == 0:
-            return
-        slice = self.sweep / float(arc_required)
+    def as_quad_curves(self, arc_required):
+        if arc_required is None:
+            sweep_limit = tau / 12
+            arc_required = int(ceil(abs(self.sweep) / sweep_limit))
+            if arc_required == 0:
+                return
+        t_slice = self.sweep / float(arc_required)
 
         current_t = self.get_start_t()
         p_start = self.start
@@ -4350,26 +4353,27 @@ class Arc(PathSegment):
         cy = self.center[1]
 
         for i in range(0, arc_required):
-            next_t = current_t + slice
+            next_t = current_t + t_slice
             mid_t = (next_t + current_t) / 2
             p_end = self.point_at_t(next_t)
             if i == arc_required - 1:
                 p_end = self.end
             cos_mid_t = cos(mid_t)
             sin_mid_t = sin(mid_t)
-            alpha = (4.0 - cos(slice)) / 3.0
+            alpha = (4.0 - cos(t_slice)) / 3.0
             px = cx + alpha * (a * cos_mid_t * cos_theta - b * sin_mid_t * sin_theta)
             py = cy + alpha * (a * cos_mid_t * sin_theta + b * sin_mid_t * cos_theta)
             yield QuadraticBezier(p_start, (px, py), p_end)
             p_start = p_end
             current_t = next_t
 
-    def as_cubic_curves(self):
-        sweep_limit = tau / 12
-        arc_required = int(ceil(abs(self.sweep) / sweep_limit))
-        if arc_required == 0:
-            return
-        slice = self.sweep / float(arc_required)
+    def as_cubic_curves(self, arc_required=None):
+        if arc_required is None:
+            sweep_limit = tau / 12
+            arc_required = int(ceil(abs(self.sweep) / sweep_limit))
+            if arc_required == 0:
+                return
+        t_slice = self.sweep / float(arc_required)
 
         theta = self.get_rotation()
         rx = self.rx
@@ -4382,9 +4386,9 @@ class Arc(PathSegment):
         sin_theta = sin(theta)
 
         for i in range(0, arc_required):
-            next_t = current_t + slice
+            next_t = current_t + t_slice
 
-            alpha = sin(slice) * (sqrt(4 + 3 * pow(tan((slice) / 2.0), 2)) - 1) / 3.0
+            alpha = sin(t_slice) * (sqrt(4 + 3 * pow(tan((t_slice) / 2.0), 2)) - 1) / 3.0
 
             cos_start_t = cos(current_t)
             sin_start_t = sin(current_t)
@@ -4681,8 +4685,8 @@ class Path(Shape, MutableSequence):
             if isinstance(segment, Move):
                 self._segments[index].end = Point(segment.end)
                 return
-        self._segments[index].end = Point(self._segments[0].end)
-        # If move is never found, just the end point of the first element.
+        self._segments[index].end = Point(self._segments[0].end) if self._segments[0].end is not None else None
+        # If move is never found, just the end point of the first element. Unless that's not a thing.
 
     def _validate_connection(self, index, prefer_second=False):
         """
@@ -4712,23 +4716,34 @@ class Path(Shape, MutableSequence):
             new_element = Path(new_element)
             if len(new_element) == 0:
                 return
-            new_element = new_element[0]
+            new_element = new_element.segments()
+            if isinstance(index, int):
+                if len(new_element) > 1:
+                    raise ValueError  # Cannot insert multiple items into a single space. Requires slice.
+                new_element = new_element[0]
         self._segments[index] = new_element
         self._length = None
-        self._validate_connection(index - 1)
-        self._validate_connection(index)
-        if isinstance(new_element, Move):
-            self._validate_move(index)
-        if isinstance(new_element, Close):
-            self._validate_close(index)
+        self._lengths = None
+        if isinstance(index, slice):
+            self.validate_connections()
+        else:
+            self._validate_connection(index - 1)
+            self._validate_connection(index)
+            if isinstance(new_element, Move):
+                self._validate_move(index)
+            if isinstance(new_element, Close):
+                self._validate_close(index)
 
     def __delitem__(self, index):
         original_element = self._segments[index]
         del self._segments[index]
         self._length = None
-        self._validate_connection(index - 1)
-        if isinstance(original_element, (Close, Move)):
-            self._validate_subpath(index)
+        if isinstance(index, slice):
+            self.validate_connections()
+        else:
+            self._validate_connection(index - 1)
+            if isinstance(original_element, (Close, Move)):
+                self._validate_subpath(index)
 
     def __iadd__(self, other):
         if isinstance(other, str):
@@ -4827,6 +4842,33 @@ class Path(Shape, MutableSequence):
                 segment.end = Point(zpoint)
             last_segment = segment
 
+    def _is_valid(self):
+        """
+        Checks validation of all connections.
+
+        Paths are valid if all end points match the start of the next point and all close
+        commands return to the last valid move command.
+
+        This does not check for incongruent path validity. Path fragments without initial moves
+        double closed paths, may all pass this check.
+        """
+        zpoint = None
+        last_segment = None
+        for segment in self._segments:
+            if zpoint is None or isinstance(segment, Move):
+                zpoint = segment.end
+            if last_segment is not None:
+                if segment.start is None:
+                    return False
+                elif last_segment.end is None:
+                    return False
+                elif last_segment.end != segment.start:
+                    return False
+            if isinstance(segment, Close) and zpoint is not None and segment.end != zpoint:
+                return False
+            last_segment = segment
+        return True
+
     @property
     def first_point(self):
         """First point along the Path. This is the start point of the first segment unless it starts
@@ -4835,13 +4877,13 @@ class Path(Shape, MutableSequence):
             return None
         if self._segments[0].start is not None:
             return Point(self._segments[0].start)
-        return Point(self._segments[0].end)
+        return Point(self._segments[0].end) if self._segments[0].end is not None else None
 
     @property
     def current_point(self):
         if len(self._segments) == 0:
             return None
-        return Point(self._segments[-1].end)
+        return Point(self._segments[-1].end) if self._segments[-1].end is not None else None
 
     @property
     def z_point(self):
@@ -5197,9 +5239,31 @@ class Path(Shape, MutableSequence):
         return Path.svg_d(path._segments, relative=relative, smooth=smooth)
 
     def segments(self, transformed=True):
-        if transformed:
+        if transformed and not self.transform.is_identity():
             return [s * self.transform for s in self._segments]
         return self._segments
+
+    def approximate_arcs_with_cubics(self, error=0.1):
+        """
+        Iterates through this path and replaces any Arcs with cubic bezier curves.
+        """
+        sweep_limit = tau * error
+        for s in range(len(self) - 1, -1, -1):
+            segment = self[s]
+            if isinstance(segment, Arc):
+                arc_required = int(ceil(abs(segment.sweep) / sweep_limit))
+                self[s:s + 1] = list(segment.as_cubic_curves(arc_required))
+
+    def approximate_arcs_with_quads(self, error=0.1):
+        """
+        Iterates through this path and replaces any Arcs with quadratic bezier curves.
+        """
+        sweep_limit = tau * error
+        for s in range(len(self) - 1, -1, -1):
+            segment = self[s]
+            if isinstance(segment, Arc):
+                arc_required = int(ceil(abs(segment.sweep) / sweep_limit))
+                self[s:s + 1] = list(segment.as_quad_curves(arc_required))
 
 
 class Rect(Shape):
@@ -6123,17 +6187,6 @@ class Subpath:
         return Subpath(Path(self._path), self._start, self._end)
 
     def __getitem__(self, index):
-        if isinstance(index, slice):
-            start = index.start
-            stop = index.stop
-            step = index.step
-            if start is None:
-                start = 0
-            if stop is None:
-                stop = len(self)
-            if step is None:
-                step = 1
-            return self._path[self.index_to_path_index(start):self.index_to_path_index(stop):step]
         return self._path[self.index_to_path_index(index)]
 
     def __setitem__(self, index, value):
@@ -6243,11 +6296,25 @@ class Subpath:
             return [s * path.transform for s in path._segments[self._start:self._end + 1]]
         return path._segments[self._start:self._end + 1]
 
-    def index_to_path_index(self, index):
+    def _numeric_index(self, index):
         if index < 0:
             return self._end + index + 1
         else:
             return self._start + index
+
+    def index_to_path_index(self, index):
+        if isinstance(index, slice):
+            start = index.start
+            stop = index.stop
+            step = index.step
+            if start is None:
+                start = 0
+            start = self._numeric_index(start)
+            if stop is None:
+                stop = len(self)
+            stop = self._numeric_index(stop)
+            return slice(start, stop, step)
+        return self._numeric_index(index)
 
     def bbox(self):
         """returns a bounding box for the input Path"""
