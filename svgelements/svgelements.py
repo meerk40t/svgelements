@@ -1752,6 +1752,8 @@ class Point:
         return hash(self.__key())
 
     def __eq__(self, other):
+        if other is None:
+            return False
         try:
             if not isinstance(other, Point):
                 other = Point(other)
@@ -4683,8 +4685,8 @@ class Path(Shape, MutableSequence):
             if isinstance(segment, Move):
                 self._segments[index].end = Point(segment.end)
                 return
-        self._segments[index].end = Point(self._segments[0].end)
-        # If move is never found, just the end point of the first element.
+        self._segments[index].end = Point(self._segments[0].end) if self._segments[0].end is not None else None
+        # If move is never found, just the end point of the first element. Unless that's not a thing.
 
     def _validate_connection(self, index, prefer_second=False):
         """
@@ -4714,30 +4716,16 @@ class Path(Shape, MutableSequence):
             new_element = Path(new_element)
             if len(new_element) == 0:
                 return
-            new_element = new_element[0]
+            new_element = new_element.segments()
+            if isinstance(index, int):
+                if len(new_element) > 1:
+                    raise ValueError  # Cannot insert multiple items into a single space. Requires slice.
+                new_element = new_element[0]
         self._segments[index] = new_element
         self._length = None
         self._lengths = None
         if isinstance(index, slice):
-            start = index.start
-            stop = index.stop
-            step = index.step
-            if start is None:
-                start = 0
-            if stop is None:
-                stop = len(self)
-            if step == 1 or step is None:
-                for i in range(start-1, stop):
-                    self._validate_connection(i)
-            else:
-                # Revalidate everything.
-                self.validate_connections()
-            if isinstance(new_element, (list,tuple)):
-                for i in range(start-1, stop):
-                    if isinstance(new_element, Move):
-                        self._validate_move(i)
-                    if isinstance(new_element, Close):
-                        self._validate_close(i)
+            self.validate_connections()
         else:
             self._validate_connection(index - 1)
             self._validate_connection(index)
@@ -4750,9 +4738,12 @@ class Path(Shape, MutableSequence):
         original_element = self._segments[index]
         del self._segments[index]
         self._length = None
-        self._validate_connection(index - 1)
-        if isinstance(original_element, (Close, Move)):
-            self._validate_subpath(index)
+        if isinstance(index, slice):
+            self.validate_connections()
+        else:
+            self._validate_connection(index - 1)
+            if isinstance(original_element, (Close, Move)):
+                self._validate_subpath(index)
 
     def __iadd__(self, other):
         if isinstance(other, str):
@@ -4851,6 +4842,33 @@ class Path(Shape, MutableSequence):
                 segment.end = Point(zpoint)
             last_segment = segment
 
+    def _is_valid(self):
+        """
+        Checks validation of all connections.
+
+        Paths are valid if all end points match the start of the next point and all close
+        commands return to the last valid move command.
+
+        This does not check for incongruent path validity. Path fragments without initial moves
+        double closed paths, may all pass this check.
+        """
+        zpoint = None
+        last_segment = None
+        for segment in self._segments:
+            if zpoint is None or isinstance(segment, Move):
+                zpoint = segment.end
+            if last_segment is not None:
+                if segment.start is None:
+                    return False
+                elif last_segment.end is None:
+                    return False
+                elif last_segment.end != segment.start:
+                    return False
+            if isinstance(segment, Close) and zpoint is not None and segment.end != zpoint:
+                return False
+            last_segment = segment
+        return True
+
     @property
     def first_point(self):
         """First point along the Path. This is the start point of the first segment unless it starts
@@ -4859,13 +4877,13 @@ class Path(Shape, MutableSequence):
             return None
         if self._segments[0].start is not None:
             return Point(self._segments[0].start)
-        return Point(self._segments[0].end)
+        return Point(self._segments[0].end) if self._segments[0].end is not None else None
 
     @property
     def current_point(self):
         if len(self._segments) == 0:
             return None
-        return Point(self._segments[-1].end)
+        return Point(self._segments[-1].end) if self._segments[-1].end is not None else None
 
     @property
     def z_point(self):
@@ -5221,7 +5239,7 @@ class Path(Shape, MutableSequence):
         return Path.svg_d(path._segments, relative=relative, smooth=smooth)
 
     def segments(self, transformed=True):
-        if transformed:
+        if transformed and not self.transform.is_identity():
             return [s * self.transform for s in self._segments]
         return self._segments
 

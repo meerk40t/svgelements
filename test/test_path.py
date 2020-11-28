@@ -217,3 +217,52 @@ class TestPath(unittest.TestCase):
         self.assertEqual(m.d(), "m 0,0 z")
         m = Path("M0,0Lz")
         self.assertEqual(m.d(), "M 0,0 L 0,0 z")
+
+    def test_path_setitem_slice(self):
+        m = Path("M0,0 1,1 z")
+        m[1:] = 'L2,2z'
+        self.assertEqual(m.d(), "M 0,0 L 2,2 z")
+        self.assertTrue(m._is_valid())
+        del m[1]
+        self.assertEqual(m.d(), "M 0,0 z")
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0z")
+        m[:] = 'M1,1z'
+        self.assertEqual(m.d(), "M 1,1 z")
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0z")
+        del m[:]
+        self.assertEqual(m, '')
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0z")
+        m[0] = "M1,1"
+        self.assertEqual(m.d(), "M 1,1 z")
+        self.assertTrue(m._is_valid())
+        m[1] = "z"
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0z")
+        del m[1]
+        self.assertEqual(m.d(), "M 0,0")
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0 1,1 z")
+        m[3:] = "M5,5z"
+        self.assertEqual(m.d(), "M 0,0 L 1,1 z M 5,5 z")
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0 1,1 z")
+        m[-1:] = "M5,5z"
+        self.assertEqual(m.d(), "M 0,0 L 1,1 M 5,5 z")
+        self.assertTrue(m._is_valid())
+
+        m = Path("M0,0 1,1 z")
+        def m_assign():
+            m[-1] = 'M5,5z'
+        self.assertRaises(ValueError, m_assign)
+
+
+

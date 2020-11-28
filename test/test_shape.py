@@ -416,7 +416,6 @@ class TestElementShape(unittest.TestCase):
                 self.assertEqual(Point(p1), Point(p2))
 
 
-
 def test_reification(test, shape):
     correct_reify(test, shape * "rotate(-90) translate(20,0)")
     correct_reify(test, shape * "rotate(12turn)")
