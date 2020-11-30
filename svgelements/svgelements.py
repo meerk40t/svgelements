@@ -7010,7 +7010,6 @@ class SVG(Group):
         parent = None
         children = list()
         def_depth = 0
-        display_depth = 0
 
         for event, elem in iterparse(source, events=('start', 'end', 'start-ns')):
             if event == 'start':
@@ -7062,8 +7061,6 @@ class SVG(Group):
                         continue
                 if SVG_ATTR_ID in attributes:  # If we have an ID, save the node.
                     defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
-                if SVG_ATTR_DISPLAY in attributes and attributes[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
-                    display_depth += 1
                 if tag == SVG_TAG_DEFS:
                     def_depth += 1
             elif event == 'end':
@@ -7074,15 +7071,13 @@ class SVG(Group):
                 attributes = elem.attrib
                 # event is 'end', pop values.
                 parent, children = parent  # Pop off previous context.
-                if SVG_ATTR_DISPLAY in attributes and attributes[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
-                    display_depth -= 1
                 if tag == SVG_TAG_DEFS:
                     def_depth -= 1
                     continue
             elif event == "start-ns":
                 yield event, elem
                 continue
-            if (def_depth == 0 and display_depth == 0) or elem.tag == SVG_TAG_STYLE:
+            if def_depth == 0 or elem.tag == SVG_TAG_STYLE:
                 yield event, elem
 
     @staticmethod
@@ -7109,6 +7104,7 @@ class SVG(Group):
         root = context
         styles = {}
         stack = []
+
         values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: "black", SVG_ATTR_STROKE: "none",
                   SVG_ATTR_HEIGHT: "100%", SVG_ATTR_WIDTH: "100%"}
         if transform is not None:
@@ -7117,6 +7113,8 @@ class SVG(Group):
             # print("%d tag: %s is %s" % (len(stack), elem.tag, event))
             if event == 'start':
                 stack.append((context, values))
+                if SVG_ATTR_DISPLAY in values and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
+                    continue  # Values has a display=none. Do not render anything.
                 current_values = values
                 values = {}
                 values.update(current_values)  # copy of dictionary
@@ -7169,7 +7167,6 @@ class SVG(Group):
                         key = str(equal_item[0]).strip()
                         value = str(equal_item[1]).strip()
                         attributes[key] = value
-
                 if SVG_ATTR_FILL in attributes and attributes[SVG_ATTR_FILL] == SVG_VALUE_CURRENT_COLOR:
                     if SVG_ATTR_COLOR in attributes:
                         attributes[SVG_ATTR_FILL] = attributes[SVG_ATTR_COLOR]
@@ -7191,6 +7188,8 @@ class SVG(Group):
                     else:
                         attributes[SVG_ATTR_TRANSFORM] = attributes[SVG_ATTR_TRANSFORM]
                 values.update(attributes)
+                if SVG_ATTR_DISPLAY in values and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
+                    continue # If the attributes we just flags our values to display=none, stop rendering.
                 if SVG_NAME_TAG == tag:
                     # The ordering for transformations on the SVG object are:
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
