@@ -45,7 +45,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.3"
+SVGELEMENTS_VERSION = "1.3.4"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -88,6 +88,7 @@ SVG_TAG_USE = 'use'
 SVG_STRUCT_ATTRIB = 'attributes'
 SVG_ATTR_ID = 'id'
 SVG_ATTR_DATA = 'd'
+SVG_ATTR_DISPLAY = 'display'
 SVG_ATTR_COLOR = 'color'
 SVG_ATTR_FILL = 'fill'
 SVG_ATTR_STROKE = 'stroke'
@@ -7103,6 +7104,7 @@ class SVG(Group):
         root = context
         styles = {}
         stack = []
+
         values = {SVG_ATTR_COLOR: color, SVG_ATTR_FILL: "black", SVG_ATTR_STROKE: "none",
                   SVG_ATTR_HEIGHT: "100%", SVG_ATTR_WIDTH: "100%"}
         if transform is not None:
@@ -7111,6 +7113,8 @@ class SVG(Group):
             # print("%d tag: %s is %s" % (len(stack), elem.tag, event))
             if event == 'start':
                 stack.append((context, values))
+                if SVG_ATTR_DISPLAY in values and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
+                    continue  # Values has a display=none. Do not render anything.
                 current_values = values
                 values = {}
                 values.update(current_values)  # copy of dictionary
@@ -7163,7 +7167,6 @@ class SVG(Group):
                         key = str(equal_item[0]).strip()
                         value = str(equal_item[1]).strip()
                         attributes[key] = value
-
                 if SVG_ATTR_FILL in attributes and attributes[SVG_ATTR_FILL] == SVG_VALUE_CURRENT_COLOR:
                     if SVG_ATTR_COLOR in attributes:
                         attributes[SVG_ATTR_FILL] = attributes[SVG_ATTR_COLOR]
@@ -7185,6 +7188,8 @@ class SVG(Group):
                     else:
                         attributes[SVG_ATTR_TRANSFORM] = attributes[SVG_ATTR_TRANSFORM]
                 values.update(attributes)
+                if SVG_ATTR_DISPLAY in values and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
+                    continue # If the attributes we just flags our values to display=none, stop rendering.
                 if SVG_NAME_TAG == tag:
                     # The ordering for transformations on the SVG object are:
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
@@ -7193,12 +7198,15 @@ class SVG(Group):
 
                     # viewbox was rendered here.
                     try:
+                        if s.viewbox.element_height == 0 or s.viewbox.element_width == 0:
+                            return s
                         viewport_transform = s.viewbox.transform()
                     except ZeroDivisionError:
                         # The width or height was zero.
                         # https://www.w3.org/TR/SVG11/struct.html#SVGElementWidthAttribute
                         # "A value of zero disables rendering of the element."
                         return s  # No more parsing will be done.
+
                     if SVG_ATTR_TRANSFORM in values:
                         # transform on SVG element applied as if svg had parent with transform.
                         values[SVG_ATTR_TRANSFORM] += " " + viewport_transform

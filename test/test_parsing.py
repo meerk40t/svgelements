@@ -220,3 +220,141 @@ class TestParser(unittest.TestCase):
         self.assertEqual(move_2_places.point(0.51), 1 + 1j)
         self.assertEqual(move_2_places.point(1), 1 + 1j)
         self.assertEqual(move_2_places.length(), 0)
+
+
+class TestParseDisplay(unittest.TestCase):
+    """
+    Tests for the parsing of displayed objects within an svg for conforming to the spec. Anything with a viewbox that
+    has a zero width or zero height is not rendered. Any svg with a zero height or zero width is not rendered. Anything
+    with a display="none" is not rendered whether this property comes from class, style, or direct attribute. Items with
+    visibility="hidden" are rendered and returned but should be hidden by the end user.
+    """
+
+    def test_svgfile(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:inline">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertTrue(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_0_width(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:inline">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_0_height(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:inline">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_viewbox_0_height(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 0" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:inline">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_viewbox_0_width(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 0 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:inline">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_none_inline(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="display:none">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_none_attribute(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g display="none">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_mixed(self):
+        """
+        All children of a display="none" are excluded, even if they override that display.
+        """
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g display="none">\n'
+                        '<line display="show" x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        print(q)
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+
+    def test_svgfile_display_none_class(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<style type="text/css">\n'
+                        '.hide { \n'
+                        '     display:none;\n'
+                        '}\n'
+                        '</style>\n'
+                        '<g class="hide">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>\n')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_visibility_hidden(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<g style="visibility:hidden">\n'
+                        '<line x1="0.0" x2="0.0" y1="0.0" y2="100"/>\n'
+                        '</g>\n'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertTrue(isinstance(q[-1], SimpleLine))  # Hidden elements still exist.
