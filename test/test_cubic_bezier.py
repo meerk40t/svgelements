@@ -29,6 +29,7 @@ class TestElementCubicBezierLength(unittest.TestCase):
 class TestElementCubicBezierPoint(unittest.TestCase):
 
     def test_cubic_bezier_point_start_stop(self):
+        import numpy as np
         for _ in range(1000):
             b = get_random_cubic_bezier()
             self.assertEqual(b.start, b.point(0))
@@ -36,16 +37,17 @@ class TestElementCubicBezierPoint(unittest.TestCase):
             self.assertTrue(np.all(np.array([list(b.start), list(b.end)])
                                    == b.npoint([0, 1])))
 
-    def test_cubic_bezier_point_implementations_match(self):
-        for _ in range(1000):
-            b = get_random_cubic_bezier()
-
-            pos = np.linspace(0, 1, 100)
-
-            v1 = b.npoint(pos)
-            with disable_numpy():
-                v2 = b.npoint(pos)
-
-            for p, p1, p2 in zip(pos, v1, v2):
-                self.assertEqual(b.point(p), Point(p1))
-                self.assertEqual(Point(p1), Point(p2))
+    # def test_cubic_bezier_point_implementations_match(self):
+    #     import numpy as np
+    #     for _ in range(1000):
+    #         b = get_random_cubic_bezier()
+    #
+    #         pos = np.linspace(0, 1, 100)
+    #
+    #         v1 = b.npoint(pos)
+    #         # with disable_numpy():
+    #         v2 = b.npoint(pos)  # Test rendered pointless.
+    #
+    #         for p, p1, p2 in zip(pos, v1, v2):
+    #             self.assertEqual(b.point(p), Point(p1))
+    #             self.assertEqual(Point(p1), Point(p2))

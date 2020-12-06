@@ -16,23 +16,6 @@ try:
 except ImportError:
     tau = pi * 2
 
-try:
-    import numpy as np
-    _NUMPY = True
-
-    import contextlib
-
-    @contextlib.contextmanager
-    def disable_numpy():
-        """Utility to temporarily disable numpy optimisation. Mostly useful for testing
-        purposes."""
-        global _NUMPY
-        _NUMPY = False
-        yield
-        _NUMPY = True
-except ImportError:
-    _NUMPY = False
-
 """
 The path elements are derived from regebro's svg.path project ( https://github.com/regebro/svg.path ) with
 some of the math from mathandy's svgpathtools project ( https://github.com/mathandy/svgpathtools ).
@@ -45,7 +28,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.4"
+SVGELEMENTS_VERSION = "1.3.5"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -2959,7 +2942,9 @@ class Shape(GraphicObject, Transformable):
         """
         Find a points between 0 and 1 within the shape. Numpy acceleration allows points to be an array of floats.
         """
-        if not _NUMPY:
+        try:
+            import numpy as np
+        except ImportError:
             return [self.point(pos) for pos in positions]
 
         segments = self.segments(False)
@@ -3425,12 +3410,13 @@ class Linear(PathSegment):
             raise IndexError
 
     def npoint(self, positions):
-        if _NUMPY:
+        try:
+            import numpy as np
             xy = np.empty(shape=(len(positions), 2), dtype=float)
             xy[:, 0] = np.interp(positions, [0, 1], [self.start.x, self.end.x])
             xy[:, 1] = np.interp(positions, [0, 1], [self.start.y, self.end.y])
             return xy
-        else:
+        except ImportError:
             return [Point.towards(self.start, self.end, pos) for pos in positions]
 
     def length(self, error=None, min_depth=None):
@@ -3575,12 +3561,12 @@ class QuadraticBezier(PathSegment):
 
             return (n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2,
                     n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2)
-
-        if _NUMPY and len(positions) > 1:
+        try:
+            import numpy as np
             xy = np.empty(shape=(len(positions), 2))
             xy[:, 0], xy[:, 1] = _compute_point(np.array(positions))
             return xy
-        else:
+        except ImportError:
             return [Point(*_compute_point(position)) for position in positions]
 
     def bbox(self):
@@ -3750,12 +3736,12 @@ class CubicBezier(PathSegment):
             n_pos_2_pos = n_pos * n_pos * position
             return (n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3,
                     n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3)
-
-        if _NUMPY and len(positions) > 1:
+        try:
+            import numpy as np
             xy = np.empty(shape=(len(positions), 2))
             xy[:, 0], xy[:, 1] = _compute_point(np.array(positions))
             return xy
-        else:
+        except ImportError:
             return [Point(*_compute_point(position)) for position in positions]
 
     def bbox(self):
@@ -4145,16 +4131,17 @@ class Arc(PathSegment):
         self.sweep = -self.sweep
 
     def npoint(self, positions):
-        if _NUMPY:
+        try:
+            import numpy as np
             return self._points_numpy(np.array(positions))
+        except ImportError:
+            if self.start == self.end and self.sweep == 0:
+                # This is equivalent of omitting the segment
+                return [self.start] * len(positions)
 
-        if self.start == self.end and self.sweep == 0:
-            # This is equivalent of omitting the segment
-            return [self.start] * len(positions)
-
-        start_t = self.get_start_t()
-        return [self.start if pos == 0 else self.end if pos == 1 else
-                self.point_at_t(start_t + self.sweep * pos) for pos in positions]
+            start_t = self.get_start_t()
+            return [self.start if pos == 0 else self.end if pos == 1 else
+                    self.point_at_t(start_t + self.sweep * pos) for pos in positions]
 
     def _points_numpy(self, positions):
         """Vectorized version of `point()`.
@@ -4162,7 +4149,7 @@ class Arc(PathSegment):
         :param positions: 1D numpy array of float in [0, 1]
         :return: 1D numpy array of complex
         """
-
+        import numpy as np
         xy = np.empty((len(positions), 2), dtype=float)
 
         if self.start == self.end and self.sweep == 0:
@@ -7189,7 +7176,7 @@ class SVG(Group):
                         attributes[SVG_ATTR_TRANSFORM] = attributes[SVG_ATTR_TRANSFORM]
                 values.update(attributes)
                 if SVG_ATTR_DISPLAY in values and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE:
-                    continue # If the attributes we just flags our values to display=none, stop rendering.
+                    continue  # If the attributes we just flags our values to display=none, stop rendering.
                 if SVG_NAME_TAG == tag:
                     # The ordering for transformations on the SVG object are:
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
