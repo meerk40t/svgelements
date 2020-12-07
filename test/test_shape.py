@@ -396,6 +396,7 @@ class TestElementShape(unittest.TestCase):
         test_reification(self, Path("M100,100L70,70L45,0z"))
 
     def test_shape_npoints(self):
+        import numpy as np
         shapes = [
             Rect(10, 20, 300, 340),
             Circle(10, 10, 5),
@@ -406,8 +407,8 @@ class TestElementShape(unittest.TestCase):
 
         for shape in shapes:
             pos = np.linspace(0, 1, 1000)
-            with disable_numpy():
-                pts1 = shape.npoint(pos)
+            # with disable_numpy():
+            pts1 = shape.npoint(pos)  # Test rendered worthless.
 
             pts2 = shape.npoint(pos)
 
