@@ -2737,10 +2737,11 @@ class Transformable(SVGElement):
         self._lengths = None
         self._length = None
         try:
-            width = self.stroke_width
-            t = self.transform
-            det = t.a * t.d - t.c * t.b
-            self.stroke_width = width * sqrt(abs(det))
+            if self.stroke_width is not None:
+                width = self.stroke_width
+                t = self.transform
+                det = t.a * t.d - t.c * t.b
+                self.stroke_width = width * sqrt(abs(det))
         except AttributeError:
             # Stroke Width isn't on this object type. Skip that transform.
             pass
@@ -2780,7 +2781,7 @@ class GraphicObject(SVGElement):
     def __init__(self, *args, **kwargs):
         self.stroke = None
         self.fill = None
-        self.stroke_width = 1
+        self.stroke_width = None
         SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
@@ -2793,7 +2794,7 @@ class GraphicObject(SVGElement):
         self.stroke = Color(stroke) if stroke is not None else None
         fill = values.get(SVG_ATTR_FILL, None)
         self.fill = Color(fill) if fill is not None else None
-        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, 1)).value()
+        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH)).value()
 
     def render(self, width=None, height=None, relative_length=None, **kwargs):
         if width is None and relative_length is not None:
