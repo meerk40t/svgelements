@@ -28,7 +28,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.3.5"
+SVGELEMENTS_VERSION = "1.4.0"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -68,6 +68,7 @@ SVG_TAG_DESC = 'desc'
 SVG_TAG_STYLE = 'style'
 SVG_TAG_DEFS = 'defs'
 SVG_TAG_USE = 'use'
+SVG_TAG_CLIPPATH = 'clipPath'
 SVG_STRUCT_ATTRIB = 'attributes'
 SVG_ATTR_ID = 'id'
 SVG_ATTR_DATA = 'd'
@@ -79,6 +80,9 @@ SVG_ATTR_STROKE_WIDTH = 'stroke-width'
 SVG_ATTR_TRANSFORM = 'transform'
 SVG_ATTR_STYLE = 'style'
 SVG_ATTR_CLASS = 'class'
+SVG_ATTR_CLIP_PATH = 'clip-path'
+SVG_ATTR_CLIP_RULE = 'clip-rule'
+SVG_ATTR_CLIP_UNIT_TYPE = 'clipPathUnits'
 SVG_ATTR_CENTER_X = 'cx'
 SVG_ATTR_CENTER_Y = 'cy'
 SVG_ATTR_RADIUS_X = 'rx'
@@ -104,6 +108,12 @@ SVG_ATTR_FONT_SIZE = 'font-size'
 SVG_ATTR_FONT_WEIGHT = 'font-weight'  # normal, bold, bolder, lighter, 100-900
 SVG_ATTR_TEXT_ANCHOR = 'text-anchor'
 
+SVG_UNIT_TYPE_USERSPACEONUSE = 'userSpaceOnUse'
+SVG_UNIT_TYPE_OBJECTBOUNDINGBOX = 'objectBoundingBox'
+
+SVG_RULE_NONZERO = 'nonzero'
+SVG_RULE_EVENODD = 'evenodd'
+
 SVG_TRANSFORM_MATRIX = 'matrix'
 SVG_TRANSFORM_TRANSLATE = 'translate'
 SVG_TRANSFORM_SCALE = 'scale'
@@ -115,6 +125,7 @@ SVG_TRANSFORM_TRANSLATE_X = 'translatex'
 SVG_TRANSFORM_TRANSLATE_Y = 'translatey'
 SVG_TRANSFORM_SCALE_X = 'scalex'
 SVG_TRANSFORM_SCALE_Y = 'scaley'
+
 SVG_VALUE_NONE = 'none'
 SVG_VALUE_CURRENT_COLOR = 'currentColor'
 
@@ -143,6 +154,7 @@ PATTERN_TRANSFORM_UNITS = PATTERN_LENGTH_UNITS + '|' \
                           + PATTERN_ANGLE_UNITS + '|' \
                           + PATTERN_PERCENT
 
+REGEX_IRI = re.compile('url\((.*)\)')
 REGEX_FLOAT = re.compile(PATTERN_FLOAT)
 REGEX_COORD_PAIR = re.compile('(%s)%s(%s)' % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT))
 REGEX_TRANSFORM_TEMPLATE = re.compile('(?u)(%s)%s\(([^)]+)\)' % (PATTERN_TRANSFORM, PATTERN_WS))
@@ -1868,7 +1880,7 @@ class Point:
         return Point(x, y)
 
     def __complex__(self):
-        return self.x + self.y*1j
+        return self.x + self.y * 1j
 
     def __abs__(self):
         return hypot(self.x, self.y)
@@ -2667,49 +2679,6 @@ class SVGElement(object):
         self.id = values.get(SVG_ATTR_ID)
 
 
-class Group(SVGElement, list):
-    """
-    Group Container element can have children.
-    SVG 2.0 <g> are defined in:
-    5.2. Grouping: the g element
-    """
-
-    # TODO: SVG group objects must actually possess transformation matrices.
-
-    def __init__(self, *args, **kwargs):
-        SVGElement.__init__(self, *args, **kwargs)
-        list.__init__(self)
-        if len(args) >= 1:
-            s = args[0]
-            if isinstance(s, Group):
-                self.extend(list(map(copy, s)))
-                return
-
-    def __copy__(self):
-        return Group(self)
-
-    def select(self, conditional=None):
-        """
-        Finds all flattened subobjects of this group for which the conditional returns
-        true.
-
-        :param conditional: function taking element and returns True or False if matching
-        """
-        if conditional is None:
-            def conditional(item):
-                return True
-        for subitem in self:
-            if not conditional(subitem):
-                continue
-            yield subitem
-            if isinstance(subitem, Group):
-                for s in subitem.select(conditional):
-                    yield s
-
-    def reify(self):
-        pass
-
-
 class Transformable(SVGElement):
     """Any element that is transformable and has a transform property."""
 
@@ -2767,11 +2736,14 @@ class Transformable(SVGElement):
         """
         self._lengths = None
         self._length = None
-        if SVG_ATTR_STROKE_WIDTH in self.values:
-            width = Length(self.values[SVG_ATTR_STROKE_WIDTH]).value()
+        try:
+            width = self.stroke_width
             t = self.transform
             det = t.a * t.d - t.c * t.b
-            self.values[SVG_ATTR_STROKE_WIDTH] = width * sqrt(abs(det))
+            self.stroke_width = width * sqrt(abs(det))
+        except AttributeError:
+            # Stroke Width isn't on this object type. Skip that transform.
+            pass
         return self
 
     def render(self, **kwargs):
@@ -2808,31 +2780,29 @@ class GraphicObject(SVGElement):
     def __init__(self, *args, **kwargs):
         self.stroke = None
         self.fill = None
+        self.stroke_width = 1
         SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
-        if s.fill is None:
-            self.fill = None
-        else:
-            self.fill = Color(s.fill)
-        if s.stroke is None:
-            self.stroke = None
-        else:
-            self.stroke = Color(s.stroke)
+        self.fill = Color(s.fill) if s.fill is not None else None
+        self.stroke = Color(s.stroke) if s.stroke is not None else None
+        self.stroke_width = Length(s.stroke_width).value() if s.stroke_width is not None else None
 
     def property_by_values(self, values):
-        if SVG_ATTR_STROKE in values:
-            stroke = values[SVG_ATTR_STROKE]
-            if stroke is None:
-                self.stroke = None
-            else:
-                self.stroke = Color(stroke)
-        if SVG_ATTR_FILL in values:
-            fill = values[SVG_ATTR_FILL]
-            if fill is None:
-                self.fill = None
-            else:
-                self.fill = Color(fill)
+        stroke = values.get(SVG_ATTR_STROKE, None)
+        self.stroke = Color(stroke) if stroke is not None else None
+        fill = values.get(SVG_ATTR_FILL, None)
+        self.fill = Color(fill) if fill is not None else None
+        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, 1)).value()
+
+    def render(self, width=None, height=None, relative_length=None, **kwargs):
+        if width is None and relative_length is not None:
+            width = relative_length
+        if height is None and relative_length is not None:
+            height = relative_length
+        if isinstance(self.stroke_width, Length):
+            self.stroke_width = self.stroke_width.value(relative_length=sqrt(width * width + height * height), **kwargs)
+            # A percentage stroke_width is always computed as a percentage of the normalized viewBox diagonal length.
 
 
 class Shape(GraphicObject, Transformable):
@@ -2876,6 +2846,8 @@ class Shape(GraphicObject, Transformable):
         if not isinstance(other, Shape):
             return NotImplemented
         if self.fill != other.fill or self.stroke != other.stroke:
+            return False
+        if self.stroke_width != other.stroke_width:
             return False
         first = self
         if not isinstance(first, Path):
@@ -3561,6 +3533,7 @@ class QuadraticBezier(PathSegment):
 
             return (n_pos_2 * x0 + 2 * n_pos_pos * x1 + pos_2 * x2,
                     n_pos_2 * y0 + 2 * n_pos_pos * y1 + pos_2 * y2)
+
         try:
             import numpy as np
             xy = np.empty(shape=(len(positions), 2))
@@ -3736,6 +3709,7 @@ class CubicBezier(PathSegment):
             n_pos_2_pos = n_pos * n_pos * position
             return (n_pos_3 * x0 + 3 * (n_pos_2_pos * x1 + pos_2_n_pos * x2) + pos_3 * x3,
                     n_pos_3 * y0 + 3 * (n_pos_2_pos * y1 + pos_2_n_pos * y2) + pos_3 * y3)
+
         try:
             import numpy as np
             xy = np.empty(shape=(len(positions), 2))
@@ -4141,7 +4115,7 @@ class Arc(PathSegment):
 
             start_t = self.get_start_t()
             return [self.start if pos == 0 else self.end if pos == 1 else
-                    self.point_at_t(start_t + self.sweep * pos) for pos in positions]
+            self.point_at_t(start_t + self.sweep * pos) for pos in positions]
 
     def _points_numpy(self, positions):
         """Vectorized version of `point()`.
@@ -5838,7 +5812,7 @@ class _RoundShape(Shape):
         if b > a:
             a, b = b, a
         h = (a - b) ** 2 / (a + b) ** 2
-        return pi * (a + b) * (1 + (3 * h / (10 + sqrt(4-3*h))))
+        return pi * (a + b) * (1 + (3 * h / (10 + sqrt(4 - 3 * h))))
 
 
 class Ellipse(_RoundShape):
@@ -6364,6 +6338,73 @@ class Subpath:
             if last.end != self[0].end:
                 last.end = Point(self[0].end)
         return self
+
+
+class Group(Transformable, list):
+    """
+    Group Container element can have children.
+    SVG 2.0 <g> are defined in:
+    5.2. Grouping: the g element
+    """
+
+    def __init__(self, *args, **kwargs):
+        Transformable.__init__(self, *args, **kwargs)
+        list.__init__(self)
+        if len(args) >= 1:
+            s = args[0]
+            if isinstance(s, Group):
+                self.extend(list(map(copy, s)))
+                return
+
+    def __copy__(self):
+        return Group(self)
+
+    def select(self, conditional=None):
+        """
+        Finds all flattened subobjects of this group for which the conditional returns
+        true.
+
+        :param conditional: function taking element and returns True or False if matching
+        """
+        if conditional is None:
+            def conditional(item):
+                return True
+        for subitem in self:
+            if not conditional(subitem):
+                continue
+            yield subitem
+            if isinstance(subitem, Group):
+                for s in subitem.select(conditional):
+                    yield s
+
+    def reify(self):
+        pass
+
+
+class ClipPath(SVGElement, list):
+    """
+    clipPath elements are defined in svg 14.3.5
+    https://www.w3.org/TR/SVG11/masking.html#ClipPathElement
+
+    Clip paths conceptually define a 1 bit mask for images these are usually defined within
+    def blocks and do not render themselves but rather are attached by IRI references to the
+    """
+
+    def __init__(self, *args, **kwargs):
+        SVGElement.__init__(self, *args, **kwargs)
+        list.__init__(self)
+        self.clip_rule = SVG_RULE_NONZERO
+        self.unit_type = SVG_UNIT_TYPE_USERSPACEONUSE
+
+    def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
+        self.clip_rule = s.clip_rule
+        self.unit_type = s.unit_type
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+        self.clip_rule = self.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+        self.unit_type = self.values.get(SVG_ATTR_CLIP_UNIT_TYPE, SVG_UNIT_TYPE_USERSPACEONUSE)
 
 
 class SVGText(GraphicObject, Transformable):
