@@ -2679,7 +2679,7 @@ class SVGElement(object):
         self.id = values.get(SVG_ATTR_ID)
 
 
-class Transformable(SVGElement):
+class Transformable:
     """Any element that is transformable and has a transform property."""
 
     def __init__(self, *args, **kwargs):
@@ -2687,17 +2687,14 @@ class Transformable(SVGElement):
         self._lengths = None
         self.transform = None
         self.apply = None
-        SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
-        SVGElement.property_by_object(self, s)
         self.transform = Matrix(s.transform)
         self.apply = s.apply
 
     def property_by_values(self, values):
-        SVGElement.property_by_values(self, values)
-        self.transform = Matrix(self.values.get(SVG_ATTR_TRANSFORM, ''))
-        self.apply = bool(self.values.get('apply', True))
+        self.transform = Matrix(values.get(SVG_ATTR_TRANSFORM, ''))
+        self.apply = bool(values.get('apply', True))
 
     def __mul__(self, other):
         if isinstance(other, (Matrix, str)):
@@ -2775,14 +2772,13 @@ class Transformable(SVGElement):
         return origin.angle_to(prx)
 
 
-class GraphicObject(SVGElement):
+class GraphicObject:
     """Any drawn element."""
 
     def __init__(self, *args, **kwargs):
         self.stroke = None
         self.fill = None
         self.stroke_width = None
-        SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
         self.fill = Color(s.fill) if s.fill is not None else None
@@ -2806,7 +2802,7 @@ class GraphicObject(SVGElement):
             # A percentage stroke_width is always computed as a percentage of the normalized viewBox diagonal length.
 
 
-class Shape(GraphicObject, Transformable):
+class Shape(SVGElement, GraphicObject, Transformable):
     """
     SVG Shapes are several SVG items defined in SVG 1.1 9.1
     https://www.w3.org/TR/SVG11/shapes.html
@@ -2829,17 +2825,21 @@ class Shape(GraphicObject, Transformable):
     apply: Determine whether transform should be applied. (Transformable)
     fill: SVG color of the shape fill. (GraphicObject)
     stroke: SVG color of the shape stroke. (GraphicObject)
+    stroke_width: Stroke width of the stroke. (GraphicObject)
     """
 
     def __init__(self, *args, **kwargs):
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
+        SVGElement.__init__(self, *args, **kwargs)  # Must go last, triggers, by_object, by_value, by_arg functions.
 
     def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
         Transformable.property_by_object(self, s)
         GraphicObject.property_by_object(self, s)
 
     def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
         Transformable.property_by_values(self, values)
         GraphicObject.property_by_values(self, values)
 
@@ -6341,7 +6341,7 @@ class Subpath:
         return self
 
 
-class Group(Transformable, list):
+class Group(SVGElement, Transformable, list):
     """
     Group Container element can have children.
     SVG 2.0 <g> are defined in:
@@ -6356,6 +6356,7 @@ class Group(Transformable, list):
             if isinstance(s, Group):
                 self.extend(list(map(copy, s)))
                 return
+        SVGElement.__init__(self, *args, **kwargs)
 
     def __copy__(self):
         return Group(self)
@@ -6392,10 +6393,10 @@ class ClipPath(SVGElement, list):
     """
 
     def __init__(self, *args, **kwargs):
-        SVGElement.__init__(self, *args, **kwargs)
         list.__init__(self)
         self.clip_rule = SVG_RULE_NONZERO
         self.unit_type = SVG_UNIT_TYPE_USERSPACEONUSE
+        SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
@@ -6408,7 +6409,7 @@ class ClipPath(SVGElement, list):
         self.unit_type = self.values.get(SVG_ATTR_CLIP_UNIT_TYPE, SVG_UNIT_TYPE_USERSPACEONUSE)
 
 
-class SVGText(GraphicObject, Transformable):
+class SVGText(SVGElement, GraphicObject, Transformable):
     """
     SVG Text are defined in SVG 2.0 Chapter 11
 
@@ -6439,6 +6440,7 @@ class SVGText(GraphicObject, Transformable):
         self.path = None
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
+        SVGElement.__init__(self, *args, **kwargs)
 
     def __str__(self):
         parts = list()
@@ -6546,6 +6548,7 @@ class SVGText(GraphicObject, Transformable):
             width = relative_length
         if height is None and relative_length is not None:
             height = relative_length
+        GraphicObject.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
         self.transform.render(width=width, height=height, relative_length=relative_length, **kwargs)
         if isinstance(self.x, Length):
             self.x = self.x.value(relative_length=width, **kwargs)
@@ -6603,7 +6606,7 @@ class SVGDesc:
             self.desc = values
 
 
-class SVGImage(GraphicObject, Transformable):
+class SVGImage(SVGElement, GraphicObject, Transformable):
     """
     SVG Images are defined in SVG 2.0 12.3
 
@@ -6639,8 +6642,10 @@ class SVGImage(GraphicObject, Transformable):
             self.viewbox.physical_width = Length(kwargs[SVG_ATTR_WIDTH]).value()
         if SVG_ATTR_HEIGHT in kwargs:
             self.viewbox.physical_height = Length(kwargs[SVG_ATTR_HEIGHT]).value()
+        SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
         Transformable.property_by_object(self, s)
         GraphicObject.property_by_object(self, s)
         self.url = s.url
@@ -6651,6 +6656,7 @@ class SVGImage(GraphicObject, Transformable):
         self.image_height = s.image_height
 
     def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
         Transformable.property_by_values(self, values)
         GraphicObject.property_by_values(self, values)
         if XLINK_HREF in values:
