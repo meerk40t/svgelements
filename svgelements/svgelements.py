@@ -3944,7 +3944,6 @@ class Arc(PathSegment):
 
         start_t + sweep = end_t
         """
-
         PathSegment.__init__(self, **kwargs)
         self.start = None
         self.end = None
@@ -6976,15 +6975,21 @@ class Viewbox:
             self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
 
     def set_viewbox(self, viewbox):
-        if viewbox is not None and isinstance(viewbox, str):
-            dims = list(REGEX_FLOAT.findall(viewbox))
-            try:
-                self.viewbox_x = float(dims[0])
-                self.viewbox_y = float(dims[1])
-                self.viewbox_width = float(dims[2])
-                self.viewbox_height = float(dims[3])
-            except IndexError:
-                pass
+        if viewbox is not None:
+            if isinstance(viewbox, str):
+                dims = list(REGEX_FLOAT.findall(viewbox))
+                try:
+                    self.viewbox_x = float(dims[0])
+                    self.viewbox_y = float(dims[1])
+                    self.viewbox_width = float(dims[2])
+                    self.viewbox_height = float(dims[3])
+                except IndexError:
+                    pass
+        else:
+            self.viewbox_x = self.element_x
+            self.viewbox_y = self.element_y
+            self.viewbox_width = self.element_width
+            self.viewbox_height = self.element_height
 
     def render(self, width=None, height=None, relative_length=None, **kwargs):
         if width is None and relative_length is not None:
@@ -7007,6 +7012,15 @@ class Viewbox:
             self.element_width = self.element_width.value(relative_length=width, **kwargs)
         if isinstance(self.element_height, Length):
             self.element_height = self.element_height.value(relative_length=height, **kwargs)
+
+        if isinstance(self.viewbox_x, Length):
+            self.viewbox_x = self.viewbox_x.value(relative_length=width, **kwargs)
+        if isinstance(self.viewbox_y, Length):
+            self.viewbox_y = self.viewbox_y.value(relative_length=height, **kwargs)
+        if isinstance(self.viewbox_width, Length):
+            self.viewbox_width = self.viewbox_width.value(relative_length=width, **kwargs)
+        if isinstance(self.viewbox_height, Length):
+            self.viewbox_height = self.viewbox_height.value(relative_length=height, **kwargs)
         return self
 
     def transform(self):
@@ -7342,8 +7356,8 @@ class SVG(Group):
                             values[SVG_ATTR_TRANSFORM] += " " + viewport_transform
                         else:
                             values[SVG_ATTR_TRANSFORM] = viewport_transform
-                        width = s.viewbox.viewbox_width
-                        height = s.viewbox.viewbox_height
+                        width = s.viewbox.viewbox_width if s.viewbox.viewbox_width is not None else width
+                        height = s.viewbox.viewbox_height if s.viewbox.viewbox_height is not None else height
                         if context is None:
                             stack[-1] = (context, values)
                         if context is not None:
