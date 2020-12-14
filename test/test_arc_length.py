@@ -8,14 +8,14 @@ from svgelements import *
 
 def get_random_arc():
     return Arc((random() * 50, random() * 50),
-               random() * 50, random() * 50,
+               random() * 48 + 2, random() * 48 + 2,
                int(random() * 180),
                int(random() * 2), int(random() * 2),
                (random() * 50, random() * 50))
 
 
 def get_random_circle_arc():
-    r = random() * 50
+    r = random() * 48 + 2
     return Arc((random() * 50, random() * 50),
                r, r,
                int(random() * 180),
@@ -403,6 +403,8 @@ class TestElementArcApproximation(unittest.TestCase):
             path2.approximate_arcs_with_quads(error=0.05)
             d = abs(path1.length() - path2.length())
             # Error less than 1% typically less than 0.5%
+            if d > 10:
+                print(arc)
             self.assertAlmostEqual(d, 0.0, delta=20)
 
     def test_approx_cubic(self):
@@ -414,4 +416,6 @@ class TestElementArcApproximation(unittest.TestCase):
             path2.approximate_arcs_with_cubics(error=0.1)
             d = abs(path1.length() - path2.length())
             # Error less than 0.1% typically less than 0.001%
+            if d > 1:
+                print(arc)
             self.assertAlmostEqual(d, 0.0, delta=2)
