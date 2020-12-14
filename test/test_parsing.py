@@ -358,3 +358,83 @@ class TestParseDisplay(unittest.TestCase):
         m = SVG.parse(q)
         q = list(m.elements())
         self.assertTrue(isinstance(q[-1], SimpleLine))  # Hidden elements still exist.
+
+
+class TestParseDefUse(unittest.TestCase):
+    """
+    Tests for Def and Use within an svg file. These must work with the definitions used within the SVG spec. This means
+    that use objects must be replaced with their pure tree forms as if they are children of the use flag in question.
+    """
+
+    def test_struct_use_01(self):
+        """
+        The purpose of this test is to validate proper handling of
+        the use element. In particular, the test checks the proper inheritance
+        of properties through the shadow tree (rather than through the document
+        tree).
+        """
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>'
+                        '<svg width="100%" height="100%" viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" '
+                        'xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
+                        '<defs>'
+                            '<g fill="red" stroke="yellow" stroke-width="3">'
+                                '<rect id="usedRect" width="20" height="20"/>'
+                                '<circle id="usedCircle" cx="10" cy="10" r="10"/>'
+                                '<ellipse id="usedEllipse" cx="10" cy="10" rx="10" ry="10"/>'
+                                '<line id="usedLine" x1="0" y1="10" x2="20" y2="10"/>'
+                                '<path id="usedPath" d="M 0 0 L 20 0 L 20 20 L 0 20 Z"/>'
+                                '<polygon id="usedPolygon" points="0,0 20,0 20,20 0,20 0 0"/>'
+                                '<polyline id="usedPolyline" points="0,0 20,0 20,20"/>'
+                                '<g id="usedG">'
+                                    '<rect width="10" height="20"/>'
+                                    '<rect id="half_green" x="10" width="10" height="20" fill="rgb(0,128,0)"/>'
+                                '</g>'
+                                '<use id="usedUse" xlink:href="#usedRect"/>'
+                                '<text id="usedText">Text</text>'
+                            '</g>'
+                        '</defs>'
+                        '<g transform="translate(150, 25)">'
+                            '<use xlink:href="#usedRect" fill="#0F0"/>'
+                            '<use y="30" xlink:href="#usedCircle" fill="#0F0"/>'
+                            '<use y="60" xlink:href="#usedEllipse" fill="#0F0"/>'
+                            '<use y="90" xlink:href="#usedLine" stroke="#0F0" stroke-width="2"/>'
+                            '<use y="120" xlink:href="#usedPolyline" stroke="#0F0" stroke-width="2" fill="none"/>'
+                            '<use y="150" xlink:href="#usedPolygon" fill="#0F0"/>'
+                            '<use y="180" xlink:href="#usedPath" fill="#0F0"/>'
+                            '<use x="180" y="0" xlink:href="#usedG" fill="#0F0"/>'
+                            '<use x="180" y="30" xlink:href="#usedUse" fill="#0F0"/>'
+                            '<use y="260" xlink:href="#usedText" fill="#0F0"/>'
+                        '</g>'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        for element in q:
+            try:
+                ident = element.id
+                fill = element.fill
+                stroke = element.stroke
+                if ident == "half_green":
+                    self.assertEqual(fill, '#008000')  # Half green rectangle within used group.
+                elif ident == "usedLine":
+                    self.assertEqual(stroke, '#0F0')
+                elif ident == "usedPolyline":
+                    self.assertEqual(stroke, '#0F0')
+                else:
+                    self.assertEqual(fill, '#0F0')  # Remaining are filled green.
+
+            except AttributeError:
+                pass
+
+    def test_struct_defs_ignored(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>'
+                            '<defs>'
+                                '<g>'
+                                    '<rect x="100" y="100" width="100" height="100" />'
+                                    '<circle cx="100" cy="100" r="100" />'
+                                '</g>'
+                            '</defs>'
+                        '</svg>')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertEqual(len(q), 2)  # SVG and Viewbox.
