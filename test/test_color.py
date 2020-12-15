@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import unittest
+import io
 
 from svgelements import *
 
@@ -65,3 +66,21 @@ class TestElementColor(unittest.TestCase):
         t1 = Color.parse("hsla(240, 100%, 50%, 0.5)")  # semi - transparent solid blue
         t2 = Color.parse("hsla(30, 100%, 50%, 0.1)")  # very transparent solid orange
         self.assertNotEqual(t1,t2)
+
+    def test_parse_fill_opacity(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>'
+                        '<rect fill-opacity="0.5" x="0" y="0" width="100" height="100"/>'
+                        '</svg>')
+        m = list(SVG.parse(q).elements())
+        r = m[1]
+        self.assertAlmostEqual(r.fill.opacity, 0.5, delta=1.0/255.0)
+
+    def test_parse_stroke_opacity(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>'
+                        '<rect stroke-opacity="0.2" stroke="red" x="0" y="0" width="100" height="100"/>'
+                        '</svg>')
+        m = list(SVG.parse(q).elements())
+        r = m[1]
+        self.assertAlmostEqual(r.stroke.opacity, 0.2, delta=1.0/255.0)

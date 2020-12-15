@@ -77,7 +77,9 @@ SVG_ATTR_DATA = 'd'
 SVG_ATTR_DISPLAY = 'display'
 SVG_ATTR_COLOR = 'color'
 SVG_ATTR_FILL = 'fill'
+SVG_ATTR_FILL_OPACITY = 'fill-opacity'
 SVG_ATTR_STROKE = 'stroke'
+SVG_ATTR_STROKE_OPACITY = 'stroke-opacity'
 SVG_ATTR_STROKE_WIDTH = 'stroke-width'
 SVG_ATTR_TRANSFORM = 'transform'
 SVG_ATTR_STYLE = 'style'
@@ -3037,8 +3039,20 @@ class GraphicObject:
     def property_by_values(self, values):
         stroke = values.get(SVG_ATTR_STROKE)
         self.stroke = Color(stroke) if stroke is not None else None
+        stroke_opacity = values.get(SVG_ATTR_STROKE_OPACITY)
+        if stroke_opacity is not None and self.stroke is not None:
+            try:
+                self.stroke.opacity = float(stroke_opacity)
+            except ValueError:
+                pass
         fill = values.get(SVG_ATTR_FILL)
         self.fill = Color(fill) if fill is not None else None
+        fill_opacity = values.get(SVG_ATTR_FILL_OPACITY)
+        if fill_opacity is not None and self.fill is not None:
+            try:
+                self.fill.opacity = float(fill_opacity)
+            except ValueError:
+                pass
         self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH)).value()
         clip_path = values.get(SVG_TAG_CLIPPATH)
         self.clip_path = ClipPath(clip_path) if clip_path is not None else None
