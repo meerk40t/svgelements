@@ -414,13 +414,13 @@ class TestParseDefUse(unittest.TestCase):
                 fill = element.fill
                 stroke = element.stroke
                 if ident == "half_green":
-                    self.assertEqual(fill, '#008000')  # Half green rectangle within used group.
+                    self.assertEqual('#008000', fill)  # Half green rectangle within used group.
                 elif ident == "usedLine":
-                    self.assertEqual(stroke, '#0F0')
+                    self.assertEqual('#0F0', stroke)
                 elif ident == "usedPolyline":
-                    self.assertEqual(stroke, '#0F0')
+                    self.assertEqual('#0F0', stroke)
                 else:
-                    self.assertEqual(fill, '#0F0')  # Remaining are filled green.
+                    self.assertEqual('#0F0', fill)  # Remaining are filled green.
 
             except AttributeError:
                 pass
@@ -438,3 +438,12 @@ class TestParseDefUse(unittest.TestCase):
         m = SVG.parse(q)
         q = list(m.elements())
         self.assertEqual(len(q), 1)
+
+    def test_struct_use_unlinked(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>\n'
+                        '<use href="garbage_address"/>'
+                        '</svg>\n')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertEqual(len(q), 2)
