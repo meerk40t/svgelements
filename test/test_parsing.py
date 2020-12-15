@@ -437,4 +437,4 @@ class TestParseDefUse(unittest.TestCase):
                         '</svg>')
         m = SVG.parse(q)
         q = list(m.elements())
-        self.assertEqual(len(q), 2)  # SVG and Viewbox.
+        self.assertEqual(len(q), 1)
