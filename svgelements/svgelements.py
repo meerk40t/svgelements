@@ -860,23 +860,23 @@ class Length(object):
             if viewbox is None:
                 return self
             v = Viewbox(viewbox)
-            return self.amount * v.viewbox_width / 100.0
+            return self.amount * v.width / 100.0
         if self.units == 'vh':
             if viewbox is None:
                 return self
             v = Viewbox(viewbox)
-            return self.amount * v.viewbox_height / 100.0
+            return self.amount * v.height / 100.0
         if self.units == 'vmin':
             if viewbox is None:
                 return self
             v = Viewbox(viewbox)
-            m = min(v.viewbox_height, v.viewbox_height)
+            m = min(v.height, v.height)
             return self.amount * m / 100.0
         if self.units == 'vmax':
             if viewbox is None:
                 return self
             v = Viewbox(viewbox)
-            m = max(v.viewbox_height, v.viewbox_height)
+            m = max(v.height, v.height)
             return self.amount * m / 100.0
         try:
             return float(self)
@@ -6701,160 +6701,6 @@ class SVGDesc:
             self.desc = values
 
 
-class SVGImage(SVGElement, GraphicObject, Transformable):
-    """
-    SVG Images are defined in SVG 2.0 12.3
-
-    This class is called SVG Image rather than image as a guard against many Image objects
-    which are quite useful and would be ideal for reading the linked or contained data.
-
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.url = None
-        self.data = None
-        self.viewbox = None
-        self.image = None
-        self.image_width = None
-        self.image_height = None
-        Transformable.__init__(self, *args, **kwargs)
-        GraphicObject.__init__(self, *args, **kwargs)
-
-        if self.url is not None:
-            if self.url.startswith("data:image/"):
-                # Data URL
-                from base64 import b64decode
-                if self.url.startswith("data:image/png;base64,"):
-                    self.data = b64decode(self.url[22:])
-                elif self.url.startswith("data:image/jpg;base64,"):
-                    self.data = b64decode(self.url[22:])
-                elif self.url.startswith("data:image/jpeg;base64,"):
-                    self.data = b64decode(self.url[23:])
-                elif self.url.startswith("data:image/svg+xml;base64,"):
-                    self.data = b64decode(self.url[26:])
-
-        if SVG_ATTR_WIDTH in kwargs:
-            self.viewbox.physical_width = Length(kwargs[SVG_ATTR_WIDTH]).value()
-        if SVG_ATTR_HEIGHT in kwargs:
-            self.viewbox.physical_height = Length(kwargs[SVG_ATTR_HEIGHT]).value()
-        SVGElement.__init__(self, *args, **kwargs)
-
-    def property_by_object(self, s):
-        SVGElement.property_by_object(self, s)
-        Transformable.property_by_object(self, s)
-        GraphicObject.property_by_object(self, s)
-        self.url = s.url
-        self.data = s.data
-        self.viewbox = s.viewbox
-        self.image = s.image
-        self.image_width = s.image_width
-        self.image_height = s.image_height
-
-    def property_by_values(self, values):
-        SVGElement.property_by_values(self, values)
-        Transformable.property_by_values(self, values)
-        GraphicObject.property_by_values(self, values)
-        if XLINK_HREF in values:
-            self.url = values[XLINK_HREF]
-        elif SVG_HREF in values:
-            self.url = values[SVG_HREF]
-        self.viewbox = Viewbox(values)
-        if 'image' in values:
-            self.image = values['image']
-            self.image_width, self.image_height = self.image.size
-
-    def __copy__(self):
-        """
-        Copy of SVGImage. This will not copy the .image subobject in a deep manner
-        since it's optional that that object will exist or not. As such if using PIL it would
-        be required to either say self.image = self.image.copy() or call .load() again.
-        """
-        return SVGImage(self)
-
-    def load(self, directory=None):
-        try:
-            from PIL import Image
-            if self.data is not None:
-                self.load_data()
-            elif self.url is not None:
-                self.load_file(directory)
-            self.set_values_by_image()
-        except ImportError:
-            pass
-
-    def load_data(self):
-        try:
-            # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
-            if self.data is not None:
-                from io import BytesIO
-                self.image = Image.open(BytesIO(self.data))
-            else:
-                return
-        except ImportError:
-            # PIL/Pillow not found, decoding data is most we can do.
-            pass
-
-    def load_file(self, directory):
-        try:
-            # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
-            if self.url is not None:
-                try:
-                    self.image = Image.open(self.url)
-                except IOError:
-                    try:
-                        if directory is not None:
-                            from os.path import join
-                            relpath = join(directory, self.url)
-                            self.image = Image.open(relpath)
-                    except IOError:
-                        return
-        except ImportError:
-            # PIL/Pillow not found, decoding data is most we can do.
-            pass
-
-    def set_values_by_image(self):
-        if self.image is not None:
-            self.image_width = self.image.width
-            self.image_height = self.image.height
-        else:
-            return
-        viewbox = "0 0 %d %d" % (self.image_width, self.image_height)
-        self.viewbox.set_viewbox(viewbox)
-        self.viewbox.render(width=self.image_width, height=self.image_height)
-        viewbox_transform = self.viewbox.transform()
-        self.transform = Matrix(viewbox_transform) * self.transform
-
-    def bbox(self, transformed=True):
-        """
-        Get the bounding box for the given image object
-        """
-        if self.image_width is None or self.image_height is None:
-            p = Point(0, 0)
-            p *= self.transform
-            return p.x, p.y, p.x, p.y
-        width = self.image_width
-        height = self.image_height
-        if transformed:
-            p = (Point(0, 0) * self.transform,
-                 Point(width, 0) * self.transform,
-                 Point(width, height) * self.transform,
-                 Point(0, height) * self.transform)
-        else:
-            p = (Point(0, 0),
-                 Point(width, 0),
-                 Point(width, height),
-                 Point(0, height))
-        x_vals = list(s.x for s in p)
-        y_vals = list(s.y for s in p)
-        min_x = min(x_vals)
-        min_y = min(y_vals)
-        max_x = max(x_vals)
-        max_y = max(y_vals)
-        return min_x, min_y, max_x, max_y
-
-
 class Viewbox:
 
     def __init__(self, viewbox, preserve_aspect_ratio=None):
@@ -6997,6 +6843,182 @@ class Viewbox:
                         Length.str(scale_x), Length.str(scale_y))
 
 
+class SVGImage(SVGElement, GraphicObject, Transformable):
+    """
+    SVG Images are defined in SVG 2.0 12.3
+
+    This class is called SVG Image rather than image as a guard against many Image objects
+    which are quite useful and would be ideal for reading the linked or contained data.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.url = None
+        self.data = None
+        self.viewbox = None
+        self.preserve_aspect_ratio = None
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+
+        self.image = None
+        self.image_width = None
+        self.image_height = None
+        Transformable.__init__(self, *args, **kwargs)
+        GraphicObject.__init__(self, *args, **kwargs)
+
+        if self.url is not None:
+            if self.url.startswith("data:image/"):
+                # Data URL
+                from base64 import b64decode
+                if self.url.startswith("data:image/png;base64,"):
+                    self.data = b64decode(self.url[22:])
+                elif self.url.startswith("data:image/jpg;base64,"):
+                    self.data = b64decode(self.url[22:])
+                elif self.url.startswith("data:image/jpeg;base64,"):
+                    self.data = b64decode(self.url[23:])
+                elif self.url.startswith("data:image/svg+xml;base64,"):
+                    self.data = b64decode(self.url[26:])
+        SVGElement.__init__(self, *args, **kwargs)
+
+    def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
+        Transformable.property_by_object(self, s)
+        GraphicObject.property_by_object(self, s)
+        self.url = s.url
+        self.data = s.data
+        self.viewbox = s.viewbox
+        self.preserve_aspect_ratio = s.preserve_aspect_ratio
+
+        self.x = s.x
+        self.y = s.y
+        self.width = s.width
+        self.height = s.height
+
+        self.image = s.image
+        self.image_width = s.image_width
+        self.image_height = s.image_height
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+        Transformable.property_by_values(self, values)
+        GraphicObject.property_by_values(self, values)
+        if XLINK_HREF in values:
+            self.url = values[XLINK_HREF]
+        elif SVG_HREF in values:
+            self.url = values[SVG_HREF]
+        viewbox = values.get(SVG_ATTR_VIEWBOX)
+        if viewbox is not None:
+            self.viewbox = Viewbox(viewbox)
+        if SVG_ATTR_PRESERVEASPECTRATIO in values:
+            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+        if SVG_ATTR_X in values:
+            self.x = Length(values[SVG_ATTR_X]).value()
+        if SVG_ATTR_Y in values:
+            self.y = Length(values[SVG_ATTR_Y]).value()
+        if SVG_ATTR_WIDTH in values:
+            self.width = Length(values[SVG_ATTR_WIDTH]).value()
+        if SVG_ATTR_HEIGHT in values:
+            self.height = Length(values[SVG_ATTR_HEIGHT]).value()
+        if 'image' in values:
+            self.image = values['image']
+            self.image_width, self.image_height = self.image.size
+
+    def __copy__(self):
+        """
+        Copy of SVGImage. This will not copy the .image subobject in a deep manner
+        since it's optional that that object will exist or not. As such if using PIL it would
+        be required to either say self.image = self.image.copy() or call .load() again.
+        """
+        return SVGImage(self)
+
+    @property
+    def viewbox_transform(self):
+        if self.viewbox is None:
+            return ''
+        return self.viewbox.transform(self)
+
+    def load(self, directory=None):
+        try:
+            from PIL import Image
+            if self.data is not None:
+                self.load_data()
+            elif self.url is not None:
+                self.load_file(directory)
+            self.set_values_by_image()
+        except ImportError:
+            pass
+
+    def load_data(self):
+        try:
+            # This code will not activate without PIL/Pillow installed.
+            from PIL import Image
+            if self.data is not None:
+                from io import BytesIO
+                self.image = Image.open(BytesIO(self.data))
+            else:
+                return
+        except ImportError:
+            # PIL/Pillow not found, decoding data is most we can do.
+            pass
+
+    def load_file(self, directory):
+        try:
+            # This code will not activate without PIL/Pillow installed.
+            from PIL import Image
+            if self.url is not None:
+                try:
+                    self.image = Image.open(self.url)
+                except IOError:
+                    try:
+                        if directory is not None:
+                            from os.path import join
+                            relpath = join(directory, self.url)
+                            self.image = Image.open(relpath)
+                    except IOError:
+                        return
+        except ImportError:
+            # PIL/Pillow not found, decoding data is most we can do.
+            pass
+
+    def set_values_by_image(self):
+        if self.image is not None:
+            self.image_width = self.image.width
+            self.image_height = self.image.height
+        else:
+            return
+        self.viewbox = Viewbox("0 0 %d %d" % (self.image_width, self.image_height), self.preserve_aspect_ratio)
+        self.transform = Matrix(self.viewbox_transform) * self.transform
+
+    def bbox(self, transformed=True):
+        """
+        Get the bounding box for the given image object
+        """
+        if self.image_width is None or self.image_height is None:
+            p = Point(0, 0)
+            p *= self.transform
+            return p.x, p.y, p.x, p.y
+        width = self.image_width
+        height = self.image_height
+        if transformed:
+            p = (Point(0, 0) * self.transform,
+                 Point(width, 0) * self.transform,
+                 Point(width, height) * self.transform,
+                 Point(0, height) * self.transform)
+        else:
+            p = (Point(0, 0),
+                 Point(width, 0),
+                 Point(width, height),
+                 Point(0, height))
+        x_vals = list(s.x for s in p)
+        y_vals = list(s.y for s in p)
+        min_x = min(x_vals)
+        min_y = min(y_vals)
+        max_x = max(x_vals)
+        max_y = max(y_vals)
+        return min_x, min_y, max_x, max_y
+
+
 class SVG(Group):
     """
     SVG Document and Parsing.
@@ -7018,7 +7040,7 @@ class SVG(Group):
         self.y = s.y
         self.width = s.width
         self.height = s.height
-        self.viewbox = Viewbox(s.viewbox)
+        self.viewbox = Viewbox(s.viewbox) if s.viewbox is not None else None
 
     def property_by_values(self, values):
         Group.property_by_values(self, values)
