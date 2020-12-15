@@ -7070,7 +7070,8 @@ class SVG(Group):
         self.width = Length(values.get(SVG_ATTR_WIDTH, '100%')).value()
         self.height = Length(values.get(SVG_ATTR_HEIGHT, '100%')).value()
         viewbox = values.get(SVG_ATTR_VIEWBOX)
-        self.viewbox = Viewbox(viewbox) if viewbox is not None else None
+        par = values.get(SVG_ATTR_PRESERVEASPECTRATIO)
+        self.viewbox = Viewbox(viewbox, par) if viewbox is not None else None
 
     def render(self, ppi=None, width=None, height=None):
         self.width = Length(self.width).value(ppi=ppi, relative_length=width)

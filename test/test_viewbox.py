@@ -62,37 +62,125 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.height, 200)
 
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg viewbox="0, 0, 100, 100"/>')
+                        '<svg viewBox="0, 0, 100, 100"/>')
         m = SVG.parse(q)
-        self.assertEqual(m.viewbox_transform, '')
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(10)')
         self.assertEqual(m.width, 1000)
         self.assertEqual(m.height, 1000)
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg viewbox="0, 0, 100, 100"/>')
+                        '<svg viewBox="0, 0, 100, 100"/>')
         m = SVG.parse(q, width=500, height=500)
-        self.assertEqual(m.viewbox_transform, '')
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(5)')
         self.assertEqual(m.width, 500)
         self.assertEqual(m.height, 500)
 
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg viewbox="0, 0, 100, 100" height="100"/>')
+                        '<svg viewBox="0, 0, 100, 100" height="100"/>')
         m = SVG.parse(q)
-        self.assertEqual(m.viewbox_transform, '')
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(1) translateX(450)')
         self.assertEqual(m.width, 1000)
         self.assertEqual(m.height, 100)
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg viewbox="0, 0, 100, 100" height="100"/>')
+                        '<svg viewBox="0, 0, 100, 100" height="100"/>')
         m = SVG.parse(q, width=500, height=500)
-        self.assertEqual(m.viewbox_transform, '')
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(1) translateX(200)')
         self.assertEqual(m.width, 500)
         self.assertEqual(m.height, 100)
 
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg viewbox="0, 0, 100, 100" height="200" width="200"/>')
+                        '<svg viewBox="0, 0, 100, 100" height="200" width="200"/>')
         m = SVG.parse(q, width=500, height=500)
-        self.assertEqual(m.viewbox_transform, '')
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(2)')
         self.assertEqual(m.width, 200)
         self.assertEqual(m.height, 200)
+
+    def test_viewbox_aspect_ratio_xMinMax(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMid" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateX(100)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMin" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateX(0)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMax" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateX(200)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+    def test_viewbox_aspect_ratio_xMinMaxSlice(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMid slice" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMin slice" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="xMax slice" viewBox="0 0 100 100" height="100" width="300"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 300)
+        self.assertEqual(m.height, 100)
+
+    def test_viewbox_aspect_ratio_yMinMax(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMid" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateY(100)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMin" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateY(0)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMax" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'translateY(200)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
+
+    def test_viewbox_aspect_ratio_yMinMaxSlice(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMid slice" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMin slice" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
+
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg preserveAspectRatio="yMax slice" viewBox="0 0 100 100" height="300" width="100"/>')
+        m = SVG.parse(q)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(3)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 300)
 
     def test_viewbox_simple(self):
         r = Rect(0, 0, 100, 100)
