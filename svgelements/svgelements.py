@@ -65,6 +65,8 @@ SVG_TAG_TEXT = 'text'
 SVG_TAG_TSPAN = 'tspan'
 SVG_TAG_IMAGE = 'image'
 SVG_TAG_DESC = 'desc'
+SVG_TAG_TITLE = 'title'
+SVG_TAG_METADATA = 'metadata'
 SVG_TAG_STYLE = 'style'
 SVG_TAG_DEFS = 'defs'
 SVG_TAG_USE = 'use'
@@ -2737,6 +2739,148 @@ class Matrix:
              s.b * m.c + s.d * m.d + s.f * 0, \
              s.b * m.e + s.d * m.f + s.f * 1
         return float(r0[0]), float(r1[0]), float(r0[1]), float(r1[1]), r0[2], r1[2]
+
+
+class Viewbox:
+
+    def __init__(self, viewbox, preserve_aspect_ratio=None):
+        """
+        Viewbox controls the scaling between the drawing size view that is observing that drawing.
+
+        :param viewbox: either values or viewbox attribute or a Viewbox object
+        :param preserve_aspect_ratio: preserveAspectRatio
+        """
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+        self.preserve_aspect_ratio = preserve_aspect_ratio
+        if isinstance(viewbox, dict):
+            self.property_by_values(viewbox)
+        elif isinstance(viewbox, Viewbox):
+            self.property_by_object(viewbox)
+        else:
+            self.set_viewbox(viewbox)
+
+    def __str__(self):
+        return '%s %s %s %s' % (
+            Length.str(self.x),
+            Length.str(self.y),
+            Length.str(self.width),
+            Length.str(self.height),
+        )
+
+    def property_by_object(self, obj):
+        self.x = obj.x
+        self.y = obj.y
+        self.width = obj.width
+        self.height = obj.height
+        self.preserve_aspect_ratio = obj.preserve_aspect_ratio
+
+    def property_by_values(self, values):
+        viewbox = values.get(SVG_ATTR_VIEWBOX)
+        if viewbox is not None:
+            self.set_viewbox(viewbox)
+        if SVG_ATTR_PRESERVEASPECTRATIO in values:
+            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+
+    def set_viewbox(self, viewbox):
+        if viewbox is not None:
+            dims = list(REGEX_FLOAT.findall(viewbox))
+            try:
+                self.x = float(dims[0])
+                self.y = float(dims[1])
+                self.width = float(dims[2])
+                self.height = float(dims[3])
+            except IndexError:
+                pass
+
+    def transform(self, element):
+        return Viewbox.viewbox_transform(
+            element.x, element.y, element.width, element.height,
+            self.x, self.y, self.width, self.height,
+            self.preserve_aspect_ratio)
+
+    @staticmethod
+    def viewbox_transform(e_x, e_y, e_width, e_height, vb_x, vb_y, vb_width, vb_height, aspect):
+        """
+        SVG 1.1 7.2, SVG 2.0 8.2 equivalent transform of an SVG viewport.
+        With regards to https://github.com/w3c/svgwg/issues/215 use 8.2 version.
+
+        It creates transform commands equal to that viewport expected.
+
+        :param svg_node: dict containing the relevant svg entries.
+        :return: string of the SVG transform commands to account for the viewbox.
+        """
+
+        # Let e-x, e-y, e-width, e-height be the position and size of the element respectively.
+
+        # Let vb-x, vb-y, vb-width, vb-height be the min-x, min-y,
+        # width and height values of the viewBox attribute respectively.
+
+        # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
+        # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
+        # or if meetOrSlice is missing from this value.
+        if e_x is None or e_y is None or e_width is None or e_height is None or \
+                vb_x is None or vb_y is None or vb_width is None or vb_height is None:
+            return ''
+        if aspect is not None:
+            aspect_slice = aspect.split(' ')
+            try:
+                align = aspect_slice[0]
+            except IndexError:
+                align = 'xMidyMid'
+            try:
+                meet_or_slice = aspect_slice[1]
+            except IndexError:
+                meet_or_slice = 'meet'
+        else:
+            align = 'xMidyMid'
+            meet_or_slice = 'meet'
+        # Initialize scale-x to e-width/vb-width.
+        scale_x = e_width / vb_width
+        # Initialize scale-y to e-height/vb-height.
+        scale_y = e_height / vb_height
+
+        # If align is not 'none' and meetOrSlice is 'meet', set the larger of scale-x and scale-y to the smaller.
+        if align != SVG_VALUE_NONE and meet_or_slice == 'meet':
+            scale_x = scale_y = min(scale_x, scale_y)
+        # Otherwise, if align is not 'none' and meetOrSlice is 'slice', set the smaller of scale-x and scale-y to the larger
+        elif align != SVG_VALUE_NONE and meet_or_slice == 'slice':
+            scale_x = scale_y = max(scale_x, scale_y)
+        # Initialize translate-x to e-x - (vb-x * scale-x).
+        translate_x = e_x - (vb_x * scale_x)
+        # Initialize translate-y to e-y - (vb-y * scale-y)
+        translate_y = e_y - (vb_y * scale_y)
+        # If align contains 'xMid', add (e-width - vb-width * scale-x) / 2 to translate-x.
+        align = align.lower()
+        if 'xmid' in align:
+            translate_x += (e_width - vb_width * scale_x) / 2.0
+        # If align contains 'xMax', add (e-width - vb-width * scale-x) to translate-x.
+        if 'xmax' in align:
+            translate_x += e_width - vb_width * scale_x
+        # If align contains 'yMid', add (e-height - vb-height * scale-y) / 2 to translate-y.
+        if 'ymid' in align:
+            translate_y += (e_height - vb_height * scale_y) / 2.0
+        # If align contains 'yMax', add (e-height - vb-height * scale-y) to translate-y.
+        if 'ymax' in align:
+            translate_y += (e_height - vb_height * scale_y)
+        # The transform applied to content contained by the element is given by:
+        # translate(translate-x, translate-y) scale(scale-x, scale-y)
+        if isinstance(scale_x, Length) or isinstance(scale_y, Length):
+            raise ValueError
+        if translate_x == 0 and translate_y == 0:
+            if scale_x == 1 and scale_y == 1:
+                return ""  # Nothing happens.
+            else:
+                return "scale(%s, %s)" % (Length.str(scale_x), Length.str(scale_y))
+        else:
+            if scale_x == 1 and scale_y == 1:
+                return "translate(%s, %s)" % (Length.str(translate_x), Length.str(translate_y))
+            else:
+                return "translate(%s, %s) scale(%s, %s)" % \
+                       (Length.str(translate_x), Length.str(translate_y),
+                        Length.str(scale_x), Length.str(scale_y))
 
 
 class SVGElement(object):
@@ -6687,162 +6831,6 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return xmin, ymin, xmax, ymax
 
 
-class SVGDesc:
-    """
-    SVG Desc are just desc data.
-
-    This is a stub element.
-    """
-
-    def __init__(self, values, desc=None):
-        if isinstance(values, dict):
-            self.desc = desc
-        else:
-            self.desc = values
-
-
-class Viewbox:
-
-    def __init__(self, viewbox, preserve_aspect_ratio=None):
-        """
-        Viewbox controls the scaling between the drawing size view that is observing that drawing.
-
-        :param viewbox: either values or viewbox attribute or a Viewbox object
-        :param perserve_aspect_ratio: preserveAspectRatio
-        """
-        self.x = None
-        self.y = None
-        self.width = None
-        self.height = None
-        self.preserve_aspect_ratio = preserve_aspect_ratio
-        if isinstance(viewbox, dict):
-            self.property_by_values(viewbox)
-        elif isinstance(viewbox, Viewbox):
-            self.property_by_object(viewbox)
-        else:
-            self.set_viewbox(viewbox)
-
-    def __str__(self):
-        return '%s %s %s %s' % (
-            Length.str(self.x),
-            Length.str(self.y),
-            Length.str(self.width),
-            Length.str(self.height),
-        )
-
-    def property_by_object(self, obj):
-        self.x = obj.x
-        self.y = obj.y
-        self.width = obj.width
-        self.height = obj.height
-        self.preserve_aspect_ratio = obj.preserve_aspect_ratio
-
-    def property_by_values(self, values):
-        viewbox = values.get(SVG_ATTR_VIEWBOX)
-        if viewbox is not None:
-            self.set_viewbox(viewbox)
-        if SVG_ATTR_PRESERVEASPECTRATIO in values:
-            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
-
-    def set_viewbox(self, viewbox):
-        if viewbox is not None:
-            dims = list(REGEX_FLOAT.findall(viewbox))
-            try:
-                self.x = float(dims[0])
-                self.y = float(dims[1])
-                self.width = float(dims[2])
-                self.height = float(dims[3])
-            except IndexError:
-                pass
-
-    def transform(self, element):
-        return Viewbox.viewbox_transform(
-            element.x, element.y, element.width, element.height,
-            self.x, self.y, self.width, self.height,
-            self.preserve_aspect_ratio)
-
-    @staticmethod
-    def viewbox_transform(e_x, e_y, e_width, e_height, vb_x, vb_y, vb_width, vb_height, aspect):
-        """
-        SVG 1.1 7.2, SVG 2.0 8.2 equivalent transform of an SVG viewport.
-        With regards to https://github.com/w3c/svgwg/issues/215 use 8.2 version.
-
-        It creates transform commands equal to that viewport expected.
-
-        :param svg_node: dict containing the relevant svg entries.
-        :return: string of the SVG transform commands to account for the viewbox.
-        """
-
-        # Let e-x, e-y, e-width, e-height be the position and size of the element respectively.
-
-        # Let vb-x, vb-y, vb-width, vb-height be the min-x, min-y,
-        # width and height values of the viewBox attribute respectively.
-
-        # Let align be the align value of preserveAspectRatio, or 'xMidYMid' if preserveAspectRatio is not defined.
-        # Let meetOrSlice be the meetOrSlice value of preserveAspectRatio, or 'meet' if preserveAspectRatio is not defined
-        # or if meetOrSlice is missing from this value.
-        if e_x is None or e_y is None or e_width is None or e_height is None or \
-                vb_x is None or vb_y is None or vb_width is None or vb_height is None:
-            return ''
-        if aspect is not None:
-            aspect_slice = aspect.split(' ')
-            try:
-                align = aspect_slice[0]
-            except IndexError:
-                align = 'xMidyMid'
-            try:
-                meet_or_slice = aspect_slice[1]
-            except IndexError:
-                meet_or_slice = 'meet'
-        else:
-            align = 'xMidyMid'
-            meet_or_slice = 'meet'
-        # Initialize scale-x to e-width/vb-width.
-        scale_x = e_width / vb_width
-        # Initialize scale-y to e-height/vb-height.
-        scale_y = e_height / vb_height
-
-        # If align is not 'none' and meetOrSlice is 'meet', set the larger of scale-x and scale-y to the smaller.
-        if align != SVG_VALUE_NONE and meet_or_slice == 'meet':
-            scale_x = scale_y = min(scale_x, scale_y)
-        # Otherwise, if align is not 'none' and meetOrSlice is 'slice', set the smaller of scale-x and scale-y to the larger
-        elif align != SVG_VALUE_NONE and meet_or_slice == 'slice':
-            scale_x = scale_y = max(scale_x, scale_y)
-        # Initialize translate-x to e-x - (vb-x * scale-x).
-        translate_x = e_x - (vb_x * scale_x)
-        # Initialize translate-y to e-y - (vb-y * scale-y)
-        translate_y = e_y - (vb_y * scale_y)
-        # If align contains 'xMid', add (e-width - vb-width * scale-x) / 2 to translate-x.
-        align = align.lower()
-        if 'xmid' in align:
-            translate_x += (e_width - vb_width * scale_x) / 2.0
-        # If align contains 'xMax', add (e-width - vb-width * scale-x) to translate-x.
-        if 'xmax' in align:
-            translate_x += e_width - vb_width * scale_x
-        # If align contains 'yMid', add (e-height - vb-height * scale-y) / 2 to translate-y.
-        if 'ymid' in align:
-            translate_y += (e_height - vb_height * scale_y) / 2.0
-        # If align contains 'yMax', add (e-height - vb-height * scale-y) to translate-y.
-        if 'ymax' in align:
-            translate_y += (e_height - vb_height * scale_y)
-        # The transform applied to content contained by the element is given by:
-        # translate(translate-x, translate-y) scale(scale-x, scale-y)
-        if isinstance(scale_x, Length) or isinstance(scale_y, Length):
-            raise ValueError
-        if translate_x == 0 and translate_y == 0:
-            if scale_x == 1 and scale_y == 1:
-                return ""  # Nothing happens.
-            else:
-                return "scale(%s, %s)" % (Length.str(scale_x), Length.str(scale_y))
-        else:
-            if scale_x == 1 and scale_y == 1:
-                return "translate(%s, %s)" % (Length.str(translate_x), Length.str(translate_y))
-            else:
-                return "translate(%s, %s) scale(%s, %s)" % \
-                       (Length.str(translate_x), Length.str(translate_y),
-                        Length.str(scale_x), Length.str(scale_y))
-
-
 class SVGImage(SVGElement, GraphicObject, Transformable):
     """
     SVG Images are defined in SVG 2.0 12.3
@@ -7017,6 +7005,39 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         max_x = max(x_vals)
         max_y = max(y_vals)
         return min_x, min_y, max_x, max_y
+
+
+class Desc(SVGElement):
+    def __init__(self, values, desc=None):
+        self.desc = desc
+        SVGElement.__init__(self, **values)
+
+    def property_by_object(self, obj):
+        SVGElement.property_by_object(self, obj)
+        self.desc = obj.desc
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+        if SVG_TAG_DESC in values:
+            self.desc = values[SVG_TAG_DESC]
+
+
+SVGDesc = Desc
+
+
+class Title(SVGElement):
+    def __init__(self, values, title=None):
+        self.title = title
+        SVGElement.__init__(self,**values)
+
+    def property_by_object(self, obj):
+        SVGElement.property_by_object(self, obj)
+        self.title = obj.title
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+        if SVG_TAG_TITLE in values:
+            self.title = values[SVG_TAG_TITLE]
 
 
 class SVG(Group):
@@ -7314,8 +7335,8 @@ class SVG(Group):
                         s = Rect(values)
                     elif SVG_TAG_IMAGE == tag:
                         s = SVGImage(values)
-                    elif tag in (SVG_TAG_STYLE, SVG_TAG_TEXT, SVG_TAG_DESC):
-                        # <style>, <text>, <desc>
+                    elif tag in (SVG_TAG_STYLE, SVG_TAG_TEXT, SVG_TAG_DESC, SVG_TAG_TITLE):
+                        # <style>, <text>, <desc>, <title>
                         continue
                     else:
                         s = SVGElement(values)  # SVG Unknown object return as element.
@@ -7339,7 +7360,10 @@ class SVG(Group):
                         context.append(s)
                         s.render(ppi=ppi, width=width, height=height)
                     elif SVG_TAG_DESC == tag:
-                        s = SVGDesc(values, desc=elem.text)
+                        s = Desc(values, desc=elem.text)
+                        context.append(s)
+                    elif SVG_TAG_TITLE == tag:
+                        s = Title(values, title=elem.text)
                         context.append(s)
                     elif SVG_TAG_STYLE == tag:
                         assignments = list(re.findall(REGEX_CSS_STYLE, elem.text))
@@ -7362,3 +7386,4 @@ class SVG(Group):
             for shadow_event, shadow_elem in SVG._shadow_iter(e, c):
                 yield shadow_event, shadow_elem
         yield 'end', elem
+
