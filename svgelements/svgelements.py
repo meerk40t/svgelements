@@ -5701,7 +5701,7 @@ class Rect(Shape):
         width = self.width
         height = self.height
         if width == 0 or height == 0:
-            return ''  # a computed value of zero for either dimension disables rendering.
+            return ()  # a computed value of zero for either dimension disables rendering.
         rx = self.rx
         ry = self.ry
         if rx == ry == 0:
@@ -5899,13 +5899,19 @@ class _RoundShape(Shape):
             step_size = -step_size
         t_start = 0
         t_end = step_size
+        # zero for either dimension, or a computed value of auto for both dimensions, disables rendering of the element.
+        rx = self.implicit_rx
+        ry = self.implicit_ry
+        if rx == 0 or ry == 0:
+            return ()
+        center = self.implicit_center
         path.move((self.point_at_t(0)))
         for i in range(steps):
             path += Arc(
                 self.point_at_t(t_start),
                 self.point_at_t(t_end),
-                self.implicit_center,
-                rx=self.implicit_rx, ry=self.implicit_ry, rotation=self.rotation, sweep=step_size)
+                center,
+                rx=rx, ry=ry, rotation=self.rotation, sweep=step_size)
             t_start = t_end
             t_end += step_size
         path.closed()

@@ -395,6 +395,14 @@ class TestElementShape(unittest.TestCase):
         test_reification(self, Path("M0,0L1,1L1,0z"))
         test_reification(self, Path("M100,100L70,70L45,0z"))
 
+    def test_shapes_degenerate(self):
+        """Testing Degenerate Shapes"""
+        self.assertEqual(Rect(0, 0, 0, 100).d(), '')
+        self.assertEqual(Rect(0, 0, 100, 0).d(), '')
+        self.assertEqual(Circle(0, 0, 0).d(), '')
+        self.assertEqual(Ellipse(0,0,0,100).d(), '')
+        self.assertEqual(Ellipse(0, 0, 100, 0).d(), '')
+
     def test_shape_npoints(self):
         import numpy as np
         shapes = [
