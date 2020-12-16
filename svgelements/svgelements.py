@@ -3067,7 +3067,7 @@ class GraphicObject:
                 self.fill.opacity = float(fill_opacity)
             except ValueError:
                 pass
-        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH)).value()
+        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, 1.0)).value()
         clip_path = values.get(SVG_TAG_CLIPPATH)
         self.clip_path = ClipPath(clip_path) if clip_path is not None else None
 
@@ -3133,8 +3133,6 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if not isinstance(other, Shape):
             return NotImplemented
         if self.fill != other.fill or self.stroke != other.stroke:
-            return False
-        if self.stroke_width != other.stroke_width:
             return False
         first = self
         if not isinstance(first, Path):
