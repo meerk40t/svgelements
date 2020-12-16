@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-import unittest
 import io
+import unittest
 
 from svgelements import *
 
@@ -143,3 +143,24 @@ class TestElementLength(unittest.TestCase):
         self.assertEqual(q[2].y, 240)
         self.assertEqual(q[2].width, 480)
         self.assertEqual(q[2].height, 480)
+
+    def test_length_parsed_percent6(self):
+        q = io.StringIO('<svg version="1.1" baseProfile="basic" id="svg-root"\n'
+                        'width="100%" height="100%" viewBox="0 0 480 360"\n'
+                        'xmlns="http://www.w3.org/2000/svg">\n'
+                        '<g transform="translate(5, 50) scale(4)">\n'
+                        '<circle cx="7.5" cy="7.5" r="2.5" fill="black"/>\n'
+                        '<circle cx="1.563%" cy="2.083%" r=".3535%" fill="fuchsia"/>\n'
+                        '</g>\n'
+                        '<g transform="translate(30, 260)  skewX(45) scale(4)">\n'
+                        '<circle cx="0" cy="0" r="3.536" fill="black"/>\n'
+                        '<circle cx="10" cy="0" r="3.536px" fill="fuchsia"/>\n'
+                        '<circle cx="20" cy="0" r=".8334%" fill="green"/>\n'
+                        '</g>\n'
+                        '</svg>\n')
+        m = SVG.parse(q, width="10000", height="10000")
+        q = list(m.elements())
+        self.assertAlmostEqual(q[2].cx, q[3].cx, delta=1)
+        self.assertAlmostEqual(q[2].cy, q[3].cy, delta=1)
+        self.assertAlmostEqual(q[5].rx, q[6].rx, delta=1)
+        self.assertAlmostEqual(q[6].rx, q[7].rx, delta=1)

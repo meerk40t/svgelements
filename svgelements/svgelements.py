@@ -7457,6 +7457,7 @@ class SVG(Group):
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
                     s = SVG(values)
                     s.render(ppi=ppi, width=width, height=height)
+                    height, width = s.width, s.height
                     if s.viewbox is not None:
                         try:
                             if s.height == 0 or s.width == 0:
@@ -7473,8 +7474,7 @@ class SVG(Group):
                             values[SVG_ATTR_TRANSFORM] += " " + viewport_transform
                         else:
                             values[SVG_ATTR_TRANSFORM] = viewport_transform
-                    width = s.width
-                    height = s.height
+                        width, height = s.viewbox.width, s.viewbox.height
                     if context is None:
                         stack[-1] = (context, values)
                     if context is not None:
