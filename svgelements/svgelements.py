@@ -71,6 +71,8 @@ SVG_TAG_STYLE = 'style'
 SVG_TAG_DEFS = 'defs'
 SVG_TAG_USE = 'use'
 SVG_TAG_CLIPPATH = 'clipPath'
+SVG_TAG_PATTERN = 'pattern'
+
 SVG_STRUCT_ATTRIB = 'attributes'
 SVG_ATTR_ID = 'id'
 SVG_ATTR_DATA = 'd'
@@ -111,6 +113,9 @@ SVG_ATTR_FONT_FACE = 'font-face'
 SVG_ATTR_FONT_SIZE = 'font-size'
 SVG_ATTR_FONT_WEIGHT = 'font-weight'  # normal, bold, bolder, lighter, 100-900
 SVG_ATTR_TEXT_ANCHOR = 'text-anchor'
+SVG_ATTR_PATTERN_CONTENT_UNITS = "patternContentUnits"
+SVG_ATTR_PATTERN_TRANSFORM = "patternTransform"
+SVG_ATTR_PATTERN_UNITS = "patternUnits"
 
 SVG_UNIT_TYPE_USERSPACEONUSE = 'userSpaceOnUse'
 SVG_UNIT_TYPE_OBJECTBOUNDINGBOX = 'objectBoundingBox'
@@ -819,7 +824,7 @@ class Length(object):
         v = value / ppi
         return Length("%sin" % (Length.str(v)))
 
-    def value(self, ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None):
+    def value(self, ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None, **kwargs):
         if self.amount is None:
             return None
         if self.units == '%':
@@ -2428,17 +2433,15 @@ class Matrix:
         Provides values to turn trans_x and trans_y values into user units floats rather
         than Lengths by giving the required information to perform the conversions.
         """
-
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
-
         if isinstance(self.e, Length):
+            if width is None and relative_length is not None:
+                width = relative_length
             self.e = self.e.value(ppi=ppi, relative_length=width, font_size=font_size,
                                   font_height=font_height, viewbox=viewbox)
 
         if isinstance(self.f, Length):
+            if height is None and relative_length is not None:
+                height = relative_length
             self.f = self.f.value(ppi=ppi, relative_length=height, font_size=font_size,
                                   font_height=font_height, viewbox=viewbox)
         return self
@@ -2927,6 +2930,16 @@ class SVGElement(object):
     def property_by_values(self, values):
         self.id = values.get(SVG_ATTR_ID)
 
+    def render(self, **kwargs):
+        """
+        Render changes any length/percent values or attributes into real usable limits if
+        given the information required to change such parameters.
+
+        :param kwargs: various other properties to be rendered with.
+        :return:
+        """
+        pass
+
 
 class Transformable:
     """Any element that is transformable and has a transform property."""
@@ -2998,7 +3011,8 @@ class Transformable:
         Renders the transformable by performing any required length conversion operations into pixels. The element
         will be the pixel-length form.
         """
-        self.transform.render(**kwargs)
+        if self.transform is not None:
+            self.transform.render(**kwargs)
         return self
 
     def bbox(self, transformed=True):
@@ -3057,12 +3071,14 @@ class GraphicObject:
         clip_path = values.get(SVG_TAG_CLIPPATH)
         self.clip_path = ClipPath(clip_path) if clip_path is not None else None
 
-    def render(self, width=None, height=None, relative_length=None, **kwargs):
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
+    def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
+            width = kwargs.get('width', kwargs.get('relative_length'))
+            height = kwargs.get('height', kwargs.get('relative_length'))
+            try:
+                del kwargs['relative_length']
+            except KeyError:
+                pass
             self.stroke_width = self.stroke_width.value(relative_length=sqrt(width * width + height * height), **kwargs)
             # A percentage stroke_width is always computed as a percentage of the normalized viewBox diagonal length.
 
@@ -3107,6 +3123,11 @@ class Shape(SVGElement, GraphicObject, Transformable):
         SVGElement.property_by_values(self, values)
         Transformable.property_by_values(self, values)
         GraphicObject.property_by_values(self, values)
+
+    def render(self, **kwargs):
+        SVGElement.render(self, **kwargs)
+        Transformable.render(self, **kwargs)
+        GraphicObject.render(self, **kwargs)
 
     def __eq__(self, other):
         if not isinstance(other, Shape):
@@ -5735,12 +5756,14 @@ class Rect(Shape):
             self.transform *= Matrix.scale(1.0 / scale_x, 1.0 / scale_y)
         return self
 
-    def render(self, width=None, height=None, relative_length=None, **kwargs):
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
-        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+    def render(self, **kwargs):
+        Shape.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
         if isinstance(self.x, Length):
             self.x = self.x.value(relative_length=width, **kwargs)
         if isinstance(self.y, Length):
@@ -5914,12 +5937,14 @@ class _RoundShape(Shape):
             self.transform *= Matrix.scale(1.0 / scale_x, 1.0 / scale_y)
         return self
 
-    def render(self, width=None, height=None, relative_length=None, **kwargs):
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
-        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+    def render(self, **kwargs):
+        Shape.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
         if isinstance(self.cx, Length):
             self.cx = self.cx.value(relative_length=width, **kwargs)
         if isinstance(self.cy, Length):
@@ -6227,12 +6252,14 @@ class SimpleLine(Shape):
         matrix.reset()
         return self
 
-    def render(self, width=None, height=None, relative_length=None, **kwargs):
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
-        Shape.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
+    def render(self, **kwargs):
+        Shape.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
         if isinstance(self.x1, Length):
             self.x1 = self.x1.value(relative_length=width, **kwargs)
         if isinstance(self.y1, Length):
@@ -6611,6 +6638,9 @@ class Group(SVGElement, Transformable, list):
                 return
         SVGElement.__init__(self, *args, **kwargs)
 
+    def render(self, **kwargs):
+        Transformable.render(self, **kwargs)
+
     def __copy__(self):
         return Group(self)
 
@@ -6660,6 +6690,89 @@ class ClipPath(SVGElement, list):
         SVGElement.property_by_values(self, values)
         self.clip_rule = self.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
         self.unit_type = self.values.get(SVG_ATTR_CLIP_UNIT_TYPE, SVG_UNIT_TYPE_USERSPACEONUSE)
+
+
+class Pattern(SVGElement, list):
+    def __init__(self, *args, **kwargs):
+        self.viewbox = None
+        self.preserve_aspect_ratio = None
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+        self.href = None
+        self.pattern_content_units = None  # UserSpaceOnUse default
+        self.pattern_transform = None
+        self.pattern_units = None
+        SVGElement.__init__(self, *args, **kwargs)
+
+    def __int__(self):
+        return 0
+
+    @property
+    def viewbox_transform(self):
+        if self.viewbox is None:
+            return ''
+        return self.viewbox.transform(self)
+
+    def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
+        self.viewbox = s.viewbox
+        self.preserve_aspect_ratio = s.preserve_aspect_ratio
+
+        self.x = s.x
+        self.y = s.y
+        self.width = s.width
+        self.height = s.height
+        self.href = s.href
+        self.pattern_content_units = s.pattern_contents_units
+        self.pattern_transform = Matrix(s.pattern_transform) if s.pattern_transform is not None else None
+        self.pattern_units = s.pattern_units
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+        if XLINK_HREF in values:
+            self.href = values[XLINK_HREF]
+        elif SVG_HREF in values:
+            self.href = values[SVG_HREF]
+        viewbox = values.get(SVG_ATTR_VIEWBOX)
+        if viewbox is not None:
+            self.viewbox = Viewbox(viewbox)
+        if SVG_ATTR_PRESERVEASPECTRATIO in values:
+            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+        if SVG_ATTR_X in values:
+            self.x = Length(values[SVG_ATTR_X]).value()
+        if SVG_ATTR_Y in values:
+            self.y = Length(values[SVG_ATTR_Y]).value()
+        if SVG_ATTR_WIDTH in values:
+            self.width = Length(values[SVG_ATTR_WIDTH]).value()
+        if SVG_ATTR_HEIGHT in values:
+            self.height = Length(values[SVG_ATTR_HEIGHT]).value()
+        if SVG_ATTR_PATTERN_CONTENT_UNITS in values:
+            self.pattern_content_units = values[SVG_ATTR_PATTERN_CONTENT_UNITS]
+        if SVG_ATTR_PATTERN_TRANSFORM in values:
+            self.pattern_transform = Matrix(values[SVG_ATTR_PATTERN_TRANSFORM])
+        if SVG_ATTR_PATTERN_UNITS in values:
+            self.pattern_units = values[SVG_ATTR_PATTERN_UNITS]
+
+    def render(self, **kwargs):
+        if self.pattern_transform is not None:
+            self.pattern_transform.render(**kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
+        if isinstance(self.x, Length):
+            self.x = self.x.value(relative_length=width, **kwargs)
+        if isinstance(self.y, Length):
+            self.y = self.y.value(relative_length=height, **kwargs)
+        if isinstance(self.width, Length):
+            self.width = self.width.value(relative_length=width, **kwargs)
+        if isinstance(self.height, Length):
+            self.height = self.height.value(relative_length=height, **kwargs)
+        return self
 
 
 class SVGText(SVGElement, GraphicObject, Transformable):
@@ -6793,16 +6906,15 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         self.dx = Length(values.get(SVG_ATTR_DX, self.dx)).value()
         self.dy = Length(values.get(SVG_ATTR_DY, self.dy)).value()
 
-    def __copy__(self):
-        return SVGText(self)
-
-    def render(self, width=None, height=None, relative_length=None, **kwargs):
-        if width is None and relative_length is not None:
-            width = relative_length
-        if height is None and relative_length is not None:
-            height = relative_length
-        GraphicObject.render(self, width=width, height=height, relative_length=relative_length, **kwargs)
-        self.transform.render(width=width, height=height, relative_length=relative_length, **kwargs)
+    def render(self, **kwargs):
+        GraphicObject.render(self, **kwargs)
+        Transformable.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
         if isinstance(self.x, Length):
             self.x = self.x.value(relative_length=width, **kwargs)
         if isinstance(self.y, Length):
@@ -6812,6 +6924,9 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         if isinstance(self.dy, Length):
             self.dy = self.dy.value(relative_length=height, **kwargs)
         return self
+
+    def __copy__(self):
+        return SVGText(self)
 
     def bbox(self, transformed=True):
         """
@@ -6925,6 +7040,25 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         if 'image' in values:
             self.image = values['image']
             self.image_width, self.image_height = self.image.size
+
+    def render(self, **kwargs):
+        GraphicObject.render(self, **kwargs)
+        Transformable.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
+        if isinstance(self.x, Length):
+            self.x = self.x.value(relative_length=width, **kwargs)
+        if isinstance(self.y, Length):
+            self.y = self.y.value(relative_length=height, **kwargs)
+        if isinstance(self.width, Length):
+            self.width = self.width.value(relative_length=width, **kwargs)
+        if isinstance(self.height, Length):
+            self.height = self.height.value(relative_length=height, **kwargs)
+        return self
 
     def __copy__(self):
         """
@@ -7095,9 +7229,18 @@ class SVG(Group):
         for _id in REGEX_IRI.findall(url):
             return self.get_element_by_id(_id)
 
-    def render(self, ppi=None, width=None, height=None):
-        self.width = Length(self.width).value(ppi=ppi, relative_length=width)
-        self.height = Length(self.height).value(ppi=ppi, relative_length=height)
+    def render(self, **kwargs):
+        Group.render(self, **kwargs)
+        width = kwargs.get('width', kwargs.get('relative_length'))
+        height = kwargs.get('height', kwargs.get('relative_length'))
+        try:
+            del kwargs['relative_length']
+        except KeyError:
+            pass
+        self.width = Length(self.width).value(relative_length=width, **kwargs)
+        self.height = Length(self.height).value(relative_length=height, **kwargs)
+        self.x = Length(self.x).value(relative_length=width, **kwargs)
+        self.y = Length(self.y).value(relative_length=height, **kwargs)
 
     def elements(self, conditional=None):
         yield self
@@ -7314,7 +7457,6 @@ class SVG(Group):
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
                     s = SVG(values)
                     s.render(ppi=ppi, width=width, height=height)
-
                     if s.viewbox is not None:
                         try:
                             if s.height == 0 or s.width == 0:
@@ -7331,9 +7473,8 @@ class SVG(Group):
                             values[SVG_ATTR_TRANSFORM] += " " + viewport_transform
                         else:
                             values[SVG_ATTR_TRANSFORM] = viewport_transform
-                        width = s.viewbox.width
-                        height = s.viewbox.height
-
+                    width = s.width
+                    height = s.height
                     if context is None:
                         stack[-1] = (context, values)
                     if context is not None:
@@ -7345,12 +7486,19 @@ class SVG(Group):
                     s = Group(values)
                     context.append(s)
                     context = s
+                    s.render(ppi=ppi, width=width, height=height)
                 elif SVG_TAG_DEFS == tag:
                     s = Group(values)
                     context = s  # Non-Rendered
+                    s.render(ppi=ppi, width=width, height=height)
                 elif SVG_TAG_CLIPPATH == tag:
                     s = ClipPath(values)
                     context = s  # Non-Rendered
+                    s.render(ppi=ppi, width=width, height=height)
+                elif SVG_TAG_PATTERN == tag:
+                    s = Pattern(values)
+                    context = s  # Non-rendered
+                    s.render(ppi=ppi, width=width, height=height)
                 elif tag in (SVG_TAG_PATH, SVG_TAG_CIRCLE, SVG_TAG_ELLIPSE, SVG_TAG_LINE,  # Shapes
                              SVG_TAG_POLYLINE, SVG_TAG_POLYGON, SVG_TAG_RECT, SVG_TAG_IMAGE):
                     try:

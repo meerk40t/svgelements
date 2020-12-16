@@ -330,7 +330,6 @@ class TestParseDisplay(unittest.TestCase):
         print(q)
         self.assertFalse(isinstance(q[-1], SimpleLine))
 
-
     def test_svgfile_display_none_class(self):
         q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
                         '<svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">\n'
