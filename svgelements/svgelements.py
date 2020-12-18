@@ -6987,6 +6987,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         self.image_height = None
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
+        SVGElement.__init__(self, *args, **kwargs)  # Dataurl requires this be processed first.
 
         if self.url is not None:
             if self.url.startswith("data:image/"):
@@ -7000,7 +7001,6 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
                     self.data = b64decode(self.url[23:])
                 elif self.url.startswith("data:image/svg+xml;base64,"):
                     self.data = b64decode(self.url[26:])
-        SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
