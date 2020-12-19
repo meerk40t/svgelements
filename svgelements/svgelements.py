@@ -7260,9 +7260,16 @@ class SVG(Group):
     @staticmethod
     def _shadow_iter(elem, children):
         yield 'start', elem
-        for e, c in children:
-            for shadow_event, shadow_elem in SVG._shadow_iter(e, c):
-                yield shadow_event, shadow_elem
+        try:
+            for e, c in children:
+                for shadow_event, shadow_elem in SVG._shadow_iter(e, c):
+                    yield shadow_event, shadow_elem
+        except RecursionError:
+            """
+            Strictly speaking it is possible to reference use from other use objects. If this is an infinite loop
+            we should not block the rendering. Just say we finished. See: W3C, struct-use-12-f
+            """
+            pass
         yield 'end', elem
 
     @staticmethod
