@@ -7288,7 +7288,6 @@ class SVG(Group):
             except AttributeError:
                 yield event, elem
                 continue
-            yield event, elem
 
             if event == 'start':
                 attributes = elem.attrib
@@ -7325,16 +7324,20 @@ class SVG(Group):
                                                                  (attributes[SVG_ATTR_TRANSFORM], x, y)
                             except KeyError:
                                 attributes[SVG_ATTR_TRANSFORM] = 'translate(%s, %s)' % (x, y)
+                        yield event, elem
                         try:
                             shadow_node = defs[url[1:]]
-                            children.append(shadow_node)   # Shadow children are children of the use.
+                            children.append(shadow_node)  # Shadow children are children of the use.
                             for n in SVG._shadow_iter(*shadow_node):
                                 yield n
                         except KeyError:
                             pass  # Failed to find link.
+                else:
+                    yield event, elem
                 if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
                     defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
             elif event == 'end':
+                yield event, elem
                 # event is 'end', pop values.
                 parent, children = parent  # Parent is now node.
 
