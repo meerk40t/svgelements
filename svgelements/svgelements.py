@@ -7033,14 +7033,10 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             self.viewbox = Viewbox(viewbox)
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
             self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
-        if SVG_ATTR_X in values:
-            self.x = Length(values[SVG_ATTR_X]).value()
-        if SVG_ATTR_Y in values:
-            self.y = Length(values[SVG_ATTR_Y]).value()
-        if SVG_ATTR_WIDTH in values:
-            self.width = Length(values[SVG_ATTR_WIDTH]).value()
-        if SVG_ATTR_HEIGHT in values:
-            self.height = Length(values[SVG_ATTR_HEIGHT]).value()
+        self.x = Length(values.get(SVG_ATTR_X, 0)).value()
+        self.y = Length(values.get(SVG_ATTR_Y, 0)).value()
+        self.width = Length(values.get(SVG_ATTR_WIDTH, '100%')).value()
+        self.height = Length(values.get(SVG_ATTR_HEIGHT, '100%')).value()
         if 'image' in values:
             self.image = values['image']
             self.image_width, self.image_height = self.image.size
