@@ -188,7 +188,11 @@ class TestParser(unittest.TestCase):
                 self.assertEqual(e, "M0,0 L1,0 z")
 
     def test_svg_parse_group(self):
-        s = io.StringIO('<svg><g transform="scale(10,10)"><path d="M0,0 L1,0 z"/></g></svg>')
+        s = io.StringIO('<svg>'
+                        '<g transform="scale(10,10)" vector-effect="non-scaling-stroke">'
+                        '<path d="M0,0 L1,0 z"/>'
+                        '</g>'
+                        '</svg>')
         svg = SVG.parse(s)
         for e in svg.elements():
             if isinstance(e, Path):

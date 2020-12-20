@@ -117,6 +117,8 @@ SVG_ATTR_PATTERN_CONTENT_UNITS = "patternContentUnits"
 SVG_ATTR_PATTERN_TRANSFORM = "patternTransform"
 SVG_ATTR_PATTERN_UNITS = "patternUnits"
 
+SVG_ATTR_VECTOR_EFFECT = 'vector-effect'
+
 SVG_UNIT_TYPE_USERSPACEONUSE = 'userSpaceOnUse'
 SVG_UNIT_TYPE_OBJECTBOUNDINGBOX = 'objectBoundingBox'
 
@@ -137,6 +139,8 @@ SVG_TRANSFORM_SCALE_Y = 'scaley'
 
 SVG_VALUE_NONE = 'none'
 SVG_VALUE_CURRENT_COLOR = 'currentColor'
+
+SVG_VALUE_NON_SCALING_STROKE = 'non-scaling-stroke'
 
 PATTERN_WS = r'[\s\t\n]*'
 PATTERN_COMMA = r'(?:\s*,\s*|\s+|(?=-))'
@@ -2940,6 +2944,9 @@ class SVGElement(object):
         """
         pass
 
+    def set(self, key, value):
+        self.values[key] = value
+        return self
 
 class Transformable:
     """Any element that is transformable and has a transform property."""
@@ -2983,6 +2990,7 @@ class Transformable:
         m.reify()
         return m
 
+
     def reify(self):
         """
         Realizes the transform to the attributes. Such that the attributes become actualized and the transform
@@ -2997,6 +3005,10 @@ class Transformable:
         self._length = None
         try:
             if self.stroke_width is not None:
+                if hasattr(self, 'values') and \
+                        SVG_ATTR_VECTOR_EFFECT in self.values and \
+                        SVG_VALUE_NON_SCALING_STROKE in self.values[SVG_ATTR_VECTOR_EFFECT]:
+                    return self  # we are not to scale the stroke.
                 width = self.stroke_width
                 t = self.transform
                 det = t.a * t.d - t.c * t.b
@@ -3355,6 +3367,8 @@ class Shape(SVGElement, GraphicObject, Transformable):
             values.append('stroke=\'%s\'' % self.stroke)
         if self.fill is not None:
             values.append('fill=\'%s\'' % self.fill)
+        if self.stroke_width is not None and self.stroke_width != 1.0:
+            values.append('stroke_width=\'%s\'' % str(self.stroke_width))
         if self.apply is not None and not self.apply:
             values.append('apply=%s' % self.apply)
         if self.id is not None:
@@ -5039,6 +5053,8 @@ class Path(Shape, MutableSequence):
         for s, o in zip(q._segments, p._segments):
             if not s == o:
                 return False
+        if p.stroke_width != q.stroke_width:
+            return False
         return True
 
     def __ne__(self, other):

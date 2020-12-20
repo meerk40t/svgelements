@@ -41,6 +41,7 @@ class TestPathMatrix(unittest.TestCase):
         path *= matrix
         d = Length("1cm").value(ppi=DEFAULT_PPI)
         p2 = Path("M 200,0 Z") * Matrix("scale(%f)" % d)
+        p2.values[SVG_ATTR_VECTOR_EFFECT] = SVG_VALUE_NON_SCALING_STROKE
         self.assertEqual(p2, path)
 
     def test_skew_single_value(self):

@@ -239,6 +239,7 @@ class TestElementArcLength(unittest.TestCase):
         ellipse = Ellipse("20", "20", 4, 8, "rotate(45deg)")
         matrix = ellipse.unit_matrix()
         ellipse2 = Circle()
+        ellipse2.values[SVG_ATTR_VECTOR_EFFECT] = SVG_VALUE_NON_SCALING_STROKE
         ellipse2 *= matrix
         p1 = ellipse.point_at_t(1)
         p2 = ellipse2.point_at_t(1)

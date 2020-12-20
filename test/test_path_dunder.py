@@ -75,11 +75,11 @@ class TestPath(unittest.TestCase):
         p1 = Path(Move(0)) * "translate(200,200)"
         self.assertEqual(p1, "M200,200")
 
-        p1 = Path(Move(0)) * "scale(0.5) translateX(200)"
+        p1 = Path(Move(0)).set('vector-effect', 'non-scaling-stroke') * "scale(0.5) translateX(200)"
         self.assertEqual(p1, "M100,0")
         self.assertNotEqual(p1, "M200,0")
 
-        p1 = Path(Move(0)) * "translateX(200) scale(0.5)"
+        p1 = Path(Move(0)).set('vector-effect', 'non-scaling-stroke') * "translateX(200) scale(0.5)"
         self.assertEqual(p1, "M200,0")
         self.assertNotEqual(p1, "M100,0")
 
@@ -89,10 +89,11 @@ class TestPath(unittest.TestCase):
         self.assertTrue(Move(0) * "translate(55,55)" + "z" == "m 55, 55Z")
         self.assertTrue(Move(0) * "rotate(0.50turn,100,0)" + "z" == "M200,0z")
         self.assertFalse(Path(Move(0)) == "M0,0z")
-        self.assertEqual(Path("M50,50 100,100 0,100 z") * "scale(0.1)", "M5,5 L10,10 0,10z")
+        self.assertEqual(Path("M50,50 100,100 0,100 z").set('vector-effect', 'non-scaling-stroke') * "scale(0.1)",
+                         "M5,5 L10,10 0,10z")
         self.assertNotEqual(Path("M50,50 100,100 0,100 z") * "scale(0.11)", "M5,5 L10,10 0,10z")
         self.assertEqual(
-            Path("M0,0 h10 v10 h-10 v-10z") * "scale(0.2) translate(-5,-5)",
+            Path("M0,0 h10 v10 h-10 v-10z").set('vector-effect', 'non-scaling-stroke') * "scale(0.2) translate(-5,-5)",
             "M -1,-1, L1,-1, 1,1, -1,1, -1,-1 Z"
         )
 
