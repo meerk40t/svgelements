@@ -3044,13 +3044,11 @@ class GraphicObject:
         self.stroke = None
         self.fill = None
         self.stroke_width = None
-        self.clip_path = None
 
     def property_by_object(self, s):
         self.fill = Color(s.fill) if s.fill is not None else None
         self.stroke = Color(s.stroke) if s.stroke is not None else None
         self.stroke_width = Length(s.stroke_width).value() if s.stroke_width is not None else None
-        self.clip_path = ClipPath(s.clip_path) if s.clip_path is not None else None
 
     def property_by_values(self, values):
         stroke = values.get(SVG_ATTR_STROKE)
@@ -3070,8 +3068,6 @@ class GraphicObject:
             except ValueError:
                 pass
         self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, 1.0)).value()
-        clip_path = values.get(SVG_TAG_CLIPPATH)
-        self.clip_path = ClipPath(clip_path) if clip_path is not None else None
 
     def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
@@ -5768,8 +5764,8 @@ class Rect(Shape):
 
         Skewed and Rotated rectangles cannot be reified.
         """
-        Transformable.reify(self)
         GraphicObject.reify(self)
+        Transformable.reify(self)
         scale_x = self.transform.value_scale_x()
         scale_y = self.transform.value_scale_y()
         translate_x = self.transform.value_trans_x()
@@ -6718,18 +6714,15 @@ class ClipPath(SVGElement, list):
 
     def __init__(self, *args, **kwargs):
         list.__init__(self)
-        self.clip_rule = SVG_RULE_NONZERO
         self.unit_type = SVG_UNIT_TYPE_USERSPACEONUSE
         SVGElement.__init__(self, *args, **kwargs)
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
-        self.clip_rule = s.clip_rule
         self.unit_type = s.unit_type
 
     def property_by_values(self, values):
         SVGElement.property_by_values(self, values)
-        self.clip_rule = self.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
         self.unit_type = self.values.get(SVG_ATTR_CLIP_UNIT_TYPE, SVG_UNIT_TYPE_USERSPACEONUSE)
 
 
@@ -6781,14 +6774,10 @@ class Pattern(SVGElement, list):
             self.viewbox = Viewbox(viewbox)
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
             self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
-        if SVG_ATTR_X in values:
-            self.x = Length(values[SVG_ATTR_X]).value()
-        if SVG_ATTR_Y in values:
-            self.y = Length(values[SVG_ATTR_Y]).value()
-        if SVG_ATTR_WIDTH in values:
-            self.width = Length(values[SVG_ATTR_WIDTH]).value()
-        if SVG_ATTR_HEIGHT in values:
-            self.height = Length(values[SVG_ATTR_HEIGHT]).value()
+        self.x = Length(values.get(SVG_ATTR_X, 0)).value()
+        self.y = Length(values.get(SVG_ATTR_Y, 0)).value()
+        self.width = Length(values.get(SVG_ATTR_WIDTH, '100%')).value()
+        self.height = Length(values.get(SVG_ATTR_HEIGHT, '100%')).value()
         if SVG_ATTR_PATTERN_CONTENT_UNITS in values:
             self.pattern_content_units = values[SVG_ATTR_PATTERN_CONTENT_UNITS]
         if SVG_ATTR_PATTERN_TRANSFORM in values:
@@ -7405,6 +7394,7 @@ class SVG(Group):
         :param context: Any existing document context.
         :return:
         """
+        clip = 0
         root = context
         styles = {}
         stack = []
@@ -7546,6 +7536,7 @@ class SVG(Group):
                     s = ClipPath(values)
                     context = s  # Non-Rendered
                     s.render(ppi=ppi, width=width, height=height)
+                    clip += 1
                 elif SVG_TAG_PATTERN == tag:
                     s = Pattern(values)
                     context = s  # Non-rendered
@@ -7581,10 +7572,27 @@ class SVG(Group):
                 else:
                     s = SVGElement(values)  # SVG Unknown object return as element.
                     context.append(s)
+
+                # Assign optional linked properties.
+                try:
+                    clip_path_url = s.values.get(SVG_ATTR_CLIP_PATH, None)
+                    if clip_path_url is not None:
+                        clip_path = root.get_element_by_url(clip_path_url)
+                        s.clip_path = clip_path
+                except AttributeError:
+                    pass
+                if clip != 0:
+                    try:
+                        clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+                        if clip_rule is not None:
+                            s.clip_rule = clip_rule
+                    except AttributeError:
+                        pass
                 if SVG_ATTR_ID in values and root is not None:
                     root.objects[attributes[SVG_ATTR_ID]] = s
             elif event == 'end':  # End event.
                 # The iterparse spec makes it clear that internal text data is undefined except at the end.
+                s = None
                 tag = elem.tag
                 if tag in (SVG_TAG_TEXT, SVG_TAG_TSPAN, SVG_TAG_DESC, SVG_TAG_TITLE, SVG_TAG_STYLE):
                     attributes = elem.attrib
@@ -7609,6 +7617,24 @@ class SVG(Group):
                         value = value.strip()
                         for selector in key.split(','):  # Can comma select subitems.
                             styles[selector.strip()] = value
+                elif SVG_TAG_CLIPPATH == tag:
+                    clip -= 1
+                if s is not None:
+                    # Assign optional linked properties.
+                    try:
+                        clip_path_url = s.values.get(SVG_ATTR_CLIP_PATH, None)
+                        if clip_path_url is not None:
+                            clip_path = root.get_element_by_url(clip_path_url)
+                            s.clip_path = clip_path
+                    except AttributeError:
+                        pass
+                    if clip != 0:
+                        try:
+                            clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+                            if clip_rule is not None:
+                                s.clip_rule = clip_rule
+                        except AttributeError:
+                            pass
 
                 context, values = stack.pop()
             elif event == 'start-ns':
