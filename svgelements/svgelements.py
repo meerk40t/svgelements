@@ -2450,6 +2450,10 @@ class Matrix:
                                   font_height=font_height, viewbox=viewbox)
         return self
 
+    @property
+    def determinant(self):
+        return self.a * self.d - self.c * self.b
+
     def value_trans_x(self):
         return self.e
 
@@ -2948,6 +2952,7 @@ class SVGElement(object):
         self.values[key] = value
         return self
 
+
 class Transformable:
     """Any element that is transformable and has a transform property."""
 
@@ -2990,7 +2995,6 @@ class Transformable:
         m.reify()
         return m
 
-
     def reify(self):
         """
         Realizes the transform to the attributes. Such that the attributes become actualized and the transform
@@ -3003,20 +3007,6 @@ class Transformable:
         """
         self._lengths = None
         self._length = None
-        try:
-            if self.stroke_width is not None:
-                if hasattr(self, 'values') and \
-                        SVG_ATTR_VECTOR_EFFECT in self.values and \
-                        SVG_VALUE_NON_SCALING_STROKE in self.values[SVG_ATTR_VECTOR_EFFECT]:
-                    return self  # we are not to scale the stroke.
-                width = self.stroke_width
-                t = self.transform
-                det = t.a * t.d - t.c * t.b
-                self.stroke_width = width * sqrt(abs(det))
-        except AttributeError:
-            # Stroke Width isn't on this object type. Skip that transform.
-            pass
-        return self
 
     def render(self, **kwargs):
         """
@@ -3093,6 +3083,32 @@ class GraphicObject:
                 pass
             self.stroke_width = self.stroke_width.value(relative_length=sqrt(width * width + height * height), **kwargs)
             # A percentage stroke_width is always computed as a percentage of the normalized viewBox diagonal length.
+
+    def reify(self):
+        """
+        Realizes the transform to the attributes. Such that the attributes become actualized and the transform
+        simplifies towards the identity matrix. In many cases it will become the identity matrix. In other cases the
+        transformed shape cannot be represented through the properties alone. And shall keep those parts of the
+        transform required preserve equivalency.
+        """
+        self.stroke_width = self.implicit_stroke_width
+        return self
+
+    @property
+    def implicit_stroke_width(self):
+        try:
+            if not self.apply:
+                return self.stroke_width
+            if self.stroke_width is not None:
+                if hasattr(self, 'values') and \
+                        SVG_ATTR_VECTOR_EFFECT in self.values and \
+                        SVG_VALUE_NON_SCALING_STROKE in self.values[SVG_ATTR_VECTOR_EFFECT]:
+                    return self.stroke_width  # we are not to scale the stroke.
+                width = self.stroke_width
+                det = self.transform.determinant
+                return width * sqrt(abs(det))
+        except AttributeError:
+            return self.stroke_width
 
 
 class Shape(SVGElement, GraphicObject, Transformable):
@@ -5438,6 +5454,7 @@ class Path(Shape, MutableSequence):
 
         Path objects reify perfectly.
         """
+        GraphicObject.reify(self)
         Transformable.reify(self)
         if isinstance(self.transform, Matrix):
             for e in self._segments:
@@ -5752,6 +5769,7 @@ class Rect(Shape):
         Skewed and Rotated rectangles cannot be reified.
         """
         Transformable.reify(self)
+        GraphicObject.reify(self)
         scale_x = self.transform.value_scale_x()
         scale_y = self.transform.value_scale_y()
         translate_x = self.transform.value_trans_x()
@@ -5940,6 +5958,7 @@ class _RoundShape(Shape):
 
         Skewed and Rotated roundshapes cannot be reified.
         """
+        GraphicObject.reify(self)
         Transformable.reify(self)
         scale_x = abs(self.transform.value_scale_x())
         scale_y = abs(self.transform.value_scale_y())
@@ -6257,6 +6276,7 @@ class SimpleLine(Shape):
 
         SimpleLines are perfectly reified.
         """
+        GraphicObject.reify(self)
         Transformable.reify(self)
         matrix = self.transform
         p = Point(self.x1, self.y1)
@@ -6390,6 +6410,7 @@ class _Polyshape(Shape):
 
         Polyshapes are perfectly reified.
         """
+        GraphicObject.reify(self)
         Transformable.reify(self)
         matrix = self.transform
         for p in self:
@@ -6925,6 +6946,10 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         self.y = Length(values.get(SVG_ATTR_Y, self.y)).value()
         self.dx = Length(values.get(SVG_ATTR_DX, self.dx)).value()
         self.dy = Length(values.get(SVG_ATTR_DY, self.dy)).value()
+
+    def reify(self):
+        GraphicObject.reify(self)
+        Transformable.reify(self)
 
     def render(self, **kwargs):
         GraphicObject.render(self, **kwargs)
