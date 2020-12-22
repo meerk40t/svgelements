@@ -24,7 +24,7 @@ Then in a script:
 
 None.
 
-However, there are some soft dependencies, with some common additions do modify the functionality slightly. If `scipy` is installed then the arc length code quickly provide the exact correct answer. Some of the SVGImage code is able to load the images if given access to PIL/Pillow. 
+However, there are some soft dependencies, with some common additions do modify the functionality slightly. If `scipy` is installed then the arc length code quickly provide the exact correct answer. Some of the SVGImage code is able to load the images if given access to PIL/Pillow. And if `numpy` exists there's a special `npoint()` command to do lightning fast linearization for Shapes.
 
 # Compatibility
 
@@ -46,6 +46,72 @@ The primary goal of this project is to make a more robust version of `svg.path` 
 Real world functionality demands we must correctly and reasonably provide reading, transcoding, and manipulation of SVG content.
 
 The svgelements code should not include any hard dependencies. It should remain a single file with emphasis on allowing projects to merely include a copy of `svgelements.py` to do any SVG parsing required. 
+
+# Features Supported
+SVG is a huge spec and bleeds into a lot of area. Many of these are supported some are not.
+
+## Supported
+
+* Robust SVG parsing.
+* SVG/CSS Lengths: `px`, `pt`, `pc`, `cm`, `mm`, `in`, `%`
+* SVG/CSS Color: keyword, `#rrggbb`, `#rgb`, `rgb(r,g,b)`, `rgb(r%,g%,b%)`, `rgba(r,g,b,a)`, `hsl(hue, s, l)`
+* SVG/CSS Matrix
+     * Full matrix support. All objects have a `.transform` object with all cascading matrix operations. Including viewport.
+* SVG Viewport. - Correctly processes viewports, including `preserveAspectRatio`.
+* CSS Angle - `deg`, `rad`, `grad`, `turn`. Full use of these within `rotate(<angle>)` transformation command.
+* SVG Shape: Rect - full parsing of `x`, `y`, `rx`, `ry`, `width`, `height`, presentation attributes in length/percent form.
+* SVG Shape: Circle - full parsing of `cx`, `cy`, `r`, presentation attributes in length/percent form.
+* SVG Shape: Ellipse - full parsing of `cx`, `cy`, `rx`, `ry`, presentation attributes in length/percent form.
+* SVG Shape: Polygon - full parsing of `.points`
+* SVG Shape: Polyline - full parsing of `.points`
+* SVG Shape: Line - full parsing of `x0`, `y0`, `x1`, `y1` presentation attributes in length/percent form.
+     * (Internally this is called `SimpleLine` since `Line` is a `PathSegment` type.)
+* SVG Shape: Path - Perfect path_d parsing. Relative/Absolute, Smooth BezierCurve, preservation of original segment form.
+* PathSegments with advanced geometric functions. eg. `point()`, `npoint()`, `bbox()` `reverse()`
+* Transformation of Shapes and Paths, within groups as well as with respect to the SVG Viewport.
+* First order use of `.stroke`, `.fill` and `.stroke_width` for all Shapes. `Stroke` and `Fill` are colors (Fill may return a `Pattern`, or Gradient-type in future versions, but is currently *always* a Color), and `stroke_width` is a length/percent value (will be rendered to a float during parsing).
+* SVG Spec deconstruction of basic shapes into Paths within regard to the SVG 2.0 spec. Path(shape) or shape.d()
+* `Group` objects. Container class.
+* `clipPath` objects, these are assigned as a `.clip_path` to any object that referenced them.
+* `<defs>` and `<use>` functionality within the parsing tree.
+* Accurate referencing of objects in the ShadowDOM.
+* `Pattern` objects. These are parsed they are not currently assigned.
+* `Text` objects. The lack of a font engine makes this class more of a parsed stub class.
+* `Image` creates `SVGImage` objects which will load Images if `Pillow` is installed with a call to `.load()`. Correct parsing of `x`, `y`, `width`, `height` and `viewbox`. 
+* `Desc` description object.
+* `Title` description object.
+* Nested `SVG` objects. (Caveats see Non-Supported).
+* CSS Styling.
+
+## Not supported
+Some things are currently not supported. 
+
+* Full CSS/DOM specific parsing and modifications.
+* Full CSS StyleSheet. Stylesheets should be read anywhere in the file and styled all matching objects even those already parsed. We accept Styling that occurs before the objects.
+* Color: OS Specific System colors.
+* `Script` and Scripting.
+* `RadialGradiant` Fills
+* `LinearGradiant` Fills
+* `Pattern` linking to Fill the IRI linked object.
+* `a` hyperlink text objects
+* `Switch` elements.
+* `Marker` elements.
+* `Symbol` elements.
+* `Masking` elements.
+* `TextPath` elements.
+* `Metadata` elements.
+* Nesting of `SVG` elements within an `Image` object.
+* `em`, `ex` length and font engine requiring code. (the height of 'm' and 'x' is unknown).
+* Slicing of SVG geometry, outside of viewbox.
+* Slicing of SVG geometry, within clipPath
+* External Loading of SVG files.
+* External loading of SVGz files.
+* External loading of CSS data from another file.
+* Script objects, and scripting in general.
+* SVG Animation
+* Styling based on Descendant, Child, FirstChild, Sibling, Attribute, AttributeWithValue.
+* `Glyph` - Dropped in SVG 2.0
+* `tref` - Dropped in SVG 2.0
 
 # Parsing
 
