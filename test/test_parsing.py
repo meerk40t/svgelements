@@ -225,6 +225,14 @@ class TestParser(unittest.TestCase):
         self.assertEqual(move_2_places.point(1), 1 + 1j)
         self.assertEqual(move_2_places.length(), 0)
 
+    def test_fill_opacity_fill_none(self):
+        s = io.StringIO('<svg><path d="M0,0 H10 V10 H0 z" fill-opacity="1" fill="none" /></svg>')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 H10 V10 H0 z")
+                self.assertEqual(e.fill, "none" )
+
 
 class TestParseDisplay(unittest.TestCase):
     """
