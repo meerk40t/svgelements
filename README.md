@@ -107,7 +107,6 @@ Some things are currently not supported.
 * External Loading of SVG files.
 * External loading of SVGz files.
 * External loading of CSS data from another file.
-* Script objects, and scripting in general.
 * SVG Animation
 * Styling based on Descendant, Child, FirstChild, Sibling, Attribute, AttributeWithValue.
 * `Glyph` - Dropped in SVG 2.0
