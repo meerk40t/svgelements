@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import io
 import unittest
 
 from svgelements import *
@@ -66,3 +67,100 @@ class TestElementLength(unittest.TestCase):
         self.assertRaises(ValueError, lambda: Length('20em') > '1in')
         self.assertEqual(max(Length('1in'), Length('2.5cm')), '1in')
 
+    def test_length_parsed(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>'
+                        '<rect x="1in" y="1in" width="10in" height="10in"/>'
+                        '</svg>')
+        m = SVG.parse(q, ppi=96.0)
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 96.0)
+        self.assertEqual(q[1].y, 96.0)
+        self.assertEqual(q[1].width, 960)
+        self.assertEqual(q[1].height, 960)
+
+    def test_length_parsed_percent(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg>'
+                        '<rect x="25%" y="25%" width="50%" height="50%"/>'
+                        '</svg>')
+        m = SVG.parse(q, width=1000, height=1000)
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 250)
+        self.assertEqual(q[1].y, 250)
+        self.assertEqual(q[1].width, 500)
+        self.assertEqual(q[1].height, 500)
+
+    def test_length_parsed_percent2(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="1in" height="1in">'
+                        '<rect x="25%" y="25%" width="50%" height="50%"/>'
+                        '</svg>')
+        m = SVG.parse(q, width=1000, height=1000)
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 24)
+        self.assertEqual(q[1].y, 24)
+        self.assertEqual(q[1].width, 48)
+        self.assertEqual(q[1].height, 48)
+
+    def test_length_parsed_percent3(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg width="1in" height="1in">'
+                        '<rect x="25%" y="25%" width="50%" height="50%"/>'
+                        '</svg>')
+        m = SVG.parse(q, width=500, height=500)
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 24)
+        self.assertEqual(q[1].y, 24)
+        self.assertEqual(q[1].width, 48)
+        self.assertEqual(q[1].height, 48)
+
+    def test_length_parsed_percent4(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg viewbox="0 0 960 960" width="1in" height="1in">'
+                        '<rect x="25%" y="25%" width="50%" height="50%"/>'
+                        '</svg>')
+        m = SVG.parse(q, width="garbage", height=500)
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 24)
+        self.assertEqual(q[1].y, 24)
+        self.assertEqual(q[1].width, 48)
+        self.assertEqual(q[1].height, 48)
+
+    def test_length_parsed_percent5(self):
+        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
+                        '<svg viewbox="0 0 960 960">'
+                        '<rect x="25%" y="25%" width="50%" height="50%"/>'
+                        '<rect x="240" y="240" width="480" height="480"/>'
+                        '</svg>')
+        m = SVG.parse(q, width="1in", height="1in")
+        q = list(m.elements())
+        self.assertEqual(q[1].x, 24)
+        self.assertEqual(q[1].y, 24)
+        self.assertEqual(q[1].width, 48)
+        self.assertEqual(q[1].height, 48)
+        self.assertEqual(q[2].x, 240)
+        self.assertEqual(q[2].y, 240)
+        self.assertEqual(q[2].width, 480)
+        self.assertEqual(q[2].height, 480)
+
+    def test_length_parsed_percent6(self):
+        q = io.StringIO('<svg version="1.1" baseProfile="basic" id="svg-root"\n'
+                        'width="100%" height="100%" viewBox="0 0 480 360"\n'
+                        'xmlns="http://www.w3.org/2000/svg">\n'
+                        '<g transform="translate(5, 50) scale(4)">\n'
+                        '<circle cx="7.5" cy="7.5" r="2.5" fill="black"/>\n'
+                        '<circle cx="1.563%" cy="2.083%" r=".3535%" fill="fuchsia"/>\n'
+                        '</g>\n'
+                        '<g transform="translate(30, 260)  skewX(45) scale(4)">\n'
+                        '<circle cx="0" cy="0" r="3.536" fill="black"/>\n'
+                        '<circle cx="10" cy="0" r="3.536px" fill="fuchsia"/>\n'
+                        '<circle cx="20" cy="0" r=".8334%" fill="green"/>\n'
+                        '</g>\n'
+                        '</svg>\n')
+        m = SVG.parse(q, width="10000", height="10000")
+        q = list(m.elements())
+        self.assertAlmostEqual(q[2].cx, q[3].cx, delta=1)
+        self.assertAlmostEqual(q[2].cy, q[3].cy, delta=1)
+        self.assertAlmostEqual(q[5].rx, q[6].rx, delta=1)
+        self.assertAlmostEqual(q[6].rx, q[7].rx, delta=1)

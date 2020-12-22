@@ -263,6 +263,3 @@ class TestPath(unittest.TestCase):
         def m_assign():
             m[-1] = 'M5,5z'
         self.assertRaises(ValueError, m_assign)
-
-
-
