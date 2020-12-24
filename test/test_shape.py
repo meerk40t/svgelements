@@ -156,42 +156,42 @@ class TestElementShape(unittest.TestCase):
 
     def test_circle_equals_transformed_circle(self):
         shape1 = Circle(r=2)
-        shape2 = Circle() * "scale(2)"
+        shape2 = Circle().set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
 
     def test_rect_equals_transformed_rect(self):
         shape1 = Rect(x=0, y=0, width=2, height=2)
-        shape2 = Rect(0, 0, 1, 1) * "scale(2)"
+        shape2 = Rect(0, 0, 1, 1).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
 
     def test_rrect_equals_transformed_rrect(self):
         shape1 = Rect(0, 0, 2, 2, 1, 1)
-        shape2 = Rect(0, 0, 1, 1, 0.5, 0.5) * "scale(2)"
+        shape2 = Rect(0, 0, 1, 1, 0.5, 0.5).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
 
     def test_line_equals_transformed_line(self):
         shape1 = SimpleLine(0, 0, 2, 2)
-        shape2 = SimpleLine(0, 0, 1, 1) * "scale(2)"
+        shape2 = SimpleLine(0, 0, 1, 1).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
 
     def test_polyline_equals_transformed_polyline(self):
         shape1 = Polyline(0, 0, 2, 2)
-        shape2 = Polyline(0, 0, 1, 1) * "scale(2)"
+        shape2 = Polyline(0, 0, 1, 1).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
 
     def test_polygon_equals_transformed_polygon(self):
         shape1 = Polyline(0, 0, 2, 2)
-        shape2 = Polyline(0, 0, 1, 1) * "scale(2)"
+        shape2 = Polyline(0, 0, 1, 1).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
         shape2.reify()
         self.assertEqual(shape1, shape2)
@@ -203,7 +203,7 @@ class TestElementShape(unittest.TestCase):
 
     def test_polyline_closed_equals_transformed_polygon(self):
         shape1 = Path(Polyline(0, 0, 2, 2)) + "z"
-        shape2 = Polygon(0, 0, 1, 1) * "scale(2)"
+        shape2 = Polygon(0, 0, 1, 1).set('vector-effect', 'non-scaling-stroke') * "scale(2)"
         self.assertEqual(shape1, shape2)
 
     def test_path_plus_shape(self):
@@ -394,6 +394,35 @@ class TestElementShape(unittest.TestCase):
         """Reifying a path."""
         test_reification(self, Path("M0,0L1,1L1,0z"))
         test_reification(self, Path("M100,100L70,70L45,0z"))
+
+    def test_shapes_degenerate(self):
+        """Testing Degenerate Shapes"""
+        self.assertEqual(Rect(0, 0, 0, 100).d(), '')
+        self.assertEqual(Rect(0, 0, 100, 0).d(), '')
+        self.assertEqual(Circle(0, 0, 0).d(), '')
+        self.assertEqual(Ellipse(0,0,0,100).d(), '')
+        self.assertEqual(Ellipse(0, 0, 100, 0).d(), '')
+
+    def test_shape_npoints(self):
+        import numpy as np
+        shapes = [
+            Rect(10, 20, 300, 340),
+            Circle(10, 10, 5),
+            Ellipse(50, 50, 30, 20),
+            Polygon(points=((10, 10), (20, 30), (50, 20))),
+            Polyline(points=((10, 10), (20, 30), (50, 20), (100, 120))),
+        ]
+
+        for shape in shapes:
+            pos = np.linspace(0, 1, 1000)
+            # with disable_numpy():
+            pts1 = shape.npoint(pos)  # Test rendered worthless.
+
+            pts2 = shape.npoint(pos)
+
+            for p, p1, p2 in zip(pos, pts1, pts2):
+                self.assertEqual(shape.point(p), Point(p1))
+                self.assertEqual(Point(p1), Point(p2))
 
 
 def test_reification(test, shape):

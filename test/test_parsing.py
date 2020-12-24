@@ -1,4 +1,6 @@
 from __future__ import division
+
+import io
 import unittest
 
 from svgelements import *
@@ -177,3 +179,282 @@ class TestParser(unittest.TestCase):
         arc_path_parsed_scaled = Path('M 0 25 A1,1 0.0 0 0 0,-25')
         self.assertEqual(arc_path_declared, arc_path_parsed)
         self.assertEqual(arc_path_parsed_scaled, arc_path_declared)
+
+    def test_svg_parse(self):
+        s = io.StringIO(u'''<svg><path d="M0,0 L1,0 z"/></svg>''')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L1,0 z")
+
+    def test_svg_parse_group(self):
+        s = io.StringIO(u'''<svg>
+                        <g transform="scale(10,10)" vector-effect="non-scaling-stroke">
+                        <path d="M0,0 L1,0 z"/>
+                        </g>
+                        </svg>''')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L10,0 z")
+
+    def test_svg_parse_group_2(self):
+        s = io.StringIO(u'''<svg><g><path d="M0,0 L1,0 z"/><path d="M0,0 L1,0 z"/></g></svg>''')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 L1,0 z")
+
+    def test_solo_move(self):
+        move_only = Path("M0,0")
+        self.assertEqual(move_only.point(0), 0 + 0j)
+        self.assertEqual(move_only.point(0.5), 0 + 0j)
+        self.assertEqual(move_only.point(1), 0 + 0j)
+        self.assertEqual(move_only.length(), 0)
+
+        move_onlyz = Path("M0,0Z")
+        self.assertEqual(move_onlyz.point(0), 0 + 0j)
+        self.assertEqual(move_onlyz.point(0.5), 0 + 0j)
+        self.assertEqual(move_onlyz.point(1), 0 + 0j)
+        self.assertEqual(move_onlyz.length(), 0)
+
+        move_2_places = Path("M0,0M1,1")
+        self.assertEqual(move_2_places.point(0), 0 + 0j)
+        self.assertEqual(move_2_places.point(0.49), 0 + 0j)
+        self.assertEqual(move_2_places.point(0.51), 1 + 1j)
+        self.assertEqual(move_2_places.point(1), 1 + 1j)
+        self.assertEqual(move_2_places.length(), 0)
+
+    def test_fill_opacity_fill_none(self):
+        s = io.StringIO(u'''<svg><path d="M0,0 H10 V10 H0 z" fill-opacity="1" fill="none" /></svg>''')
+        svg = SVG.parse(s)
+        for e in svg.elements():
+            if isinstance(e, Path):
+                self.assertEqual(e, "M0,0 H10 V10 H0 z")
+                self.assertEqual(e.fill, "none" )
+
+
+class TestParseDisplay(unittest.TestCase):
+    """
+    Tests for the parsing of displayed objects within an svg for conforming to the spec. Anything with a viewbox that
+    has a zero width or zero height is not rendered. Any svg with a zero height or zero width is not rendered. Anything
+    with a display="none" is not rendered whether this property comes from class, style, or direct attribute. Items with
+    visibility="hidden" are rendered and returned but should be hidden by the end user.
+    """
+
+    def test_svgfile(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:inline">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertTrue(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_0_width(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:inline">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_0_height(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:inline">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_viewbox_0_height(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 0" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:inline">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_viewbox_0_width(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 0 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:inline">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_none_inline(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="display:none">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_none_attribute(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g display="none">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_mixed(self):
+        """
+        All children of a display="none" are excluded, even if they override that display.
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g display="none">
+                        <line display="show" x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        print(q)
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_display_none_class(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <style type="text/css">\n
+                        .hide { \n
+                             display:none;\n
+                        }\n
+                        </style>\n
+                        <g class="hide">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+    def test_svgfile_visibility_hidden(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g style="visibility:hidden">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertTrue(isinstance(q[-1], SimpleLine))  # Hidden elements still exist.
+
+
+class TestParseDefUse(unittest.TestCase):
+    """
+    Tests for Def and Use within an svg file. These must work with the definitions used within the SVG spec. This means
+    that use objects must be replaced with their pure tree forms as if they are children of the use flag in question.
+    """
+
+    def test_struct_use_01(self):
+        """
+        The purpose of this test is to validate proper handling of
+        the use element. In particular, the test checks the proper inheritance
+        of properties through the shadow tree (rather than through the document
+        tree).
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="100%" height="100%" viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <defs>
+                            <g fill="red" stroke="yellow" stroke-width="3">
+                                <rect id="usedRect" width="20" height="20"/>
+                                <circle id="usedCircle" cx="10" cy="10" r="10"/>
+                                <ellipse id="usedEllipse" cx="10" cy="10" rx="10" ry="10"/>
+                                <line id="usedLine" x1="0" y1="10" x2="20" y2="10"/>
+                                <path id="usedPath" d="M 0 0 L 20 0 L 20 20 L 0 20 Z"/>
+                                <polygon id="usedPolygon" points="0,0 20,0 20,20 0,20 0 0"/>
+                                <polyline id="usedPolyline" points="0,0 20,0 20,20"/>
+                                <g id="usedG">
+                                    <rect width="10" height="20"/>
+                                    <rect id="half_green" x="10" width="10" height="20" fill="rgb(0,128,0)"/>
+                                </g>
+                                <use id="usedUse" xlink:href="#usedRect"/>
+                                <text id="usedText">Text</text>
+                            </g>
+                        </defs>
+                        <g transform="translate(150, 25)">
+                            <use xlink:href="#usedRect" fill="#0F0"/>
+                            <use y="30" xlink:href="#usedCircle" fill="#0F0"/>
+                            <use y="60" xlink:href="#usedEllipse" fill="#0F0"/>
+                            <use y="90" xlink:href="#usedLine" stroke="#0F0" stroke-width="2"/>
+                            <use y="120" xlink:href="#usedPolyline" stroke="#0F0" stroke-width="2" fill="none"/>
+                            <use y="150" xlink:href="#usedPolygon" fill="#0F0"/>
+                            <use y="180" xlink:href="#usedPath" fill="#0F0"/>
+                            <use x="180" y="0" xlink:href="#usedG" fill="#0F0"/>
+                            <use x="180" y="30" xlink:href="#usedUse" fill="#0F0"/>
+                            <use y="260" xlink:href="#usedText" fill="#0F0"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        for element in q:
+            try:
+                ident = element.id
+                fill = element.fill
+                stroke = element.stroke
+                if ident == "half_green":
+                    self.assertEqual('#008000', fill)  # Half green rectangle within used group.
+                elif ident == "usedLine":
+                    self.assertEqual('#0F0', stroke)
+                elif ident == "usedPolyline":
+                    self.assertEqual('#0F0', stroke)
+                else:
+                    self.assertEqual('#0F0', fill)  # Remaining are filled green.
+
+            except AttributeError:
+                pass
+
+    def test_struct_defs_ignored(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg>
+                            <defs>
+                                <g>
+                                    <rect x="100" y="100" width="100" height="100" />
+                                    <circle cx="100" cy="100" r="100" />
+                                </g>
+                            </defs>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertEqual(len(q), 1)
+
+    def test_struct_use_unlinked(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg>
+                        <use href="garbage_address"/>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertEqual(len(q), 2)

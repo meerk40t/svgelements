@@ -6,6 +6,7 @@ from svgelements import *
 
 
 class TestElementAngle(unittest.TestCase):
+    """These tests ensure the basic functions of the Angle element."""
 
     def test_angle_init(self):
         self.assertEqual(Angle.degrees(90).as_turns, 0.25)

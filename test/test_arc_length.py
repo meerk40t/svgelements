@@ -8,14 +8,14 @@ from svgelements import *
 
 def get_random_arc():
     return Arc((random() * 50, random() * 50),
-               random() * 50, random() * 50,
+               random() * 48 + 2, random() * 48 + 2,
                int(random() * 180),
                int(random() * 2), int(random() * 2),
                (random() * 50, random() * 50))
 
 
 def get_random_circle_arc():
-    r = random() * 50
+    r = random() * 48 + 2
     return Arc((random() * 50, random() * 50),
                r, r,
                int(random() * 180),
@@ -121,7 +121,7 @@ class TestElementArcLength(unittest.TestCase):
         angle = atan(a * tan(radians(50)) / b)
         x = cos(angle) * a
         y = sin(angle) * b
-        arc0 = Arc(start=3.05 + 0j, radius=3.05 + 2.23j, rotation=0, sweep=1, arc=0, end=x + 1j * y)
+        arc0 = Arc(start=3.05 + 0j, radius=3.05 + 2.23j, rotation=0, sweep_flag=1, arc_flag=0, end=x + 1j * y)
 
         ellipse = Ellipse(0, 0, 3.05, 2.23)
         arc1 = ellipse.arc_angle(0, Angle.degrees(50))
@@ -239,6 +239,7 @@ class TestElementArcLength(unittest.TestCase):
         ellipse = Ellipse("20", "20", 4, 8, "rotate(45deg)")
         matrix = ellipse.unit_matrix()
         ellipse2 = Circle()
+        ellipse2.values[SVG_ATTR_VECTOR_EFFECT] = SVG_VALUE_NON_SCALING_STROKE
         ellipse2 *= matrix
         p1 = ellipse.point_at_t(1)
         p2 = ellipse2.point_at_t(1)
@@ -293,7 +294,7 @@ class TestElementArcLength(unittest.TestCase):
             length = arc._line_length()
             c = abs(length - chord)
             error += c
-            self.assertAlmostEqual(chord, length)
+            self.assertAlmostEqual(chord, length, places=6)
         print("Average chord vs line: %g" % (error / n))
 
     def test_arc_len_flat_line(self):
@@ -363,3 +364,59 @@ class TestElementArcLength(unittest.TestCase):
             error += c
             self.assertAlmostEqual(exact, length, places=1)
         print("Average arc-line error: %g" % (error / n))
+
+
+class TestElementArcPoint(unittest.TestCase):
+
+    def test_arc_point_start_stop(self):
+        import numpy as np
+        for _ in range(1000):
+            arc = get_random_arc()
+            self.assertEqual(arc.start, arc.point(0))
+            self.assertEqual(arc.end, arc.point(1))
+            self.assertTrue(np.all(np.array([list(arc.start), list(arc.end)])
+                                   == arc.npoint([0, 1])))
+
+    # def test_arc_point_implementations_match(self):
+    #     import numpy as np
+    #     for _ in range(1000):
+    #         arc = get_random_arc()
+    #
+    #         pos = np.linspace(0, 1, 100)
+    #
+    #         v1 = arc.npoint(pos)
+    #         # with disable_numpy():
+    #         v2 = arc.npoint(pos)  # test is rendered pointless.
+    #
+    #         for p, p1, p2 in zip(pos, v1, v2):
+    #             self.assertEqual(arc.point(p), Point(p1))
+    #             self.assertEqual(Point(p1), Point(p2))
+
+
+class TestElementArcApproximation(unittest.TestCase):
+
+    def test_approx_quad(self):
+        n = 100
+        for i in range(n):
+            arc = get_random_arc()
+            path1 = Path([Move(), arc])
+            path2 = Path(path1)
+            path2.approximate_arcs_with_quads(error=0.05)
+            d = abs(path1.length() - path2.length())
+            # Error less than 1% typically less than 0.5%
+            if d > 10:
+                print(arc)
+            self.assertAlmostEqual(d, 0.0, delta=20)
+
+    def test_approx_cubic(self):
+        n = 100
+        for i in range(n):
+            arc = get_random_arc()
+            path1 = Path([Move(), arc])
+            path2 = Path(path1)
+            path2.approximate_arcs_with_cubics(error=0.1)
+            d = abs(path1.length() - path2.length())
+            # Error less than 0.1% typically less than 0.001%
+            if d > 1:
+                print(arc)
+            self.assertAlmostEqual(d, 0.0, delta=2)
