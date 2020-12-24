@@ -9,11 +9,11 @@ from svgelements import *
 class TestDescriptiveElements(unittest.TestCase):
 
     def test_descriptive_element(self):
-        q = io.StringIO('<?xml version="1.0" encoding="utf-8" ?>\n'
-                        '<svg>'
-                        '<title>Who?</title>'
-                        '<desc>My Friend.</desc>'
-                        '</svg>')
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>\n
+                        <svg>
+                        <title>Who?</title>
+                        <desc>My Friend.</desc>
+                        </svg>''')
         m = SVG.parse(q)
         q = list(m.elements())
         self.assertEqual(len(q), 3)
