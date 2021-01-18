@@ -7,13 +7,15 @@ try:
 except ImportError:
     from collections import MutableSequence  # noqa
 from copy import copy
-from math import *
+
+from math import ceil, cos, radians, sin, sqrt, hypot, atan, atan2, tan, degrees, acos, log
 
 from xml.etree.ElementTree import iterparse
 
 try:
     from math import tau
 except ImportError:
+    from math import pi
     tau = pi * 2
 
 """
@@ -28,7 +30,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.4.3"
+SVGELEMENTS_VERSION = "1.4.5"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -992,6 +994,12 @@ class Color(object):
 
     def __ne__(self, other):
         return not self == other
+
+    def __abs__(self):
+        # Return opaque color.
+        if self.value is None:
+            return Color(self.value)
+        return Color(self.red, self.green, self.blue)
 
     @staticmethod
     def rgb_to_int(r, g, b, opacity=1.0):
@@ -4807,18 +4815,18 @@ class Arc(Curve):
         """
         phi = self.get_rotation().as_radians
         if cos(phi) == 0:
-            atan_x = pi / 2
+            atan_x = tau / 4
             atan_y = 0
         elif sin(phi) == 0:
             atan_x = 0
-            atan_y = pi / 2
+            atan_y = tau / 4
         else:
             rx, ry = self.rx, self.ry
             atan_x = atan(-(ry / rx) * tan(phi))
             atan_y = atan((ry / rx) / tan(phi))
 
         def angle_inv(ang, k):  # inverse of angle from Arc.derivative()
-            return ((ang + pi * k) * (360 / (2 * pi)) - self.theta) / self.delta
+            return ((ang + (tau/2) * k) * (360 / tau) - self.theta) / self.delta
 
         xtrema = [self.start.x, self.end.x]
         ytrema = [self.start.y, self.end.y]
