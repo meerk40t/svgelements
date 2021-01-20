@@ -86,3 +86,43 @@ class TestElementColor(unittest.TestCase):
         m = list(SVG.parse(q).elements())
         r = m[1]
         self.assertAlmostEqual(r.stroke.opacity, 0.2, delta=1.0/255.0)
+
+    def test_color_none(self):
+        color = Color(None)
+        self.assertEqual(color, SVG_VALUE_NONE)
+        self.assertEqual(color.red, None)
+        self.assertEqual(color.green, None)
+        self.assertEqual(color.blue, None)
+        self.assertEqual(color.alpha, None)
+        self.assertEqual(color.opacity, None)
+        self.assertEqual(color.hexa, None)
+        self.assertEqual(color.hex, None)
+        self.assertEqual(color.blackness, None)
+        self.assertEqual(color.brightness, None)
+        self.assertEqual(color.hsl, None)
+        self.assertEqual(color.hue, None)
+        self.assertEqual(color.saturation, None)
+        self.assertEqual(color.lightness, None)
+        self.assertEqual(color.luma, None)
+        self.assertEqual(color.luminance, None)
+        self.assertEqual(color.intensity, None)
+
+        def set_red():
+            color.red = 0
+        self.assertRaises(ValueError, set_red)
+
+        def set_green():
+            color.green = 0
+        self.assertRaises(ValueError, set_green)
+
+        def set_blue():
+            color.blue = 0
+        self.assertRaises(ValueError, set_blue)
+
+        def set_alpha():
+            color.alpha = 0
+        self.assertRaises(ValueError, set_alpha)
+
+        def set_opacity():
+            color.opacity = 1
+        self.assertRaises(ValueError, set_opacity)
