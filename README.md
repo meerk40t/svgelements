@@ -48,7 +48,7 @@ Real world functionality demands we must correctly and reasonably provide readin
 The svgelements code should not include any hard dependencies. It should remain a single file with emphasis on allowing projects to merely include a copy of `svgelements.py` to do any SVG parsing required. 
 
 # Features Supported
-SVG is a huge spec and bleeds into a lot of area. Many of these are supported some are not.
+SVG is a huge spec and bleeds into a lot of areas. Many of these are supported some are not.
 
 ## Supported
 
