@@ -7149,6 +7149,12 @@ class Group(SVGElement, Transformable, list):
     def __copy__(self):
         return Group(self)
 
+    def property_by_object(self, s):
+        Transformable.property_by_object(self, s)
+
+    def property_by_values(self, values):
+        Transformable.property_by_values(self, values)
+
     def select(self, conditional=None):
         """
         Finds all flattened subobjects of this group for which the conditional returns
@@ -7156,13 +7162,19 @@ class Group(SVGElement, Transformable, list):
 
         :param conditional: function taking element and returns True to include or False if exclude
         """
-        for subitem in self:
-            if conditional is not None and not conditional(subitem):
-                continue
-            yield subitem
-            if isinstance(subitem, Group):
-                for s in subitem.select(conditional):
-                    yield s
+        if conditional is None:
+            for subitem in self:
+                yield subitem
+                if isinstance(subitem, Group):
+                    for s in subitem.select(conditional):
+                        yield s
+        else:
+            for subitem in self:
+                if conditional(subitem):
+                    yield subitem
+                if isinstance(subitem, Group):
+                    for s in subitem.select(conditional):
+                        yield s
 
     def reify(self):
         Transformable.reify(self)
@@ -7753,6 +7765,46 @@ class SVG(Group):
         self.height = None
         self.viewbox = None
         Group.__init__(self, *args, **kwargs)
+
+    @property
+    def implicit_position(self):
+        if not self.apply:
+            return Point(self.x, self.y)
+        point = Point(self.x, self.y)
+        point *= self.transform
+        return point
+
+    @property
+    def implicit_x(self):
+        if not self.apply:
+            return self.x
+        return self.implicit_position[0]
+
+    @property
+    def implicit_y(self):
+        if not self.apply:
+            return self.y
+        return self.implicit_position[1]
+
+    @property
+    def implicit_width(self):
+        if not self.apply:
+            return self.width
+        p = Point(self.width, 0)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
+
+    @property
+    def implicit_height(self):
+        if not self.apply:
+            return self.height
+        p = Point(0, self.height)
+        p *= self.transform
+        origin = Point(0, 0)
+        origin *= self.transform
+        return origin.distance_to(p)
 
     def property_by_object(self, s):
         Group.property_by_object(self, s)
