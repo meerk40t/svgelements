@@ -1,6 +1,6 @@
 # svgelements
 
-`svgelements` does high fidelity SVG parsing. The goal is to successfully and correctly SVG, for use with any scripts that may need or want to use SVG files.
+`svgelements` does high fidelity SVG parsing and geometric rendering. The goal is to successfully and correctly process SVG for use with any scripts that may need or want to use SVG files as geometric data.
 
 This is both facilitated by, and results in, very useful elements within the SVG spec: Path, Matrix, Angle, Length, Color, Point and other SVG and CSS Elements. The SVG spec defines a variety of elements which generally interoperate. In order to have a robust experience with SVGs we must be able to correctly deal with the parsing and interactions of these elements.
 
@@ -48,7 +48,7 @@ Real world functionality demands we must correctly and reasonably provide readin
 The svgelements code should not include any hard dependencies. It should remain a single file with emphasis on allowing projects to merely include a copy of `svgelements.py` to do any SVG parsing required. 
 
 # Features Supported
-SVG is a huge spec and bleeds into a lot of area. Many of these are supported some are not.
+SVG is a huge spec and bleeds into a lot of areas. Many of these are supported some are not.
 
 ## Supported
 
