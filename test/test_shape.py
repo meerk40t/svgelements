@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import unittest
+import io
 
 from svgelements import *
 
@@ -402,6 +403,25 @@ class TestElementShape(unittest.TestCase):
         self.assertEqual(Circle(0, 0, 0).d(), '')
         self.assertEqual(Ellipse(0,0,0,100).d(), '')
         self.assertEqual(Ellipse(0, 0, 100, 0).d(), '')
+
+    def test_issue_95(self):
+        """Testing Issue 95 stroke-width"""
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg>
+                        <ellipse style="stroke:#fc0000;stroke-width:1;fill:none" cx="0" cy="0" rx="1" ry="1" transform="scale(100) rotate(-90,0,0)"/>
+                        <rect style="stroke:#fc0000;stroke-width:1;fill:none" x="0" y="0" width="10" height="10" transform="scale(100) rotate(-90,0,0)"/>
+                        </svg>''')
+        m = SVG.parse(q)
+        ellipse = m[0]
+        for i in range(5):
+            ellipse = ellipse.reify()
+        self.assertEqual(ellipse.stroke_width, 1.0)
+
+        rect = m[1]
+        for i in range(5):
+            rect = rect.reify()
+        self.assertEqual(rect.stroke_width, 1.0)
+
 
     def test_shape_npoints(self):
         import numpy as np
