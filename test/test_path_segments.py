@@ -39,3 +39,6 @@ class TestBoundingBox(unittest.TestCase):
         for z in zip(r, (0.0, 0, 5.0, 2.5)):
             self.assertAlmostEqual(*z)
 
+    def test_null_arc_bbox(self):
+        self.assertEqual(Path("M0,0A0,0 0 0 0 0,0z").bbox(), (0,0,0,0))
+
