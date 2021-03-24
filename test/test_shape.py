@@ -480,6 +480,37 @@ class TestElementShape(unittest.TestCase):
         q.reify()
         self.assertEqual(q, r)
 
+    def test_issue_99c(self):
+        """Test Issue of inverted circle reified location"""
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg
+                            width="82.475mm"
+                            height="35.215mm"
+                            viewBox="24.766026 -242.607513 82.475082 35.214996"
+                            version="1.1"
+                        >
+                        <rect
+                            transform="scale(1,-1)"
+                            style="opacity:0.99;fill:none;stroke:#ff0000;stroke-width:0.0264584;stroke-miterlimit:4;stroke-dasharray:none"
+                            rx="2"
+                            x="100.41245"
+                            y="211.59723"
+                            width="100"
+                            height="100"
+                            id="circle2" /></svg>
+        ''')
+        m = SVG.parse(q, reify=False)
+        q = copy(m[0])
+        r = copy(m[0])
+        self.assertEqual(q, r)
+        q.reify()
+        r = Path(r)
+        q = Path(q)
+        self.assertEqual(q, r)
+        r.reify()
+        q.reify()
+        self.assertEqual(q, r)
+
 
     def test_shape_npoints(self):
         import numpy as np
