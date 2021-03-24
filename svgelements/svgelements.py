@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.4.9"
+SVGELEMENTS_VERSION = "1.4.10"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -4966,7 +4966,7 @@ class Arc(Curve):
         self.pry.matrix_transform(rotate_matrix)
         self.sweep = Angle.degrees(delta).as_radians
 
-    def as_quad_curves(self, arc_required):
+    def as_quad_curves(self, arc_required=None):
         if arc_required is None:
             sweep_limit = tau / 12.0
             arc_required = int(ceil(abs(self.sweep) / sweep_limit))
@@ -6200,6 +6200,8 @@ class Rect(Shape):
         """
         scale_x = self.transform.value_scale_x()
         scale_y = self.transform.value_scale_y()
+        if scale_x * scale_y < 0:
+            return self # No reification of negative values, gives negative dims.
         translate_x = self.transform.value_trans_x()
         translate_y = self.transform.value_trans_y()
         if (
@@ -6398,8 +6400,10 @@ class _RoundShape(Shape):
 
         Skewed and Rotated roundshapes cannot be reified.
         """
-        scale_x = abs(self.transform.value_scale_x())
-        scale_y = abs(self.transform.value_scale_y())
+        scale_x = self.transform.value_scale_x()
+        scale_y = self.transform.value_scale_y()
+        if scale_y * scale_x < 0:
+            return self  # No reification of flipped values.
         translate_x = self.transform.value_trans_x()
         translate_y = self.transform.value_trans_y()
         if (
