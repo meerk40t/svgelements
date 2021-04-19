@@ -3332,6 +3332,9 @@ class GraphicObject:
         except AttributeError:
             return self.stroke_width
 
+    def is_degenerate(self):
+        return False
+
 
 class Shape(SVGElement, GraphicObject, Transformable):
     """
@@ -6154,7 +6157,7 @@ class Rect(Shape):
         y = self.y
         width = self.width
         height = self.height
-        if width == 0 or height == 0:
+        if self.is_degenerate():
             return ()  # a computed value of zero for either dimension disables rendering.
         rx = self.rx
         ry = self.ry
@@ -6245,6 +6248,9 @@ class Rect(Shape):
         if isinstance(self.ry, Length):
             self.ry = self.ry.value(relative_length=height, **kwargs)
         return self
+
+    def is_degenerate(self):
+        return self.width == 0 or self.height == 0
 
 
 class _RoundShape(Shape):
@@ -6374,7 +6380,7 @@ class _RoundShape(Shape):
         # zero for either dimension, or a computed value of auto for both dimensions, disables rendering of the element.
         rx = self.implicit_rx
         ry = self.implicit_ry
-        if rx == 0 or ry == 0:
+        if self.is_degenerate():
             return ()
         center = self.implicit_center
         path.move((self.point_at_t(0)))
@@ -6441,6 +6447,11 @@ class _RoundShape(Shape):
         if isinstance(self.ry, Length):
             self.ry = self.ry.value(relative_length=height, **kwargs)
         return self
+
+    def is_degenerate(self):
+        rx = self.implicit_rx
+        ry = self.implicit_ry
+        return rx == 0 or ry == 0
 
     def unit_matrix(self):
         """
@@ -6849,7 +6860,7 @@ class _Polyshape(Shape):
             points = self.points
         else:
             points = list(map(self.transform.point_in_matrix_space, self.points))
-        if len(points) == 0:
+        if self.is_degenerate():
             return []
         segments = [Move(None, points[0])]
         last = points[0]
@@ -6875,6 +6886,8 @@ class _Polyshape(Shape):
         matrix.reset()
         return self
 
+    def is_degenerate(self):
+        return len(self.points) == 0
 
 class Polyline(_Polyshape):
     """
@@ -8181,6 +8194,8 @@ class SVG(Group):
                             s = Rect(values)
                         else:  # SVG_TAG_IMAGE == tag:
                             s = SVGImage(values)
+                        if s.is_degenerate():
+                            continue
                     except ValueError:
                         continue
                     s.render(ppi=ppi, width=width, height=height)

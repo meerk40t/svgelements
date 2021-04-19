@@ -403,6 +403,7 @@ class TestElementShape(unittest.TestCase):
         self.assertEqual(Circle(0, 0, 0).d(), '')
         self.assertEqual(Ellipse(0,0,0,100).d(), '')
         self.assertEqual(Ellipse(0, 0, 100, 0).d(), '')
+        self.assertEqual(Polygon(points='').d(), '')
 
     def test_issue_95(self):
         """Testing Issue 95 stroke-width"""
@@ -542,6 +543,17 @@ class TestElementShape(unittest.TestCase):
         q.reify()
         self.assertEqual(q, r)
 
+    def test_issue_104(self):
+        """Testing Issue 104 degenerate parsing"""
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg>
+                        <polygon points=""/>
+                        <polygon/>
+                        <rect x="0" y="0" width="0" height="10"/>
+                        <circle cx="0" cy="0" r="0"/>
+                        </svg>''')
+        m = SVG.parse(q)
+        self.assertEqual(len(m), 0)
 
     def test_shape_npoints(self):
         import numpy as np
