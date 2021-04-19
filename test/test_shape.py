@@ -358,8 +358,8 @@ class TestElementShape(unittest.TestCase):
 
     def test_rect_reify(self):
         """Reifying a rotated rect."""
-        test_reification(self, Rect())
-        test_reification(self, Rect(2, 2, 4, 4))
+        reification_checks(self, Rect())
+        reification_checks(self, Rect(2, 2, 4, 4))
 
         shape = Rect() * "rotate(-90) translate(20,0)"
         t = Rect(0, -20, 1, 1)
@@ -368,33 +368,33 @@ class TestElementShape(unittest.TestCase):
 
     def test_circle_reify(self):
         """Reifying a rotated circle."""
-        test_reification(self, Circle())
-        test_reification(self, Circle(2, 2, 4, 4))
+        reification_checks(self, Circle())
+        reification_checks(self, Circle(2, 2, 4, 4))
 
     def test_ellipse_reify(self):
         """Reifying a rotated ellipse."""
-        test_reification(self, Ellipse(rx=1, ry=2))
-        test_reification(self, Ellipse(2, 2, 5, 8))
+        reification_checks(self, Ellipse(rx=1, ry=2))
+        reification_checks(self, Ellipse(2, 2, 5, 8))
 
     def test_polyline_reify(self):
         """Reifying a rotated polyline."""
-        test_reification(self, Polyline("0,0 1,1 2,2"))
-        test_reification(self, Polyline("0,0 1,1 2,0"))
+        reification_checks(self, Polyline("0,0 1,1 2,2"))
+        reification_checks(self, Polyline("0,0 1,1 2,0"))
 
     def test_polygon_reify(self):
         """Reifying a rotated polygon."""
-        test_reification(self, Polygon("0,0 1,1 2,2"))
-        test_reification(self, Polygon("0,0 1,1 2,0"))
+        reification_checks(self, Polygon("0,0 1,1 2,2"))
+        reification_checks(self, Polygon("0,0 1,1 2,0"))
 
     def test_line_reify(self):
         """Reifying a rotated line."""
-        test_reification(self, SimpleLine(0, 0, 1, 1))
-        test_reification(self, SimpleLine(2, 2, 1, 0))
+        reification_checks(self, SimpleLine(0, 0, 1, 1))
+        reification_checks(self, SimpleLine(2, 2, 1, 0))
 
     def test_path_reify(self):
         """Reifying a path."""
-        test_reification(self, Path("M0,0L1,1L1,0z"))
-        test_reification(self, Path("M100,100L70,70L45,0z"))
+        reification_checks(self, Path("M0,0L1,1L1,0z"))
+        reification_checks(self, Path("M100,100L70,70L45,0z"))
 
     def test_shapes_degenerate(self):
         """Testing Degenerate Shapes"""
@@ -577,7 +577,7 @@ class TestElementShape(unittest.TestCase):
                 self.assertEqual(Point(p1), Point(p2))
 
 
-def test_reification(test, shape):
+def reification_checks(test, shape):
     correct_reify(test, shape * "rotate(-90) translate(20,0)")
     correct_reify(test, shape * "rotate(12turn)")
     correct_reify(test, shape * "translate(20,0)")

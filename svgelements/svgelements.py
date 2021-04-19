@@ -8194,13 +8194,13 @@ class SVG(Group):
                             s = Rect(values)
                         else:  # SVG_TAG_IMAGE == tag:
                             s = SVGImage(values)
-                        if s.is_degenerate():
-                            continue
                     except ValueError:
                         continue
                     s.render(ppi=ppi, width=width, height=height)
                     if reify:
                         s.reify()
+                    if s.is_degenerate():
+                        continue
                     context.append(s)
                 elif tag in (
                     SVG_TAG_STYLE,
