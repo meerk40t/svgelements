@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.4.10"
+SVGELEMENTS_VERSION = "1.4.11"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
