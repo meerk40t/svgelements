@@ -3560,27 +3560,14 @@ class Shape(SVGElement, GraphicObject, Transformable):
         """
         bbs = [
             seg.bbox()
-            for seg in self.segments(transformed=False)
+            for seg in self.segments(transformed=transformed)
             if not isinstance(Close, Move)
         ]
         try:
             xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
-        xmin = min(xmins)
-        xmax = max(xmaxs)
-        ymin = min(ymins)
-        ymax = max(ymaxs)
-        if transformed:
-            p0 = self.transform.transform_point([xmin, ymin])
-            p1 = self.transform.transform_point([xmin, ymax])
-            p2 = self.transform.transform_point([xmax, ymin])
-            p3 = self.transform.transform_point([xmax, ymax])
-            xmin = min(p0[0], p1[0], p2[0], p3[0])
-            ymin = min(p0[1], p1[1], p2[1], p3[1])
-            xmax = max(p0[0], p1[0], p2[0], p3[0])
-            ymax = max(p0[1], p1[1], p2[1], p3[1])
-        return xmin, ymin, xmax, ymax
+        return min(xmins), min(ymins), max(xmaxs), max(ymaxs)
 
     def _init_shape(self, *args):
         """
