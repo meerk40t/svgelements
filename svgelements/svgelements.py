@@ -8249,8 +8249,14 @@ class SVG(Group):
                     for key, value in assignments:
                         key = key.strip()
                         value = value.strip()
-                        for selector in key.split(","):  # Can comma select subitems.
-                            styles[selector.strip()] = value
+                        for selector in key.split(","): # Can comma select subitems.
+                            sel = selector.strip()
+                            if sel not in styles:
+                                styles[sel] = value
+                            else:
+                                if not styles[sel].endswith(';'):
+                                    styles[sel] += ';'
+                                styles[sel] += value
                 elif SVG_TAG_CLIPPATH == tag:
                     clip -= 1
                 if s is not None:
