@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.4.11"
+SVGELEMENTS_VERSION = "1.4.12"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -7137,7 +7137,6 @@ class Group(SVGElement, Transformable, list):
             s = args[0]
             if isinstance(s, Group):
                 self.extend(list(map(copy, s)))
-                return
         SVGElement.__init__(self, *args, **kwargs)
 
     def __imul__(self, other):
