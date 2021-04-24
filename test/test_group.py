@@ -53,3 +53,21 @@ class TestElementGroup(unittest.TestCase):
         self.assertEqual(r1.implicit_width, 200)
         self.assertEqual(r1.implicit_height, 200)
         print(r1.bbox())
+
+    def test_issue_107(self):
+        """
+        Tests issue 107 inability to multiple group matrix objects while creating new group objects.
+
+        https://github.com/meerk40t/svgelements/issues/107
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg viewBox="0, 0, 100, 100" height="200" width="200">
+                        <g>
+                        <rect x="0" y="20" width="50" height="50"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        m *= "translate(100,100)"  # Test __imul__
+        n = m * 'scale(2)'  # Test __mult__
+        self.assertEqual(n[0][0].transform, Matrix("matrix(2,0,0,2,200,200)"))
+        self.assertEqual(m[0][0].transform, Matrix("matrix(1,0,0,1,100,100)"))
