@@ -1105,9 +1105,9 @@ class Color(object):
         g = Color.crimp(g)
         b = Color.crimp(b)
         a = Color.crimp(opacity * 255.0)
-        a <<= 24
-        r <<= 16
-        g <<= 8
+        r <<= 24
+        g <<= 16
+        b <<= 8
         c = r | g | b | a
         return c
 
@@ -1455,17 +1455,15 @@ class Color(object):
         if size == 8:
             return int(h[:8], 16)
         elif size == 6:
-            s = "{0}".format(h[:6])
-            q = ~int(s, 16) & 0xFFFFFF
-            v = -1 ^ q
+            s = "{0}FF".format(h[:6])
+            v = int(s, 16)
             return v
         elif size == 4:
             s = h[0] + h[0] + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]
             return int(s, 16)
         elif size == 3:
-            s = "{0}{0}{1}{1}{2}{2}".format(h[0], h[1], h[2])
-            q = ~int(s, 16) & 0xFFFFFF
-            v = -1 ^ q
+            s = "{0}{0}{1}{1}{2}{2}FF".format(h[0], h[1], h[2])
+            v = int(s, 16)
             return v
         return Color.rgb_to_int(0, 0, 0)
 
@@ -1529,66 +1527,56 @@ class Color(object):
 
     @property
     def alpha(self):
-        return (self.value >> 24) & 0xFF if self.value is not None else None
+        return self.value & 0xFF if self.value is not None else None
 
     @alpha.setter
     def alpha(self, a):
         if self.value is None:
             raise ValueError
         a = Color.crimp(a)
-        self.value &= 0xFFFFFF
-        self.value = int(self.value)
-        if a & 0x80 != 0:
-            a ^= 0x80
-            a <<= 24
-            a = ~a
-            a ^= 0x7FFFFFFF
-        else:
-            a <<= 24
+        self.value &= ~0xFF
         self.value |= a
 
     @property
     def red(self):
-        return (self.value >> 16) & 0xFF if self.value is not None else None
+        return (self.value >> 24) & 0xFF if self.value is not None else None
 
     @red.setter
     def red(self, r):
         if self.value is None:
             raise ValueError
-        r = int(r & 0xFF)
-        self.value &= ~0xFF0000
-        r <<= 16
-        self.value |= r
+        r = Color.crimp(r)
+        self.value &= ~0xFF000000
+        self.value |= r << 24
 
     @property
     def green(self):
-        return (self.value >> 8) & 0xFF if self.value is not None else None
+        return (self.value >> 16) & 0xFF if self.value is not None else None
 
     @green.setter
     def green(self, g):
         if self.value is None:
             raise ValueError
-        g = int(g & 0xFF)
-        self.value &= ~0xFF00
-        g <<= 8
-        self.value |= g
+        g = Color.crimp(g)
+        self.value &= ~0xFF0000
+        self.value |= g << 16
 
     @property
     def blue(self):
-        return self.value & 0xFF if self.value is not None else None
+        return (self.value >> 8) & 0xFF if self.value is not None else None
 
     @blue.setter
     def blue(self, b):
         if self.value is None:
             raise ValueError
-        b = int(b & 0xFF)
-        self.value &= ~0xFF
-        self.value |= b
+        b = Color.crimp(b)
+        self.value &= ~0xFF00
+        self.value |= b << 8
 
     @property
     def hexa(self):
         return (
-            "#%02x%02x%02x%02x" % (self.alpha, self.red, self.green, self.blue)
+            "#%02x%02x%02x%02x" % (self.red, self.green, self.blue, self.alpha)
             if self.value is not None
             else None
         )

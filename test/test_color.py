@@ -126,3 +126,32 @@ class TestElementColor(unittest.TestCase):
         def set_opacity():
             color.opacity = 1
         self.assertRaises(ValueError, set_opacity)
+
+    def test_color_components(self):
+        color = Color("#E9967A80")
+        color2 = Color("darksalmon", .5)
+        self.assertEqual(color, color2)
+        self.assertEqual(color.red, 0xE9)
+        self.assertEqual(color.green, 0x96)
+        self.assertEqual(color.blue, 0x7A)
+        self.assertEqual(color.alpha, 0x80)
+        self.assertAlmostEqual(color.opacity, 0.50196078)
+        self.assertEqual(color.hex, "#e9967a80")
+        self.assertAlmostEqual(color.blackness, 0.0862745098)
+
+        color.red = 0
+        self.assertEqual(color.red, 0x0)
+        color.green = 0
+        self.assertEqual(color.green, 0x0)
+        color.blue = 0
+        self.assertEqual(color.blue, 0x0)
+        color.alpha = 0
+        self.assertEqual(color.alpha, 0x0)
+        color.opacity = 1
+        self.assertEqual(color.alpha, 0xFF)
+
+        color.lightness = .5
+        self.assertEqual(color.red, 0x7F)
+        self.assertEqual(color.green, 0x7F)
+        self.assertEqual(color.blue, 0x7F)
+        self.assertEqual(color.alpha, 0xFF)

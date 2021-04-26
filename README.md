@@ -840,7 +840,7 @@ The conversion of lengths to utilizes another element `Length` It provides conve
 
 ## Color
 
-Color is another fundamental element within SVG that is also useful elsewhere. The object contains an 'int' as 'value' in the form of an ARGB 32-bit integer. It will parse all the SVG color functions.
+Color is another fundamental element within SVG that is also useful elsewhere. The object contains an 'int' as 'value' in RGBA order, storing alpha in the 8 least signficant bits. It parses all the SVG color functions.
 
 If we get the `.fill` or `.stroke` of an object. This can be expressed in many ways, and needs to be converted to a consistent form. We could have a 3, 4, 6, or 8 digit hex. rgb(r,g,b) value, a static dictionary name or percent rgb(r,g,b). And must be properly parsed according to the spec.
 
