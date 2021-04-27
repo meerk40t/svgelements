@@ -127,6 +127,34 @@ class TestElementColor(unittest.TestCase):
             color.opacity = 1
         self.assertRaises(ValueError, set_opacity)
 
+
+    def test_color_hexa(self):
+        for r in range(0,255,17):
+            for g in range(0, 255, 17):
+                for b in range(0, 255, 17):
+                    for a in range(0, 255, 17):
+                        c = Color()
+                        c.red = r
+                        c.green = g
+                        c.blue = b
+                        c.alpha = a
+                        hexa = c.hexa
+                        c2 = Color(hexa)
+                        self.assertEqual(c,c2)
+
+    def test_color_hex(self):
+        for r in range(0,255,17):
+            for g in range(0, 255, 17):
+                for b in range(0, 255, 17):
+                    c = Color()
+                    c.red = r
+                    c.green = g
+                    c.blue = b
+                    c.alpha = 255
+                    hex = c.hex
+                    c2 = Color(hex)
+                    self.assertEqual(c,c2)
+
     def test_color_components(self):
         color = Color("#E9967A80")
         color2 = Color("darksalmon", .5)
