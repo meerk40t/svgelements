@@ -10,35 +10,81 @@ class TestElementColor(unittest.TestCase):
     """These tests test the basic functions of the Color element."""
 
     def test_color_red(self):
-        r0 = Color('red')
-        self.assertEqual(r0, 'red')
-        r1 = Color('#F00')
-        self.assertEqual(r0, r1)
-        r2 = Color('#FF0000')
-        self.assertEqual(r0, r2)
-        r3 = Color("rgb(255, 0, 0)")
-        self.assertEqual(r0, r3)
-        r4 = Color("rgb(100%, 0%, 0%)")
-        self.assertEqual(r0, r4)
-        r5 = Color("rgb(300, 0, 0)")
-        self.assertEqual(r0, r5)
-        r6 = Color("rgb(255, -10, 0)")
-        self.assertEqual(r0, r6)
-        r7 = Color("rgb(110%, 0%, 0%)")
-        self.assertEqual(r0, r7)
-        r8 = Color("rgba(255, 0, 0, 1)")
-        self.assertEqual(r0, r8)
-        r9 = Color("rgb(100%, 0%, 0%)")
-        self.assertEqual(r0, r9)
-        ra = Color("rgba(100%, 0%, 0%, 1)")
-        self.assertEqual(r0, ra)
-        rb = Color("hsl(0, 100%, 50%)")
-        self.assertEqual(r0, rb)
-        rc = Color("hsla(0, 100%, 50%, 1.0)")
-        self.assertEqual(r0, rc)
+        reference = Color('red')
+        self.assertEqual(reference, 'red')
+        self.assertEqual(reference, Color('#F00'))
+        self.assertEqual(reference, Color('#FF0000'))
+        self.assertEqual(reference, Color("rgb(255, 0, 0)"))
+        self.assertEqual(reference, Color("rgb(100%, 0%, 0%)"))
+        self.assertEqual(reference, Color("rgb(300, 0, 0)"))
+        self.assertEqual(reference, Color("rgb(255, -10, 0)"))
+        self.assertEqual(reference, Color("rgb(110%, 0%, 0%)"))
+        self.assertEqual(reference, Color("rgba(255, 0, 0, 1)"))
+        self.assertEqual(reference, Color("rgba(100%, 0%, 0%, 1)"))
+        self.assertEqual(reference, Color("hsl(0, 100%, 50%)"))
+        self.assertEqual(reference, Color("hsla(0, 100%, 50%, 1.0)"))
+        self.assertEqual(reference, Color(0xFF0000))
+        color = Color()
+        color.rgb = 0xFF0000
+        self.assertEqual(reference, color)
+        self.assertEqual(reference, Color(rgb=0xFF0000))
+        self.assertEqual(reference, Color(argb=0xFFFF0000))
+        self.assertEqual(reference, Color(rgba=0xFF0000FF))
+        self.assertEqual(reference, Color(0xFF0000, 1.0))
 
-        half_red = Color("rgba(100%, 0%, 0%, 0.5)")
-        self.assertNotEqual(r0, half_red)
+    def test_color_green(self):
+        reference = Color('lime')  # Lime is 255 green, green is 128 green.
+        self.assertEqual(reference, 'lime')
+        self.assertEqual(reference, Color('#0F0'))
+        self.assertEqual(reference, Color('#00FF00'))
+        self.assertEqual(reference, Color("rgb(0, 255, 0)"))
+        self.assertEqual(reference, Color("rgb(0%, 100%, 0%)"))
+        self.assertEqual(reference, Color("rgb(0, 300, 0)"))
+        self.assertEqual(reference, Color("rgb(-10, 255, 0)"))
+        self.assertEqual(reference, Color("rgb(0%, 110%, 0%)"))
+        self.assertEqual(reference, Color("rgba(0, 255, 0, 1)"))
+        self.assertEqual(reference, Color("rgba(0%, 100%, 0%, 1)"))
+        self.assertEqual(reference, Color("hsl(120, 100%, 50%)"))
+        self.assertEqual(reference, Color("hsla(120, 100%, 50%, 1.0)"))
+        self.assertEqual(reference, Color(0x00FF00))
+        color = Color()
+        color.rgb = 0x00FF00
+        self.assertEqual(reference, color)
+        self.assertEqual(reference, Color(rgb=0x00FF00))
+        self.assertEqual(reference, Color(argb=0xFF00FF00))
+        self.assertEqual(reference, Color(rgba=0x00FF00FF))
+        self.assertEqual(reference, Color(0x00FF00, 1.0))
+
+    def test_color_blue(self):
+        reference = Color('blue')
+        self.assertEqual(reference, 'blue')
+        self.assertEqual(reference, Color('#00F'))
+        self.assertEqual(reference, Color('#0000FF'))
+        self.assertEqual(reference, Color("rgb(0, 0, 255)"))
+        self.assertEqual(reference, Color("rgb(0%, 0%, 100%)"))
+        self.assertEqual(reference, Color("rgb(0, 0, 300)"))
+        self.assertEqual(reference, Color("rgb(0, -10, 255)"))
+        self.assertEqual(reference, Color("rgb(0%, 0%, 110%)"))
+        self.assertEqual(reference, Color("rgba(0, 0, 255, 1)"))
+        self.assertEqual(reference, Color("rgb(0%, 0%, 100%)"))
+        self.assertEqual(reference, Color("rgba(0%, 0%, 100%, 1)"))
+        self.assertEqual(reference, Color("hsl(240, 100%, 50%)"))
+        self.assertEqual(reference, Color("hsla(240, 100%, 50%, 1.0)"))
+        self.assertEqual(reference, Color(0x0000FF))
+        color = Color()
+        color.rgb = 0x0000FF
+        self.assertEqual(reference, color)
+        self.assertEqual(reference, Color(rgb=0x0000FF))
+        self.assertEqual(reference, Color(argb=0xFF0000FF))
+        self.assertEqual(reference, Color(rgba=0x0000FFFF))
+        self.assertEqual(reference, Color(0x0000FF, 1.0))
+
+    def test_color_red_half(self):
+        half_ref = Color("rgba(100%, 0%, 0%, 0.5)")
+        self.assertNotEqual(half_ref, 'red')
+
+        color = Color('red', opacity=0.5)
+        self.assertEqual(color, half_ref)
 
     def test_color_transparent(self):
         t0 = Color('transparent')
@@ -48,14 +94,29 @@ class TestElementColor(unittest.TestCase):
 
     def test_color_hsl(self):
         c0 = Color("hsl(0, 100%, 50%)")  # red
+        self.assertAlmostEqual(c0.hue, 0)
+        self.assertAlmostEqual(c0.saturation, 1, places=2)
+        self.assertAlmostEqual(c0.lightness, 0.5, places=2)
         self.assertEqual(c0, "red")
         c1 = Color("hsl(120, 100%, 50%)")  # lime
+        self.assertAlmostEqual(c1.hue, 120)
+        self.assertAlmostEqual(c1.saturation, 1, places=2)
+        self.assertAlmostEqual(c1.lightness, 0.5, places=2)
         self.assertEqual(c1, "lime")
         c2 = Color("hsl(120, 100%, 19.62%)")  # dark green
+        self.assertAlmostEqual(c2.hue, 120)
+        self.assertAlmostEqual(c2.saturation, 1, places=2)
+        self.assertAlmostEqual(c2.lightness, 0.1962, places=2)
         self.assertEqual(c2, "dark green")
         c3 = Color("hsl(120, 73.4%, 75%)")  # light green
+        self.assertAlmostEqual(c3.hue, 120)
+        self.assertAlmostEqual(c3.saturation, 0.734, places=2)
+        self.assertAlmostEqual(c3.lightness, 0.75, places=2)
         self.assertEqual(c3, "light green")
         c4 = Color("hsl(120, 60%, 66.67%)")  # pastel green
+        self.assertAlmostEqual(c4.hue, 120)
+        self.assertAlmostEqual(c4.saturation, 0.6, places=2)
+        self.assertAlmostEqual(c4.lightness, 0.6667, places=2)
         self.assertEqual(c4, "#77dd77")
 
     def test_color_hsla(self):
@@ -126,7 +187,6 @@ class TestElementColor(unittest.TestCase):
         def set_opacity():
             color.opacity = 1
         self.assertRaises(ValueError, set_opacity)
-
 
     def test_color_hexa(self):
         for r in range(0,255,17):

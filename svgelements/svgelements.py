@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.0"
+SVGELEMENTS_VERSION = "1.5.1"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -1019,44 +1019,69 @@ class Color(object):
 
     def __init__(self, *args, **kwargs):
         self.value = 0
-        if len(args) == 0:
-            r = 0
-            g = 0
-            b = 0
-            if "red" in kwargs:
-                r = kwargs["red"]
-            if "green" in kwargs:
-                g = kwargs["green"]
-            if "blue" in kwargs:
-                b = kwargs["blue"]
-            if "r" in kwargs:
-                r = kwargs["r"]
-            if "g" in kwargs:
-                g = kwargs["g"]
-            if "b" in kwargs:
-                b = kwargs["b"]
-            self.value = Color.rgb_to_int(r, g, b)
-        if 1 <= len(args) <= 2:
+        arglen = len(args)
+        if arglen == 1:
             v = args[0]
             if isinstance(v, Color):
                 self.value = v.value
             elif isinstance(v, int):
-                self.value = v
+                self.rgb = v
             else:
                 self.value = Color.parse(v)
-            if len(args) == 2:
-                self.opacity = float(args[1])
-        elif len(args) == 3:
+        elif arglen == 2:
+            v = args[0]
+            if isinstance(v, Color):
+                self.value = v.value
+            elif isinstance(v, int):
+                self.rgb = v
+            else:
+                self.value = Color.parse(v)
+            self.opacity = float(args[1])
+        elif arglen == 3:
             r = args[0]
             g = args[1]
             b = args[2]
             self.value = Color.rgb_to_int(r, g, b)
-        elif len(args) == 4:
+        elif arglen == 4:
             r = args[0]
             g = args[1]
             b = args[2]
             opacity = args[3] / 255.0
             self.value = Color.rgb_to_int(r, g, b, opacity)
+        if "red" in kwargs:
+            self.red = kwargs["red"]
+        if "green" in kwargs:
+            self.green = kwargs["green"]
+        if "blue" in kwargs:
+            self.blue = kwargs["blue"]
+        if "alpha" in kwargs:
+            self.blue = kwargs["alpha"]
+        if "opacity" in kwargs:
+            self.opacity = kwargs["opacity"]
+        if "r" in kwargs:
+            self.red = kwargs["r"]
+        if "g" in kwargs:
+            self.green = kwargs["g"]
+        if "b" in kwargs:
+            self.blue = kwargs["b"]
+        if "rgb" in kwargs:
+            self.rgb = kwargs["rgb"]
+        if "argb" in kwargs:
+            self.argb = kwargs["argb"]
+        if "rgba" in kwargs:
+            self.rgba = kwargs["rgba"]
+        if "h" in kwargs:
+            self.hue = kwargs["h"]
+        if "s" in kwargs:
+            self.saturation = kwargs["s"]
+        if "l" in kwargs:
+            self.lightness = kwargs["l"]
+        if "hue" in kwargs:
+            self.hue = kwargs["hue"]
+        if "saturation" in kwargs:
+            self.saturation = kwargs["saturation"]
+        if "lightness" in kwargs:
+            self.lightness = kwargs["lightness"]
 
     def __int__(self):
         return self.value
@@ -1104,7 +1129,8 @@ class Color(object):
         r = Color.crimp(r)
         g = Color.crimp(g)
         b = Color.crimp(b)
-        a = Color.crimp(opacity * 255.0)
+        a = int(round(opacity * 255.0))
+        a = Color.crimp(a)
         r <<= 24
         g <<= 16
         b <<= 8
@@ -1113,10 +1139,34 @@ class Color(object):
 
     @staticmethod
     def hsl_to_int(h, s, l, opacity=1.0):
-        c = Color()
-        c.opacity = opacity
-        c.hsl = h, s, l
-        return c.value
+        def hue_2_rgb(v1, v2, vh):
+            if vh < 0:
+                vh += 1
+            if vh > 1:
+                vh -= 1
+            if 6.0 * vh < 1.0:
+                return v1 + (v2 - v1) * 6.0 * vh
+            if 2.0 * vh < 1:
+                return v2
+            if 3 * vh < 2.0:
+                return v1 + (v2 - v1) * ((2.0 / 3.0) - vh) * 6.0
+            return v1
+
+        if s == 0.0:
+            r = 255.0 * l
+            g = 255.0 * l
+            b = 255.0 * l
+        else:
+            if l < 0.5:
+                v2 = l * (1.0 + s)
+            else:
+                v2 = (l + s) - (s * l)
+            v1 = 2 * l - v2
+            r = 255.0 * hue_2_rgb(v1, v2, h + (1.0 / 3.0))
+            g = 255.0 * hue_2_rgb(v1, v2, h)
+            b = 255.0 * hue_2_rgb(v1, v2, h - (1.0 / 3.0))
+        value = Color.rgb_to_int(r, g, b, opacity=opacity)
+        return value
 
     @staticmethod
     def parse(color_string):
@@ -1514,6 +1564,36 @@ class Color(object):
         return Color.hsl_to_int(h, s, l, opacity)
 
     @property
+    def rgb(self):
+        if self.value is None:
+            return None
+        return self.value >> 8
+
+    @rgb.setter
+    def rgb(self, rgb):
+        rgb <<= 8
+        rgb |= 0xFF
+        self.value = rgb
+
+    @property
+    def rgba(self):
+        return self.value
+
+    @rgba.setter
+    def rgba(self, rgba):
+        self.value = rgba
+
+    @property
+    def argb(self):
+        if self.value is None:
+            return None
+        return ((self.value >> 8) & 0xFFFFFF) | (self.alpha << 24)
+
+    @argb.setter
+    def argb(self, argb):
+        self.value = ((argb << 8) & 0xFFFFFF00) | (argb >> 24 & 0xFF)
+
+    @property
     def opacity(self):
         return self.alpha / 255.0 if self.value is not None else None
 
@@ -1617,7 +1697,7 @@ class Color(object):
             h += 1
         if h > 1:
             h -= 1
-        return h
+        return Angle.turns(h).as_degrees
 
     @hue.setter
     def hue(self, v):
@@ -1801,37 +1881,12 @@ class Color(object):
 
     @hsl.setter
     def hsl(self, value):
-        if not isinstance(value, tuple):
+        if not isinstance(value, (tuple, list)):
             return
-        h, s, l = value
-
-        def hue_2_rgb(v1, v2, vh):
-            if vh < 0:
-                vh += 1
-            if vh > 1:
-                vh -= 1
-            if 6.0 * vh < 1.0:
-                return v1 + (v2 - v1) * 6.0 * vh
-            if 2.0 * vh < 1:
-                return v2
-            if 3 * vh < 2.0:
-                return v1 + (v2 - v1) * ((2.0 / 3.0) - vh) * 6.0
-            return v1
-
-        if s == 0.0:
-            r = 255.0 * l
-            g = 255.0 * l
-            b = 255.0 * l
-        else:
-            if l < 0.5:
-                v2 = l * (1.0 + s)
-            else:
-                v2 = (l + s) - (s * l)
-            v1 = 2 * l - v2
-            r = 255.0 * hue_2_rgb(v1, v2, h + (1.0 / 3.0))
-            g = 255.0 * hue_2_rgb(v1, v2, h)
-            b = 255.0 * hue_2_rgb(v1, v2, h - (1.0 / 3.0))
-        self.value = self.rgb_to_int(r, g, b)
+        h = value[0]
+        s = value[1]
+        l = value[2]
+        self.value = Color.hsl_to_int(h, s, l, 1.0)
 
     def distance_to(self, other):
         return Color.distance(self, other)
