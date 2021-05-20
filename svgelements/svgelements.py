@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.2"
+SVGELEMENTS_VERSION = "1.5.3"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -8276,7 +8276,7 @@ class SVG(Group):
                     SVG_TAG_STYLE,
                 ):
                     attributes = elem.attrib
-                    if SVG_ATTR_ID in values and root is not None:
+                    if SVG_ATTR_ID in attributes and root is not None:
                         root.objects[attributes[SVG_ATTR_ID]] = s
                 if tag in (SVG_TAG_TEXT, SVG_TAG_TSPAN):
                     s = SVGText(values, text=elem.text)
