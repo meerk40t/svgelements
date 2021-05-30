@@ -1055,7 +1055,7 @@ class Color(object):
         if "blue" in kwargs:
             self.blue = kwargs["blue"]
         if "alpha" in kwargs:
-            self.blue = kwargs["alpha"]
+            self.alpha = kwargs["alpha"]
         if "opacity" in kwargs:
             self.opacity = kwargs["opacity"]
         if "r" in kwargs:
