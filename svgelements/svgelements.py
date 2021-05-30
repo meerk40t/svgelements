@@ -1563,6 +1563,49 @@ class Color(object):
             opacity = 1
         return Color.hsl_to_int(h, s, l, opacity)
 
+    @classmethod
+    def distinct(cls, index):
+        """
+        Produces a deterministic distinct color for the given index.
+        """
+
+        def _pattern(pattern: int):
+            n = int(pattern ** (1.0 / 3.0))
+            pattern -= n * n * n
+            p = [n] * 3
+            if pattern == 0:
+                return p
+            pattern -= 1
+
+            v = int(pattern % 3)
+            pattern = int(pattern // 3)
+            if pattern < n:
+                p[v] = pattern % n
+                return p
+            pattern -= n
+
+            p[v] = pattern // n
+            v += 1
+            p[v % 3] = pattern % n
+            return p
+
+        def _8bit_reverse(r: int):
+            value = r - 1
+            v = 0
+            for i in range(0, 8):
+                v = v | (value & 1)
+                v <<= 1
+                value >>= 1
+            v >>= 1
+            return v & 0xFF
+
+        p = _pattern(index)
+        return Color(
+            _8bit_reverse(p[0]),
+            _8bit_reverse(p[1]),
+            _8bit_reverse(p[2]),
+        )
+
     @property
     def rgb(self):
         if self.value is None:
@@ -6234,7 +6277,7 @@ class Rect(Shape):
         scale_x = self.transform.value_scale_x()
         scale_y = self.transform.value_scale_y()
         if scale_x * scale_y < 0:
-            return self # No reification of negative values, gives negative dims.
+            return self  # No reification of negative values, gives negative dims.
         translate_x = self.transform.value_trans_x()
         translate_y = self.transform.value_trans_y()
         if (
@@ -8296,13 +8339,13 @@ class SVG(Group):
                     for key, value in assignments:
                         key = key.strip()
                         value = value.strip()
-                        for selector in key.split(","): # Can comma select subitems.
+                        for selector in key.split(","):  # Can comma select subitems.
                             sel = selector.strip()
                             if sel not in styles:
                                 styles[sel] = value
                             else:
-                                if not styles[sel].endswith(';'):
-                                    styles[sel] += ';'
+                                if not styles[sel].endswith(";"):
+                                    styles[sel] += ";"
                                 styles[sel] += value
                 elif SVG_TAG_CLIPPATH == tag:
                     clip -= 1
