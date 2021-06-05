@@ -418,3 +418,25 @@ class TestElementArcApproximation(unittest.TestCase):
             if d > 1:
                 print(arc)
             self.assertAlmostEqual(d, 0.0, delta=2)
+
+    def test_approx_quad_degenerate(self):
+        arc = Arc(start=(0,0),end=(0,0), control=(0,0))
+        path1 = Path([Move(), arc])
+        path2 = Path(path1)
+        path2.approximate_arcs_with_quads(error=0.05)
+        d = abs(path1.length() - path2.length())
+        # Error less than 1% typically less than 0.5%
+        if d > 10:
+            print(arc)
+        self.assertAlmostEqual(d, 0.0, delta=20)
+
+    def test_approx_cubic_degenerate(self):
+        arc = Arc(start=(0,0),end=(0,0), control=(0,0))
+        path1 = Path([Move(), arc])
+        path2 = Path(path1)
+        path2.approximate_arcs_with_cubics(error=0.1)
+        d = abs(path1.length() - path2.length())
+        # Error less than 0.1% typically less than 0.001%
+        if d > 1:
+            print(arc)
+        self.assertAlmostEqual(d, 0.0, delta=2)

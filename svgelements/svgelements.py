@@ -5046,8 +5046,8 @@ class Arc(Curve):
         if arc_required is None:
             sweep_limit = tau / 12.0
             arc_required = int(ceil(abs(self.sweep) / sweep_limit))
-            if arc_required == 0:
-                return
+        if arc_required == 0:
+            return
         t_slice = self.sweep / float(arc_required)
 
         current_t = self.get_start_t()
@@ -5081,8 +5081,8 @@ class Arc(Curve):
         if arc_required is None:
             sweep_limit = tau / 12.0
             arc_required = int(ceil(abs(self.sweep) / sweep_limit))
-            if arc_required == 0:
-                return
+        if arc_required == 0:
+            return
         t_slice = self.sweep / float(arc_required)
 
         theta = self.get_rotation()
