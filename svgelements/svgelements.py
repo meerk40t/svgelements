@@ -5109,9 +5109,7 @@ class Arc(Curve):
         for i in range(0, arc_required):
             next_t = current_t + t_slice
 
-            alpha = (
-                sin(t_slice) * (sqrt(4 + 3 * pow(tan(t_slice / 2.0), 2)) - 1) / 3.0
-            )
+            alpha = sin(t_slice) * (sqrt(4 + 3 * pow(tan(t_slice / 2.0), 2)) - 1) / 3.0
 
             cos_start_t = cos(current_t)
             sin_start_t = sin(current_t)
@@ -6270,7 +6268,13 @@ class Rect(Shape):
             segments = (
                 Move(None, (x + rx, y)),
                 Line((x + rx, y), (x + width - rx, y)),
-                Arc((x + width - rx, y), (x + width, y + ry), rx=rx, ry=ry, scooped=scooped),
+                Arc(
+                    (x + width - rx, y),
+                    (x + width, y + ry),
+                    rx=rx,
+                    ry=ry,
+                    scooped=scooped,
+                ),
                 Line((x + width, y + ry), (x + width, y + height - ry)),
                 Arc(
                     (x + width, y + height - ry),
@@ -6280,7 +6284,13 @@ class Rect(Shape):
                     scooped=scooped,
                 ),
                 Line((x + width - rx, y + height), (x + rx, y + height)),
-                Arc((x + rx, y + height), (x, y + height - ry), rx=rx, ry=ry, scooped=scooped),
+                Arc(
+                    (x + rx, y + height),
+                    (x, y + height - ry),
+                    rx=rx,
+                    ry=ry,
+                    scooped=scooped,
+                ),
                 Line((x, y + height - ry), (x, y + ry)),
                 Arc((x, y + ry), (x + rx, y), rx=rx, ry=ry, scooped=scooped),
                 Close((x + rx, y), (x + rx, y)),
