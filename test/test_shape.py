@@ -570,6 +570,10 @@ class TestElementShape(unittest.TestCase):
         e3._strict = False  # unstrict rx-negative rectangles, have scooped corners.
         self.assertNotEqual(e3, e2)
 
+        values['ry'] = 4
+        e4 = Rect(values)
+        self.assertEqual(e, e4)
+
     def test_shape_npoints(self):
         import numpy as np
         shapes = [
