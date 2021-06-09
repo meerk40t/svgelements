@@ -7980,7 +7980,8 @@ class SVG(Group):
         self.y = Length(self.y).value(relative_length=height, **kwargs)
 
     def elements(self, conditional=None):
-        yield self
+        if conditional is None or conditional(self):
+            yield self
         for q in self.select(conditional):
             yield q
 
