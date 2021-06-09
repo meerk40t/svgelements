@@ -553,6 +553,27 @@ class TestElementShape(unittest.TestCase):
         m = SVG.parse(q)
         self.assertEqual(len(m), 0)
 
+    def test_rect_strict(self):
+        values = {
+            'tag': 'rect',
+            'rx': "-4",
+            'x': "50",
+            'y': "51",
+            'width': "20",
+            'height': "10"
+        }
+        e = Rect(values)
+        e2 = Rect(50, 51, 20, 10)
+        self.assertEqual(e, e2)
+
+        e3 = Rect(values)
+        e3._strict = False  # unstrict rx-negative rectangles, have scooped corners.
+        self.assertNotEqual(e3, e2)
+
+        values['ry'] = 4
+        e4 = Rect(values)
+        self.assertEqual(e, e4)
+
     def test_shape_npoints(self):
         import numpy as np
         shapes = [

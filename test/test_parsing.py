@@ -820,3 +820,16 @@ class TestParseDefUse(unittest.TestCase):
         m = SVG.parse(q)
         q = list(m.elements())
         self.assertEqual(len(q), 2)
+
+    def test_parse_conditional_issue_114(self):
+        import io
+        from svgelements import SVG, Path
+
+        svg_str = io.StringIO("""<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
+         width="500" height="500" viewBox="0 0 500 500" preserveAspectRatio="xMidYMid meet">
+         <path d="M50 150 C50 50 200 50 200 150 C200 50 350 50 350 150 z"/>
+         <path d="M350 250 C50 50 200 50 200 150 C200 50 350 50 350 150 z"/> 
+        </svg>""")
+
+        for s in SVG.parse(svg_str).elements(conditional=lambda el: isinstance(el, Path)):
+            self.assertEqual(type(s), Path)
