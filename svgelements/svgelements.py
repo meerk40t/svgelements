@@ -3045,6 +3045,19 @@ class Viewbox:
         else:
             self.set_viewbox(viewbox)
 
+    def __eq__(self, other):
+        if not isinstance(other, Viewbox):
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        return self.preserve_aspect_ratio == other.preserve_aspect_ratio
+
     def __str__(self):
         return "%s %s %s %s" % (
             Length.str(self.x),
@@ -3052,6 +3065,9 @@ class Viewbox:
             Length.str(self.width),
             Length.str(self.height),
         )
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, str(self))
 
     def property_by_object(self, obj):
         self.x = obj.x
@@ -7684,18 +7700,14 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("%s=%s" % (SVG_ATTR_X, Length.str(self.x)))
         if self.y != 0:
             values.append("%s=%s" % (SVG_ATTR_Y, Length.str(self.y)))
-        if self.width != 0:
+        if self.width != "100%":
             values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
-        if self.height != 0:
+        if self.height != "100%":
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
         if self.preserve_aspect_ratio is not None:
             values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
         if self.viewbox is not None:
             values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
-        if self.image_width != 0:
-            values.append("image_width=%s" % Length.str(self.image_width))
-        if self.image_height != 0:
-            values.append("image_height=%s" % Length.str(self.image_height))
         params = ", ".join(values)
         return "SVGImage(%s)" % params
 
@@ -7860,9 +7872,23 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
 
 class Desc(SVGElement):
-    def __init__(self, values, desc=None):
-        self.desc = desc
-        SVGElement.__init__(self, **values)
+    def __init__(self, *args, values=None):
+        self.desc = None
+        if values is None:
+            values = dict()
+        SVGElement.__init__(self, *args, **values)
+
+    def __eq__(self, other):
+        if not isinstance(other, Desc):
+            return False
+        return self.desc == other.desc
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, self.desc)
+
+    def property_by_args(self, *args):
+        if len(args) == 1:
+            self.desc = args[0]
 
     def property_by_object(self, obj):
         SVGElement.property_by_object(self, obj)
@@ -7878,9 +7904,23 @@ SVGDesc = Desc
 
 
 class Title(SVGElement):
-    def __init__(self, values, title=None):
-        self.title = title
-        SVGElement.__init__(self, **values)
+    def __init__(self, *args, **values):
+        self.title = None
+        if values is None:
+            values = dict()
+        SVGElement.__init__(self, *args, **values)
+
+    def __eq__(self, other):
+        if not isinstance(other, Title):
+            return False
+        return self.title == other.title
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, self.title)
+
+    def property_by_args(self, *args):
+        if len(args) == 1:
+            self.title = args[0]
 
     def property_by_object(self, obj):
         SVGElement.property_by_object(self, obj)
