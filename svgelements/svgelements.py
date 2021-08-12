@@ -1902,7 +1902,11 @@ class Color(object):
         r = c1.red - c2.red
         g = c1.green - c2.green
         b = c1.blue - c2.blue
-        return (((512 + red_mean) * r * r) >> 8) + (4 * g * g) + (((767 - red_mean) * b * b) >> 8)
+        return (
+            (((512 + red_mean) * r * r) >> 8)
+            + (4 * g * g)
+            + (((767 - red_mean) * b * b) >> 8)
+        )
 
     @staticmethod
     def crimp(v):
@@ -6360,7 +6364,12 @@ class Rect(Shape):
         return self
 
     def is_degenerate(self):
-        return self.width == 0 or self.height == 0 or self.width is None or self.height is None
+        return (
+            self.width == 0
+            or self.height == 0
+            or self.width is None
+            or self.height is None
+        )
 
 
 class _RoundShape(Shape):
@@ -7705,7 +7714,9 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         if self.height != "100%":
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
         if self.preserve_aspect_ratio is not None:
-            values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
+            values.append(
+                "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
+            )
         if self.viewbox is not None:
             values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
         params = ", ".join(values)
