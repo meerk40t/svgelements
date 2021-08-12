@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.4"
+SVGELEMENTS_VERSION = "1.5.5"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -1092,9 +1092,7 @@ class Color(object):
         return self.hex
 
     def __repr__(self):
-        if self.value is None:
-            return "Color('%s')" % self.value
-        return "Color('%s')" % self.hex
+        return "Color('%s')" % str(self)
 
     def __eq__(self, other):
         if self is other:
@@ -1904,9 +1902,11 @@ class Color(object):
         r = c1.red - c2.red
         g = c1.green - c2.green
         b = c1.blue - c2.blue
-        return (((512 + red_mean) * r * r) >> 8) + 4 * g * g + (
-            (767 - red_mean) * b * b
-        ) >> 8
+        return (
+            (((512 + red_mean) * r * r) >> 8)
+            + (4 * g * g)
+            + (((767 - red_mean) * b * b) >> 8)
+        )
 
     @staticmethod
     def crimp(v):
@@ -3049,6 +3049,19 @@ class Viewbox:
         else:
             self.set_viewbox(viewbox)
 
+    def __eq__(self, other):
+        if not isinstance(other, Viewbox):
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        return self.preserve_aspect_ratio == other.preserve_aspect_ratio
+
     def __str__(self):
         return "%s %s %s %s" % (
             Length.str(self.x),
@@ -3056,6 +3069,9 @@ class Viewbox:
             Length.str(self.width),
             Length.str(self.height),
         )
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, str(self))
 
     def property_by_object(self, obj):
         self.x = obj.x
@@ -3739,6 +3755,16 @@ class PathSegment:
         self.start = None
         self.end = None
 
+    def __repr__(self):
+        values = []
+        s = self.start
+        if s is not None:
+            values.append("start=%s" % repr(s))
+        e = self.end
+        if e is not None:
+            values.append("end=%s" % repr(e))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(values))
+
     def __mul__(self, other):
         if isinstance(other, (Matrix, str)):
             n = copy(self)
@@ -3941,12 +3967,6 @@ class Move(PathSegment):
                 self.end *= other
         return self
 
-    def __repr__(self):
-        if self.start is None:
-            return "Move(end=%s)" % repr(self.end)
-        else:
-            return "Move(start=%s, end=%s)" % (repr(self.start), repr(self.end))
-
     def __copy__(self):
         return Move(self.start, self.end, relative=self.relative)
 
@@ -4079,17 +4099,6 @@ class Close(Linear):
     which can close or not close several times.
     """
 
-    def __repr__(self):
-        if self.start is None and self.end is None:
-            return "Close()"
-        s = self.start
-        if s is not None:
-            s = repr(s)
-        e = self.end
-        if e is not None:
-            e = repr(e)
-        return "Close(start=%s, end=%s)" % (s, e)
-
     def d(self, current_point=None, relative=None, smooth=None):
         if (
             current_point is None
@@ -4103,11 +4112,6 @@ class Close(Linear):
 
 class Line(Linear):
     """Represents line commands."""
-
-    def __repr__(self):
-        if self.start is None:
-            return "Line(end=%s)" % (repr(self.end))
-        return "Line(start=%s, end=%s)" % (repr(self.start), repr(self.end))
 
     def d(self, current_point=None, relative=None, smooth=None):
         if (
@@ -4753,7 +4757,7 @@ class Arc(Curve):
             self.end = self.point_at_t(start_t)
 
     def __repr__(self):
-        return "Arc(%s, %s, %s, %s, %s, %s)" % (
+        return "Arc(start=%s, end=%s, center=%s, prx=%s, pry=%s, sweep=%s)" % (
             repr(self.start),
             repr(self.end),
             repr(self.center),
@@ -5520,8 +5524,7 @@ class Path(Shape, MutableSequence):
             values.append(", ".join(repr(x) for x in self._segments))
         self._repr_shape(values)
         params = ", ".join(values)
-        name = self._name()
-        return "%s(%s)" % (name, params)
+        return "%s(%s)" % (self.__class__.__name__, params)
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -5812,6 +5815,10 @@ class Path(Shape, MutableSequence):
         start_pos = self.current_point
         rx = arc_args[0]
         ry = arc_args[1]
+        if rx < 0:
+            rx = abs(rx)
+        if ry < 0:
+            ry = abs(ry)
         rotation = arc_args[2]
         arc = arc_args[3]
         sweep = arc_args[4]
@@ -6357,7 +6364,12 @@ class Rect(Shape):
         return self
 
     def is_degenerate(self):
-        return self.width == 0 or self.height == 0
+        return (
+            self.width == 0
+            or self.height == 0
+            or self.width is None
+            or self.height is None
+        )
 
 
 class _RoundShape(Shape):
@@ -6427,8 +6439,7 @@ class _RoundShape(Shape):
             values.append("ry=%s" % Length.str(self.ry))
         self._repr_shape(values)
         params = ", ".join(values)
-        name = self._name()
-        return "%s(%s)" % (name, params)
+        return "%s(%s)" % (self.__class__.__name__, params)
 
     @property
     def implicit_rx(self):
@@ -6945,8 +6956,7 @@ class _Polyshape(Shape):
             values.append("points=(%s)" % repr(s))
         self._repr_shape(values)
         params = ", ".join(values)
-        name = self._name()
-        return "%s(%s)" % (name, params)
+        return "%s(%s)" % (self.__class__.__name__, params)
 
     def __len__(self):
         return len(self.points)
@@ -7531,16 +7541,16 @@ class SVGText(SVGElement, GraphicObject, Transformable):
     def parse_font(self, font):
         """
         CSS Fonts 3 has a shorthand font property which serves to provide a single location to define:
-        ‘font-style’, ‘font-variant’, ‘font-weight’, ‘font-stretch’, ‘font-size’, ‘line-height’, and ‘font-family’
+        `font-style`, `font-variant`, `font-weight`, `font-stretch`, `font-size`, `line-height`, and `font-family`
 
         font-style: normal | italic | oblique
         font-variant: normal | small-caps
         font-weight: normal | bold | bolder | lighter | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900
         font-stretch: normal | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded
         font-size: <absolute-size> | <relative-size> | <length-percentage>
-        line-height: '/' <‘line-height’>
+        line-height: '/' <`line-height`>
         font-family: [ <family-name> | <generic-family> ] #
-        generic-family:  ‘serif’, ‘sans-serif’, ‘cursive’, ‘fantasy’, and ‘monospace’
+        generic-family:  `serif`, `sans-serif`, `cursive`, `fantasy`, and `monospace`
         """
         # https://www.w3.org/TR/css-fonts-3/#font-prop
         font_elements = list(*re.findall(REGEX_CSS_FONT, font))
@@ -7690,6 +7700,27 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
                     self.data = b64decode(self.url[23:])
                 elif self.url.startswith("data:image/svg+xml;base64,"):
                     self.data = b64decode(self.url[26:])
+
+    def __repr__(self):
+        values = []
+        if self.url is not None:
+            values.append("%s=%s" % (SVG_HREF, self.url))
+        if self.x != 0:
+            values.append("%s=%s" % (SVG_ATTR_X, Length.str(self.x)))
+        if self.y != 0:
+            values.append("%s=%s" % (SVG_ATTR_Y, Length.str(self.y)))
+        if self.width != "100%":
+            values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
+        if self.height != "100%":
+            values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
+        if self.preserve_aspect_ratio is not None:
+            values.append(
+                "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
+            )
+        if self.viewbox is not None:
+            values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
+        params = ", ".join(values)
+        return "SVGImage(%s)" % params
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
@@ -7852,9 +7883,23 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
 
 class Desc(SVGElement):
-    def __init__(self, values, desc=None):
-        self.desc = desc
-        SVGElement.__init__(self, **values)
+    def __init__(self, *args, **values):
+        self.desc = None
+        if values is None:
+            values = dict()
+        SVGElement.__init__(self, *args, **values)
+
+    def __eq__(self, other):
+        if not isinstance(other, Desc):
+            return False
+        return self.desc == other.desc
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, self.desc)
+
+    def property_by_args(self, *args):
+        if len(args) == 1:
+            self.desc = args[0]
 
     def property_by_object(self, obj):
         SVGElement.property_by_object(self, obj)
@@ -7870,9 +7915,23 @@ SVGDesc = Desc
 
 
 class Title(SVGElement):
-    def __init__(self, values, title=None):
-        self.title = title
-        SVGElement.__init__(self, **values)
+    def __init__(self, *args, **values):
+        self.title = None
+        if values is None:
+            values = dict()
+        SVGElement.__init__(self, *args, **values)
+
+    def __eq__(self, other):
+        if not isinstance(other, Title):
+            return False
+        return self.title == other.title
+
+    def __repr__(self):
+        return "%s('%s')" % (self.__class__.__name__, self.title)
+
+    def property_by_args(self, *args):
+        if len(args) == 1:
+            self.title = args[0]
 
     def property_by_object(self, obj):
         SVGElement.property_by_object(self, obj)
