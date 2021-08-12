@@ -7872,7 +7872,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
 
 class Desc(SVGElement):
-    def __init__(self, *args, values=None):
+    def __init__(self, *args, **values):
         self.desc = None
         if values is None:
             values = dict()
