@@ -7532,16 +7532,16 @@ class SVGText(SVGElement, GraphicObject, Transformable):
     def parse_font(self, font):
         """
         CSS Fonts 3 has a shorthand font property which serves to provide a single location to define:
-        ?font-style?, ?font-variant?, ?font-weight?, ?font-stretch?, ?font-size?, ?line-height?, and ?font-family?
+        `font-style`, `font-variant`, `font-weight`, `font-stretch`, `font-size`, `line-height`, and `font-family`
 
         font-style: normal | italic | oblique
         font-variant: normal | small-caps
         font-weight: normal | bold | bolder | lighter | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900
         font-stretch: normal | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded
         font-size: <absolute-size> | <relative-size> | <length-percentage>
-        line-height: '/' <?line-height?>
+        line-height: '/' <`line-height`>
         font-family: [ <family-name> | <generic-family> ] #
-        generic-family:  ?serif?, ?sans-serif?, ?cursive?, ?fantasy?, and ?monospace?
+        generic-family:  `serif`, `sans-serif`, `cursive`, `fantasy`, and `monospace`
         """
         # https://www.w3.org/TR/css-fonts-3/#font-prop
         font_elements = list(*re.findall(REGEX_CSS_FONT, font))
