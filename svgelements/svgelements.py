@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.5"
+SVGELEMENTS_VERSION = "1.5.6"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -3030,24 +3030,36 @@ class Matrix:
 
 
 class Viewbox:
-    def __init__(self, viewbox, preserve_aspect_ratio=None):
+    def __init__(self, *args, x=None, y=None, width=None, height=None, preserve_aspect_ratio=None):
         """
         Viewbox controls the scaling between the drawing size view that is observing that drawing.
 
         :param viewbox: either values or viewbox attribute or a Viewbox object
         :param preserve_aspect_ratio: preserveAspectRatio
         """
-        self.x = None
-        self.y = None
-        self.width = None
-        self.height = None
-        self.preserve_aspect_ratio = preserve_aspect_ratio
-        if isinstance(viewbox, dict):
-            self.property_by_values(viewbox)
-        elif isinstance(viewbox, Viewbox):
-            self.property_by_object(viewbox)
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        if len(args) <= 2:
+            viewbox = args[0]
+            if isinstance(viewbox, dict):
+                self.property_by_values(viewbox)
+            elif isinstance(viewbox, Viewbox):
+                self.property_by_object(viewbox)
+            else:
+                self.set_viewbox(viewbox)
+            if len(args) == 2:
+                preserve_aspect_ratio == args[1]
+        elif len(args) == 4:
+            self.x = float(args[0])
+            self.y = float(args[1])
+            self.width = float(args[2])
+            self.height = float(args[3])
+        if preserve_aspect_ratio == SVG_VALUE_NONE:
+            self.preserve_aspect_ratio = None
         else:
-            self.set_viewbox(viewbox)
+            self.preserve_aspect_ratio = preserve_aspect_ratio
 
     def __eq__(self, other):
         if not isinstance(other, Viewbox):
@@ -3071,7 +3083,19 @@ class Viewbox:
         )
 
     def __repr__(self):
-        return "%s('%s')" % (self.__class__.__name__, str(self))
+        values = []
+        if self.x is not None:
+            values.append("x=%s" % Length.str(self.x))
+        if self.y is not None:
+            values.append("y=%s" % Length.str(self.y))
+        if self.width is not None:
+            values.append("width=%s" % Length.str(self.width))
+        if self.height is not None:
+            values.append("height=%s" % Length.str(self.height))
+        if self.preserve_aspect_ratio is not None:
+            values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
+        params = ", ".join(values)
+        return "Viewbox(%s)" % params
 
     def property_by_object(self, obj):
         self.x = obj.x
@@ -7703,8 +7727,6 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
     def __repr__(self):
         values = []
-        if self.url is not None:
-            values.append("%s=%s" % (SVG_HREF, self.url))
         if self.x != 0:
             values.append("%s=%s" % (SVG_ATTR_X, Length.str(self.x)))
         if self.y != 0:
@@ -7713,12 +7735,18 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
         if self.height != "100%":
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
+        if self.image_width != 0:
+            values.append("image_width=%s" % Length.str(self.image_width))
+        if self.image_height != 0:
+            values.append("image_height=%s" % Length.str(self.image_height))
         if self.preserve_aspect_ratio is not None:
             values.append(
                 "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
             )
         if self.viewbox is not None:
             values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
+        if self.url is not None:
+            values.append("%s='%s'" % (SVG_HREF, self.url))
         params = ", ".join(values)
         return "SVGImage(%s)" % params
 
