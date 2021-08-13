@@ -6,6 +6,15 @@ from svgelements import *
 
 class TestElementViewbox(unittest.TestCase):
 
+    def test_viewbox_init(self):
+        # Test various ways of creating a viewbox are equal.
+        v1 = Viewbox('0 0 100 100')
+        v2 = Viewbox(x=0, y=0, width=100, height=100)
+        v3 = Viewbox(v1)
+        self.assertEqual(v1, v2)
+        self.assertEqual(v1, v3)
+        self.assertEqual(v2, v3)
+
     def test_viewbox_incomplete_transform(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg/>''')
