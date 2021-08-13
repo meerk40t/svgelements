@@ -3041,7 +3041,7 @@ class Viewbox:
         self.y = y
         self.width = width
         self.height = height
-        if len(args) <= 2:
+        if args and len(args) <= 2:
             viewbox = args[0]
             if isinstance(viewbox, dict):
                 self.property_by_values(viewbox)
