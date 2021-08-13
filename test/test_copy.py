@@ -31,7 +31,7 @@ class TestElementCopy(unittest.TestCase):
         self.assertEqual(matrix, matrix_copy)
 
         # SVG OBJECTS
-        viewbox = Viewbox('0 0 103 109', preserve_aspect_ratio="xMaxyMin slice")
+        viewbox = Viewbox('0 0 103 109', preserveAspectRatio="xMaxyMin slice")
         viewbox_copy = copy(viewbox)
         # self.assertEqual(viewbox, viewbox_copy)
 
