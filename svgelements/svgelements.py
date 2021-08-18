@@ -3092,7 +3092,6 @@ class Viewbox:
             values.append("width=%s" % Length.str(self.width))
         if self.height is not None:
             values.append("height=%s" % Length.str(self.height))
-        print("__repr__",self.preserveAspectRatio)
         if self.preserveAspectRatio is not None:
             values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserveAspectRatio))
         params = ", ".join(values)
