@@ -48,8 +48,8 @@ class TestElementGroup(unittest.TestCase):
         r1 = rects[1]
         self.assertEqual(r1.implicit_x, 0)
         self.assertEqual(r1.implicit_y, 0)
-        self.assertEqual(round(r1.implicit_width,12), 200)
-        self.assertEqual(round(r1.implicit_height,12), 200)
+        self.assertAlmostEqual(r1.implicit_width, 200)
+        self.assertAlmostEqual(r1.implicit_height, 200)
         print(r1.bbox())
 
     def test_issue_107(self):
