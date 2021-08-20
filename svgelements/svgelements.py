@@ -7745,10 +7745,6 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
         if self.height != "100%":
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
-        if self.image_width != 0:
-            values.append("image_width=%s" % Length.str(self.image_width))
-        if self.image_height != 0:
-            values.append("image_height=%s" % Length.str(self.image_height))
         if self.preserve_aspect_ratio is not None:
             values.append(
                 "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
