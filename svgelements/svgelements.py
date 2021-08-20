@@ -543,14 +543,14 @@ class Length(object):
     """
     SVGLength as used in SVG
 
-    Length are lazy solving values. Several conversion values are typically unknown by default and length simply
+    Length class is lazy when solving values. Several conversion values are unknown by default and length simply
     stores that ambiguity. So we can have a length of 50% and without calling .value(relative_length=3000) it will
-    simply store as 50%. Likewise you can have discrete values like 30cm or 20in which have knowable discrete values
-    but are not knowable in pixels unless a PPI value is supplied. We can say .value(relative_length=30cm, PPI=96) and
-    solve this for a value like 12%. We can also convert values between knowable lengths. So 30cm in 300mm regardless
-    whether we know how to convert this to pixels. 0% is 0 in any units or relative values. We can convert pixels to
-    pc and pt without issue. We can convert vh, vw, vmax, vmin values if we know viewbox values. We can convert em
-    values if we know the font_size. We can add values together if they are convertible units. Length("20in") + "3cm".
+    simply store as 50%. Likewise you can have absolute values like 30cm or 20in which are not knowable in pixels
+    unless a PPI value is supplied. We can say .value(relative_length=30cm, PPI=96) and solve this for a value like
+    12%. We can also convert values between knowable lengths. So 30cm is 300mm regardless whether we know how to
+    convert this to pixels. 0% is 0 in any units or relative values. We can convert pixels to pc and pt without issue.
+    We can convert vh, vw, vmax, vmin values if we know viewbox values. We can convert em values if we know the font_size.
+    We can add values together if they are convertible units e.g. Length("20in") + Length("3cm").
 
     If .value() cannot solve for the value with the given information then it will return a Length value. If it can
     be solved it will return a float.
@@ -3030,12 +3030,12 @@ class Matrix:
 
 
 class Viewbox:
-    def __init__(self, *args, x=None, y=None, width=None, height=None, preserveAspectRatio=None):
+    def __init__(self, *args, x=None, y=None, width=None, height=None, preserveAspectRatio=None, preserve_aspect_ratio=None):
         """
         Viewbox controls the scaling between the drawing size view that is observing that drawing.
 
         :param viewbox: either values or viewbox attribute or a Viewbox object
-        :param preserveAspectRatio: preserveAspectRatio
+        :param preserveAspectRatio or preserve_aspect_ratio: preserveAspectRatio
         """
         self.x = x
         self.y = y
@@ -3056,10 +3056,12 @@ class Viewbox:
             self.y = float(args[1])
             self.width = float(args[2])
             self.height = float(args[3])
-        if preserveAspectRatio == SVG_VALUE_NONE:
-            self.preserveAspectRatio = None
+        if preserveAspectRatio != SVG_VALUE_NONE:
+            self.preserve_aspect_ratio = preserveAspectRatio
+        elif preserve_aspect_ratio != SVG_VALUE_NONE:
+            self.preserve_aspect_ratio = preserve_aspect_ratio
         else:
-            self.preserveAspectRatio = preserveAspectRatio
+            self.preserve_aspect_ratio = None
 
     def __eq__(self, other):
         if not isinstance(other, Viewbox):
@@ -3072,7 +3074,7 @@ class Viewbox:
             return False
         if self.height != other.height:
             return False
-        return self.preserveAspectRatio == other.preserveAspectRatio
+        return self.preserve_aspect_ratio == other.preserve_aspect_ratio
 
     def __str__(self):
         return "%s %s %s %s" % (
@@ -3092,8 +3094,8 @@ class Viewbox:
             values.append("width=%s" % Length.str(self.width))
         if self.height is not None:
             values.append("height=%s" % Length.str(self.height))
-        if self.preserveAspectRatio is not None:
-            values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserveAspectRatio))
+        if self.preserve_aspect_ratio is not None:
+            values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
         params = ", ".join(values)
         return "Viewbox(%s)" % params
 
@@ -3102,14 +3104,22 @@ class Viewbox:
         self.y = obj.y
         self.width = obj.width
         self.height = obj.height
-        self.preserveAspectRatio = obj.preserveAspectRatio
+        self.preserve_aspect_ratio = obj.preserve_aspect_ratio
 
     def property_by_values(self, values):
         viewbox = values.get(SVG_ATTR_VIEWBOX)
         if viewbox is not None:
             self.set_viewbox(viewbox)
+        if SVG_ATTR_X in values:
+            self.x = values[SVG_ATTR_X]
+        if SVG_ATTR_Y in values:
+            self.y = values[SVG_ATTR_Y]
+        if SVG_ATTR_WIDTH in values:
+            self.width = values[SVG_ATTR_WIDTH]
+        if SVG_ATTR_HEIGHT in values:
+            self.height = values[SVG_ATTR_HEIGHT]
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
-            self.preserveAspectRatio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
 
     def set_viewbox(self, viewbox):
         if viewbox is not None:
@@ -3132,7 +3142,7 @@ class Viewbox:
             self.y,
             self.width,
             self.height,
-            self.preserveAspectRatio,
+            self.preserve_aspect_ratio,
         )
 
     @staticmethod
@@ -6976,8 +6986,8 @@ class _Polyshape(Shape):
     def __repr__(self):
         values = []
         if self.points is not None:
-            s = ", ".join(map(str, self.points))
-            values.append("points=(%s)" % repr(s))
+            s = " ".join(map(str, self.points))
+            values.append("points='%s'" % s)
         self._repr_shape(values)
         params = ", ".join(values)
         return "%s(%s)" % (self.__class__.__name__, params)
@@ -7416,7 +7426,7 @@ class ClipPath(SVGElement, list):
 class Pattern(SVGElement, list):
     def __init__(self, *args, **kwargs):
         self.viewbox = None
-        self.preserveAspectRatio = None
+        self.preserve_aspect_ratio = None
         self.x = None
         self.y = None
         self.width = None
@@ -7439,7 +7449,7 @@ class Pattern(SVGElement, list):
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
         self.viewbox = s.viewbox
-        self.preserveAspectRatio = s.preserveAspectRatio
+        self.preserve_aspect_ratio = s.preserve_aspect_ratio
 
         self.x = s.x
         self.y = s.y
@@ -7462,7 +7472,7 @@ class Pattern(SVGElement, list):
         if viewbox is not None:
             self.viewbox = Viewbox(viewbox)
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
-            self.preserveAspectRatio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+            self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
         self.x = Length(values.get(SVG_ATTR_X, 0)).value()
         self.y = Length(values.get(SVG_ATTR_Y, 0)).value()
         self.width = Length(values.get(SVG_ATTR_WIDTH, "100%")).value()
@@ -7696,7 +7706,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         self.url = None
         self.data = None
         self.viewbox = None
-        self.preserveAspectRatio = None
+        self.preserve_aspect_ratio = None
         self.x = None
         self.y = None
         self.width = None
@@ -7739,9 +7749,9 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("image_width=%s" % Length.str(self.image_width))
         if self.image_height != 0:
             values.append("image_height=%s" % Length.str(self.image_height))
-        if self.preserveAspectRatio is not None:
+        if self.preserve_aspect_ratio is not None:
             values.append(
-                "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserveAspectRatio)
+                "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
             )
         if self.viewbox is not None:
             values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
@@ -7757,7 +7767,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         self.url = s.url
         self.data = s.data
         self.viewbox = s.viewbox
-        self.preserveAspectRatio = s.preserveAspectRatio
+        self.preserve_aspect_ratio = s.preserve_aspect_ratio
 
         self.x = s.x
         self.y = s.y
@@ -7781,9 +7791,9 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             self.viewbox = Viewbox(viewbox)
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
             if values[SVG_ATTR_PRESERVEASPECTRATIO] == SVG_VALUE_NONE:
-                self.preserveAspectRatio = None
+                self.preserve_aspect_ratio = None
             else:
-                self.preserveAspectRatio = values[SVG_ATTR_PRESERVEASPECTRATIO]
+                self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
         self.x = Length(values.get(SVG_ATTR_X, 0)).value()
         self.y = Length(values.get(SVG_ATTR_Y, 0)).value()
         self.width = Length(values.get(SVG_ATTR_WIDTH, "100%")).value()
@@ -7880,7 +7890,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         self.image_height = self.image.height
         self.viewbox = Viewbox(
             "0 0 %d %d" % (self.image_width, self.image_height),
-            self.preserveAspectRatio,
+            self.preserve_aspect_ratio,
         )
         self.render(width=self.image_width, height=self.image_height)
         self.transform = Matrix(self.viewbox_transform) * self.transform
