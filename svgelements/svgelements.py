@@ -3030,17 +3030,18 @@ class Matrix:
 
 
 class Viewbox:
-    def __init__(self, *args, x=None, y=None, width=None, height=None, preserveAspectRatio=None, preserve_aspect_ratio=None):
+    def __init__(self, *args, **kwargs):
         """
         Viewbox controls the scaling between the drawing size view that is observing that drawing.
 
         :param viewbox: either values or viewbox attribute or a Viewbox object
         :param preserveAspectRatio or preserve_aspect_ratio: preserveAspectRatio
         """
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+        self.preserve_aspect_ratio = None
         if args and len(args) <= 2:
             viewbox = args[0]
             if isinstance(viewbox, dict):
@@ -3050,18 +3051,14 @@ class Viewbox:
             else:
                 self.set_viewbox(viewbox)
             if len(args) == 2:
-                preserveAspectRatio = args[1]
+                self.preserve_aspect_ratio = args[1]
         elif len(args) == 4:
             self.x = float(args[0])
             self.y = float(args[1])
             self.width = float(args[2])
             self.height = float(args[3])
-        if preserveAspectRatio != SVG_VALUE_NONE:
-            self.preserve_aspect_ratio = preserveAspectRatio
-        elif preserve_aspect_ratio != SVG_VALUE_NONE:
-            self.preserve_aspect_ratio = preserve_aspect_ratio
         else:
-            self.preserve_aspect_ratio = None
+            self.property_by_values(dict(kwargs))
 
     def __eq__(self, other):
         if not isinstance(other, Viewbox):
@@ -3095,7 +3092,7 @@ class Viewbox:
         if self.height is not None:
             values.append("height=%s" % Length.str(self.height))
         if self.preserve_aspect_ratio is not None:
-            values.append("%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
+            values.append("%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
         params = ", ".join(values)
         return "Viewbox(%s)" % params
 
@@ -3107,9 +3104,8 @@ class Viewbox:
         self.preserve_aspect_ratio = obj.preserve_aspect_ratio
 
     def property_by_values(self, values):
-        viewbox = values.get(SVG_ATTR_VIEWBOX)
-        if viewbox is not None:
-            self.set_viewbox(viewbox)
+        if SVG_ATTR_VIEWBOX in values:
+            self.set_viewbox(values[SVG_ATTR_VIEWBOX])
         if SVG_ATTR_X in values:
             self.x = values[SVG_ATTR_X]
         if SVG_ATTR_Y in values:
@@ -3118,6 +3114,8 @@ class Viewbox:
             self.width = values[SVG_ATTR_WIDTH]
         if SVG_ATTR_HEIGHT in values:
             self.height = values[SVG_ATTR_HEIGHT]
+        if "preserve_aspect_ratio" in values:
+            self.preserve_aspect_ratio = values["preserve_aspect_ratio"]
         if SVG_ATTR_PRESERVEASPECTRATIO in values:
             self.preserve_aspect_ratio = values[SVG_ATTR_PRESERVEASPECTRATIO]
 
