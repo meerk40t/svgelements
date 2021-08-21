@@ -32,8 +32,7 @@ class TestElementsRepr(unittest.TestCase):
         self.assertFalse(obj != eval(repr(obj)))
 
     def test_repr_viewbox(self):
-        obj = Viewbox("0 0 100 60")
-        print(repr(obj))
+        obj = Viewbox("0 0 100 60", "xMid")
         self.assertTrue(obj == eval(repr(obj)))
         self.assertFalse(obj != eval(repr(obj)))
 
@@ -146,4 +145,3 @@ class TestElementsRepr(unittest.TestCase):
         obj = Title(title="SVG Description")
         self.assertTrue(obj == eval(repr(obj)))
         self.assertFalse(obj != eval(repr(obj)))
-
