@@ -3057,7 +3057,7 @@ class Viewbox:
             self.y = float(args[1])
             self.width = float(args[2])
             self.height = float(args[3])
-        else:
+        if kwargs:
             self.property_by_values(dict(kwargs))
 
     def __eq__(self, other):
