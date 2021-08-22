@@ -297,9 +297,9 @@ class TestElementShape(unittest.TestCase):
         s = SimpleLine(fill='red')
         self.assertEqual(repr(s), "SimpleLine(x1=0.0, y1=0.0, x2=0.0, y2=0.0, fill='#ff0000')")
         s = Polygon(fill='red')
-        self.assertEqual(repr(s), "Polygon(points=(''), fill='#ff0000')")
+        self.assertEqual(repr(s), "Polygon(points='', fill='#ff0000')")
         s = Polyline(fill='red')
-        self.assertEqual(repr(s), "Polyline(points=(''), fill='#ff0000')")
+        self.assertEqual(repr(s), "Polyline(points='', fill='#ff0000')")
         s = Path(fill='red')
         self.assertEqual(repr(s), "Path(fill='#ff0000')")
 
