@@ -43,7 +43,7 @@ Though not required the SVGImage class acquires new functionality if provided wi
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.6"
+SVGELEMENTS_VERSION = "1.5.7"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -3744,7 +3744,7 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if self.fill is not None:
             values.append("fill='%s'" % self.fill)
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("stroke_width='%s'" % str(self.stroke_width))
+            values.append("stroke_width=%s" % str(self.stroke_width))
         if self.apply is not None and not self.apply:
             values.append("apply=%s" % self.apply)
         if self.id is not None:
@@ -7748,7 +7748,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
                 "%s=%s" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
             )
         if self.viewbox is not None:
-            values.append("%s=%s" % (SVG_ATTR_VIEWBOX, repr(self.viewbox)))
+            values.append("%s='%s'" % (SVG_ATTR_VIEWBOX, str(self.viewbox)))
         if self.url is not None:
             values.append("%s='%s'" % (SVG_HREF, self.url))
         params = ", ".join(values)
