@@ -7538,20 +7538,34 @@ class SVGText(SVGElement, GraphicObject, Transformable):
     def __str__(self):
         parts = list()
         parts.append("'%s'" % self.text)
-        parts.append("font_family=%s" % self.font_family)
-        parts.append("anchor=%s" % self.anchor)
-        parts.append("font_size=%d" % self.font_size)
-        parts.append("font_weight=%s" % str(self.font_weight))
+        parts.append("%s='%s'" % (SVG_ATTR_FONT_FAMILY, self.font_family))
+        if self.font_face:
+            parts.append("%s=%s" % (SVG_ATTR_FONT_FACE, self.font_face))
+        parts.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
+        parts.append("%s=%d" % (SVG_ATTR_FONT_SIZE, self.font_size))
+        parts.append("%s='%s'" % (SVG_ATTR_FONT_WEIGHT, str(self.font_weight)))
+        if self.x !=0:
+            parts.append("%s=%s" % (SVG_ATTR_X, self.x))
+        if self.y !=0:
+            parts.append("%s=%s" % (SVG_ATTR_Y, self.y))
+        if self.dx !=0:
+            parts.append("%s=%s" % (SVG_ATTR_DX, self.dx))
+        if self.dy !=0:
+            parts.append("%s=%s" % (SVG_ATTR_DY, self.dy))
+        if self.stroke is not None:
+            parts.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
+        if self.fill is not None:
+            parts.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
+        if self.stroke_width is not None and self.stroke_width != 1.0:
+            parts.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
+        if not self.transform.is_identity():
+            parts.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
+        if self.id is not None:
+            parts.append("%s='%s'" % (SVG_ATTR_ID, self.id))
         return "Text(%s)" % (", ".join(parts))
 
     def __repr__(self):
-        parts = list()
-        parts.append("%s" % self.text)
-        parts.append("font_family=%s" % self.font_family)
-        parts.append("anchor=%s" % self.anchor)
-        parts.append("font_size=%d" % self.font_size)
-        parts.append("font_weight=%s" % str(self.font_weight))
-        return "Text(%s)" % (", ".join(parts))
+        return str(self)
 
     def property_by_object(self, s):
         Transformable.property_by_object(self, s)
