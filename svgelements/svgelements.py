@@ -7562,7 +7562,7 @@ class SVGText(SVGElement, GraphicObject, Transformable):
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
             values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
-        return "Text(%s)" % (", ".join(parts))
+        return "Text(%s)" % (", ".join(values))
 
     def __repr__(self):
         return str(self)
