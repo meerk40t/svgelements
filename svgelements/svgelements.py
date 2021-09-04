@@ -111,6 +111,8 @@ SVG_ATTR_RADIUS_Y = "ry"
 SVG_ATTR_RADIUS = "r"
 SVG_ATTR_POINTS = "points"
 SVG_ATTR_PRESERVEASPECTRATIO = "preserveAspectRatio"
+SVG_ATTR_START = "start"
+SVG_ATTR_END = "end"
 SVG_ATTR_X = "x"
 SVG_ATTR_Y = "y"
 SVG_ATTR_X0 = "x0"
@@ -3084,13 +3086,13 @@ class Viewbox:
     def __repr__(self):
         values = []
         if self.x is not None:
-            values.append("x=%s" % Length.str(self.x))
+            values.append("%s=%s" % (SVG_ATTR_X, Length.str(self.x)))
         if self.y is not None:
-            values.append("y=%s" % Length.str(self.y))
+            values.append("%s=%s" % (SVG_ATTR_Y, Length.str(self.y)))
         if self.width is not None:
-            values.append("width=%s" % Length.str(self.width))
+            values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
         if self.height is not None:
-            values.append("height=%s" % Length.str(self.height))
+            values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
         if self.preserve_aspect_ratio is not None:
             values.append("%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
         params = ", ".join(values)
@@ -3398,16 +3400,17 @@ class GraphicObject:
         self.stroke_width = None
 
     def property_by_object(self, s):
-        self.fill = Color(s.fill) if s.fill is not None else None
-        self.stroke = Color(s.stroke) if s.stroke is not None else None
+        self.fill = Color(s.fill) if s.fill is not None  and s.fill != "None" and s.fill != "none" else None
+        self.stroke = Color(s.stroke) if s.stroke is not None and s.stroke != "None" and s.stroke != "none" else None
         self.stroke_width = (
             Length(s.stroke_width).value() if s.stroke_width is not None else None
         )
 
     def property_by_values(self, values):
         stroke = values.get(SVG_ATTR_STROKE)
-        self.stroke = Color(stroke) if stroke is not None else None
-        stroke_opacity = values.get(SVG_ATTR_STROKE_OPACITY)
+        self.stroke = Color(stroke) if stroke is not None  and stroke != "None" and stroke != "none" else None
+        stroke_opacity = values.get("stroke_opacity")
+        stroke_opacity = values.get(SVG_ATTR_STROKE_OPACITY, stroke_opacity)
         if (
             stroke_opacity is not None
             and self.stroke is not None
@@ -3418,8 +3421,9 @@ class GraphicObject:
             except ValueError:
                 pass
         fill = values.get(SVG_ATTR_FILL)
-        self.fill = Color(fill) if fill is not None else None
-        fill_opacity = values.get(SVG_ATTR_FILL_OPACITY)
+        self.fill = Color(fill) if fill is not None and fill != "None" and fill != "none" else None
+        fill_opacity = values.get("fill_opacity")
+        fill_opacity = values.get(SVG_ATTR_FILL_OPACITY, fill_opacity)
         if (
             fill_opacity is not None
             and self.fill is not None
@@ -3429,7 +3433,8 @@ class GraphicObject:
                 self.fill.opacity = float(fill_opacity)
             except ValueError:
                 pass
-        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, 1.0)).value()
+        self.stroke_width = Length(values.get("stroke_width", 1.0)).value()
+        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)).value()
 
     def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
@@ -3721,16 +3726,16 @@ class Shape(SVGElement, GraphicObject, Transformable):
         arg_length = len(args)
 
         if arg_length >= 1:
-            if args[0] is not None:
+            if args[0] is not None and args[0] != "None" and args[0] != "none":
                 self.transform = Matrix(args[0])
         if arg_length >= 2:
-            if args[1] is not None:
+            if args[1] is not None and args[1] != "None" and args[1] != "none":
                 self.stroke = Color(args[1])
         if arg_length >= 3:
-            if args[2] is not None:
+            if args[2] is not None and args[2] != "None" and args[2] != "none":
                 self.fill = Color(args[2])
         if arg_length >= 4:
-            if args[3] is not None:
+            if args[3] is not None and args[3] != "None" and args[3] != "none":
                 self.apply = bool(args[3])
 
     def _repr_shape(self, values):
@@ -3739,8 +3744,33 @@ class Shape(SVGElement, GraphicObject, Transformable):
         """
         if self.stroke is not None:
             values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
+            if self.stroke.opacity is not None and self.stroke.opacity != 1.0:
+                values.append("%s='%s'" % ("stroke_opacity", self.stroke.opacity))
         if self.fill is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
+            if self.fill.opacity is not None and self.fill.opacity != 1.0:
+                values.append("%s='%s'" % ("fill_opacity", self.fill.opacity))
+        if self.stroke_width is not None and self.stroke_width != 1.0:
+            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+        if not self.transform.is_identity():
+            values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
+        if self.apply is not None and not self.apply:
+            values.append("apply=%s" % self.apply)
+        if self.id is not None:
+            values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
+
+    def _str_shape(self, values):
+        """
+        Generic pieces of repr shape.
+        """
+        if self.stroke is not None:
+            values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
+            if self.stroke.opacity is not None and self.stroke.opacity != 1.0:
+                values.append("%s='%s'" % (SVG_ATTR_STROKE_OPACITY, self.stroke.opacity))
+        if self.fill is not None:
+            values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
+            if self.fill.opacity is not None and self.fill.opacity != 1.0:
+                values.append("%s='%s'" % (SVG_ATTR_FILL_OPACITY, self.fill.opacity))
         if self.stroke_width is not None and self.stroke_width != 1.0:
             values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
         if not self.transform.is_identity():
@@ -3791,10 +3821,10 @@ class PathSegment:
         values = []
         s = self.start
         if s is not None:
-            values.append("start=%s" % repr(s))
+            values.append("%s=%s" % (SVG_ATTR_START, repr(s)))
         e = self.end
         if e is not None:
-            values.append("end=%s" % repr(e))
+            values.append("%s=%s" % (SVG_ATTR_END, repr(e)))
         return "%s(%s)" % (self.__class__.__name__, ", ".join(values))
 
     def __mul__(self, other):
@@ -5372,6 +5402,12 @@ class Path(Shape, MutableSequence):
     or beginning sequences without a move. The expectation is that these will eventually be used as part of a valid path
     so these fragment paths are permitted. In some cases these invalid paths will still have consistent path_d values,
     in other cases, there will be no valid methods to reproduce these.
+
+    Instantiation formats:
+
+    Path("d-string", keywords)
+    Path(pathsegment1,...)
+    Path(d="d-string", other keywords)
     """
 
     def __init__(self, *args, **kwargs):
@@ -5380,6 +5416,9 @@ class Path(Shape, MutableSequence):
         self._lengths = None
         self._segments = list()
         if len(args) != 1:
+            for segment in args:
+                if not isinstance(s, PathSegment):
+                    raise ValueError("Object not PathSegment when instantiating a Path: %s" % s.__class__.__name__)
             self._segments.extend(args)
         else:
             s = args[0]
@@ -5402,6 +5441,8 @@ class Path(Shape, MutableSequence):
             elif isinstance(s, PathSegment):
                 self._segments.append(s)
         if SVG_ATTR_DATA in self.values:
+            # Not sure what the purpose of pathd_loaded is.
+            # It is only set and checked here and you cannot have "d" attribute more than once anyway
             if not self.values.get("pathd_loaded", False):
                 self.parse(self.values[SVG_ATTR_DATA])
                 self.values["pathd_loaded"] = True
@@ -6168,21 +6209,31 @@ class Rect(Shape):
         self.rx = rx
         self.ry = ry
 
+    def _attrs(self, values):
+        if self.x != 0:
+            values.append("%s=%s" % (SVG_ATTR_X, Length.str(self.x)))
+        if self.y != 0:
+            values.append("%s=%s" % (SVG_ATTR_Y, Length.str(self.y)))
+        if self.width != 0:
+            values.append("%s=%s" % (SVG_ATTR_WIDTH, Length.str(self.width)))
+        if self.height != 0:
+            values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
+        if self.rx != 0:
+            values.append("%s=%s" % (SVG_ATTR_RADIUS_X, Length.str(self.rx)))
+        if self.ry != 0:
+            values.append("%s=%s" % (SVG_ATTR_RADIUS_Y, Length.str(self.ry)))
+
     def __repr__(self):
         values = []
-        if self.x != 0:
-            values.append("x=%s" % Length.str(self.x))
-        if self.y != 0:
-            values.append("y=%s" % Length.str(self.y))
-        if self.width != 0:
-            values.append("width=%s" % Length.str(self.width))
-        if self.height != 0:
-            values.append("height=%s" % Length.str(self.height))
-        if self.rx != 0:
-            values.append("rx=%s" % Length.str(self.rx))
-        if self.ry != 0:
-            values.append("ry=%s" % Length.str(self.ry))
+        self._attrs(values)
         self._repr_shape(values)
+        params = ", ".join(values)
+        return "Rect(%s)" % params
+
+    def __str__(self):
+        values = []
+        self._attrs(values)
+        self._str_shape(values)
         params = ", ".join(values)
         return "Rect(%s)" % params
 
@@ -6458,18 +6509,28 @@ class _RoundShape(Shape):
         if arg_length >= 5:
             self._init_shape(*args[4:])
 
+    def _attrs(self, values):
+        if self.cx is not None:
+            values.append("%s=%s" % (SVG_ATTR_CENTER_X, Length.str(self.cx)))
+        if self.cy is not None:
+            values.append("%s=%s" % (SVG_ATTR_CENTER_Y, Length.str(self.cy)))
+        if self.rx == self.ry or self.ry is None:
+            values.append("%s=%s" % (SVG_ATTR_RADIUS, Length.str(self.rx)))
+        else:
+            values.append("%s=%s" % (SVG_ATTR_RADIUS_X, Length.str(self.rx)))
+            values.append("%s=%s" % (SVG_ATTR_RADIUS_Y, Length.str(self.ry)))
+
     def __repr__(self):
         values = []
-        if self.cx is not None:
-            values.append("cx=%s" % Length.str(self.cx))
-        if self.cy is not None:
-            values.append("cy=%s" % Length.str(self.cy))
-        if self.rx == self.ry or self.ry is None:
-            values.append("r=%s" % Length.str(self.rx))
-        else:
-            values.append("rx=%s" % Length.str(self.rx))
-            values.append("ry=%s" % Length.str(self.ry))
+        self._attrs(values)
         self._repr_shape(values)
+        params = ", ".join(values)
+        return "%s(%s)" % (self.__class__.__name__, params)
+
+    def __str__(self):
+        values = []
+        self._attrs(values)
+        self._str_shape(values)
         params = ", ".join(values)
         return "%s(%s)" % (self.__class__.__name__, params)
 
@@ -6832,17 +6893,25 @@ class SimpleLine(Shape):
             self.y2 = Length(args[3]).value()
         self._init_shape(*args[4:])
 
+    def _attrs(self, values):
+        if self.x1 is not None:
+            values.append("%s=%s" % (SVG_ATTR_X1, str(self.x1)))
+        if self.y1 is not None:
+            values.append("%s=%s" % (SVG_ATTR_Y1, str(self.y1)))
+        if self.x2 is not None:
+            values.append("%s=%s" % (SVG_ATTR_X2, str(self.x2)))
+        if self.y2 is not None:
+            values.append("%s=%s" % (SVG_ATTR_Y2, str(self.y2)))
+
     def __repr__(self):
         values = []
-        if self.x1 is not None:
-            values.append("x1=%s" % repr(self.x1))
-        if self.y1 is not None:
-            values.append("y1=%s" % repr(self.y1))
-        if self.x2 is not None:
-            values.append("x2=%s" % repr(self.x2))
-        if self.y2 is not None:
-            values.append("y2=%s" % repr(self.y2))
         self._repr_shape(values)
+        params = ", ".join(values)
+        return "SimpleLine(%s)" % params
+
+    def __str__(self):
+        values = []
+        self._str_shape(values)
         params = ", ".join(values)
         return "SimpleLine(%s)" % params
 
@@ -6985,8 +7054,17 @@ class _Polyshape(Shape):
         values = []
         if self.points is not None:
             s = " ".join(map(str, self.points))
-            values.append("points='%s'" % s)
+            values.append("%s='%s'" % (SVG_ATTR_POINTS, s))
         self._repr_shape(values)
+        params = ", ".join(values)
+        return "%s(%s)" % (self.__class__.__name__, params)
+
+    def __str__(self):
+        values = []
+        if self.points is not None:
+            s = " ".join(map(str, self.points))
+            values.append("%s='%s'" % (SVG_ATTR_POINTS, s))
+        self._str_shape(values)
         params = ", ".join(values)
         return "%s(%s)" % (self.__class__.__name__, params)
 
@@ -7541,9 +7619,9 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         values.append("%s='%s'" % (SVG_ATTR_FONT_FAMILY, self.font_family))
         if self.font_face:
             values.append("%s=%s" % (SVG_ATTR_FONT_FACE, self.font_face))
-        values.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
         values.append("%s=%d" % (SVG_ATTR_FONT_SIZE, self.font_size))
         values.append("%s='%s'" % (SVG_ATTR_FONT_WEIGHT, str(self.font_weight)))
+        values.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
         if self.x !=0:
             values.append("%s=%s" % (SVG_ATTR_X, self.x))
         if self.y !=0:
@@ -7565,7 +7643,34 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return "Text(%s)" % (", ".join(values))
 
     def __repr__(self):
-        return str(self)
+        # Cannot use SVG_ATTR_FONT_* or SVG_ATTR_TEXT_ANCHOR for repr because they contain hyphens
+        values = list()
+        values.append("'%s'" % self.text)
+        values.append("font_family='%s'" % self.font_family)
+        if self.font_face:
+            values.append("font_face=%s" % self.font_face)
+        values.append("font_size=%d" % self.font_size)
+        values.append("font_weight='%s'" % str(self.font_weight))
+        values.append("text_anchor='%s'" % self.anchor)
+        if self.x !=0:
+            values.append("%s=%s" % (SVG_ATTR_X, self.x))
+        if self.y !=0:
+            values.append("%s=%s" % (SVG_ATTR_Y, self.y))
+        if self.dx !=0:
+            values.append("%s=%s" % (SVG_ATTR_DX, self.dx))
+        if self.dy !=0:
+            values.append("%s=%s" % (SVG_ATTR_DY, self.dy))
+        if self.stroke is not None:
+            values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
+        if self.fill is not None:
+            values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
+        if self.stroke_width is not None and self.stroke_width != 1.0:
+            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+        if not self.transform.is_identity():
+            values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
+        if self.id is not None:
+            values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
+        return "Text(%s)" % (", ".join(values))
 
     def property_by_object(self, s):
         Transformable.property_by_object(self, s)
@@ -7635,10 +7740,16 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         Transformable.property_by_values(self, values)
         GraphicObject.property_by_values(self, values)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
-        self.font_face = values.get(SVG_ATTR_FONT_FACE)
+        self.font_face = values.get("font_face")
+        self.font_face = values.get(SVG_ATTR_FONT_FACE, self.font_face)
+        self.font_family = values.get("font_family", self.font_family)
         self.font_family = values.get(SVG_ATTR_FONT_FAMILY, self.font_family)
+        self.font_size = Length(values.get("font_size", self.font_size)).value()
         self.font_size = Length(values.get(SVG_ATTR_FONT_SIZE, self.font_size)).value()
+        self.font_weight = values.get("font_weight", self.font_weight)
         self.font_weight = values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        self.anchor = values.get("text_anchor", self.anchor)
+        self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
         font = values.get(SVG_ATTR_FONT, None)
         if font is not None:
             self.parse_font(font)
