@@ -8,20 +8,8 @@ except ImportError:
     from collections import MutableSequence  # noqa
 
 from copy import copy
-from math import (
-    acos,
-    atan,
-    atan2,
-    ceil,
-    cos,
-    degrees,
-    hypot,
-    log,
-    radians,
-    sin,
-    sqrt,
-    tan,
-)
+from math import (acos, atan, atan2, ceil, cos, degrees, hypot, log, radians,
+                  sin, sqrt, tan)
 from xml.etree.ElementTree import iterparse
 
 try:
@@ -39,11 +27,11 @@ The goal is to provide svg like path objects and structures. The svg standard 1.
 be used to provide much of the decisions within path objects. Such that if there is a question on
 implementation if the SVG documentation has a methodology it should be used.
 
-Though not required the SVGImage class acquires new functionality if provided with PIL/Pillow as an import
+Though not required the Image class acquires new functionality if provided with PIL/Pillow as an import
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.5.7"
+SVGELEMENTS_VERSION = "1.6.0"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -3092,7 +3080,9 @@ class Viewbox:
         if self.height is not None:
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
         if self.preserve_aspect_ratio is not None:
-            values.append("%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
+            values.append(
+                "%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
+            )
         params = ", ".join(values)
         return "Viewbox(%s)" % params
 
@@ -3432,7 +3422,9 @@ class GraphicObject:
             except ValueError:
                 pass
         self.stroke_width = Length(values.get("stroke_width", 1.0)).value()
-        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)).value()
+        self.stroke_width = Length(
+            values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)
+        ).value()
 
     def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
@@ -3749,7 +3741,9 @@ class Shape(SVGElement, GraphicObject, Transformable):
             if self.fill.opacity is not None and self.fill.opacity != 1.0:
                 values.append("%s='%s'" % ("fill_opacity", self.fill.opacity))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+            values.append(
+                "stroke_width=%s" % str(self.stroke_width)
+            )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.apply is not None and not self.apply:
@@ -3764,7 +3758,9 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if self.stroke is not None:
             values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
             if self.stroke.opacity is not None and self.stroke.opacity != 1.0:
-                values.append("%s='%s'" % (SVG_ATTR_STROKE_OPACITY, self.stroke.opacity))
+                values.append(
+                    "%s='%s'" % (SVG_ATTR_STROKE_OPACITY, self.stroke.opacity)
+                )
         if self.fill is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
             if self.fill.opacity is not None and self.fill.opacity != 1.0:
@@ -5416,7 +5412,10 @@ class Path(Shape, MutableSequence):
         if len(args) != 1:
             for segment in args:
                 if not isinstance(segment, PathSegment):
-                    raise ValueError("Object not PathSegment when instantiating a Path: %s" % segment.__class__.__name__)
+                    raise ValueError(
+                        "Object not PathSegment when instantiating a Path: %s"
+                        % segment.__class__.__name__
+                    )
             self._segments.extend(args)
         else:
             s = args[0]
@@ -7580,7 +7579,7 @@ class Pattern(SVGElement, list):
         return self
 
 
-class SVGText(SVGElement, GraphicObject, Transformable):
+class Text(SVGElement, GraphicObject, Transformable):
     """
     SVG Text are defined in SVG 2.0 Chapter 11
 
@@ -7613,35 +7612,6 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         GraphicObject.__init__(self, *args, **kwargs)
         SVGElement.__init__(self, *args, **kwargs)
 
-    def __str__(self):
-        values = list()
-        values.append("'%s'" % self.text)
-        values.append("%s='%s'" % (SVG_ATTR_FONT_FAMILY, self.font_family))
-        if self.font_face:
-            values.append("%s=%s" % (SVG_ATTR_FONT_FACE, self.font_face))
-        values.append("%s=%d" % (SVG_ATTR_FONT_SIZE, self.font_size))
-        values.append("%s='%s'" % (SVG_ATTR_FONT_WEIGHT, str(self.font_weight)))
-        values.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
-        if self.x !=0:
-            values.append("%s=%s" % (SVG_ATTR_X, self.x))
-        if self.y !=0:
-            values.append("%s=%s" % (SVG_ATTR_Y, self.y))
-        if self.dx !=0:
-            values.append("%s=%s" % (SVG_ATTR_DX, self.dx))
-        if self.dy !=0:
-            values.append("%s=%s" % (SVG_ATTR_DY, self.dy))
-        if self.stroke is not None:
-            values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
-        if self.fill is not None:
-            values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
-        if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
-        if not self.transform.is_identity():
-            values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
-        if self.id is not None:
-            values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
-        return "Text(%s)" % (", ".join(values))
-
     def __repr__(self):
         # Cannot use SVG_ATTR_FONT_* or SVG_ATTR_TEXT_ANCHOR for repr because they contain hyphens
         values = list()
@@ -7652,25 +7622,59 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         values.append("font_size=%d" % self.font_size)
         values.append("font_weight='%s'" % str(self.font_weight))
         values.append("text_anchor='%s'" % self.anchor)
-        if self.x !=0:
+        if self.x != 0:
             values.append("%s=%s" % (SVG_ATTR_X, self.x))
-        if self.y !=0:
+        if self.y != 0:
             values.append("%s=%s" % (SVG_ATTR_Y, self.y))
-        if self.dx !=0:
+        if self.dx != 0:
             values.append("%s=%s" % (SVG_ATTR_DX, self.dx))
-        if self.dy !=0:
+        if self.dy != 0:
             values.append("%s=%s" % (SVG_ATTR_DY, self.dy))
         if self.stroke is not None:
             values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
         if self.fill is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+            values.append(
+                "stroke_width=%s" % str(self.stroke_width)
+            )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
             values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
         return "Text(%s)" % (", ".join(values))
+
+    def __eq__(self, other):
+        if not isinstance(other, Text):
+            return NotImplemented
+        if self.text != other.text:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.dx != other.dx:
+            return False
+        if self.dy != other.dy:
+            return False
+        if self.anchor != other.anchor:
+            return False
+        if self.font_family != other.font_family:
+            return False
+        if self.font_size != other.font_size:
+            return False
+        if self.font_weight != other.font_weight:
+            return False
+        return self.font_face == other.font_face
+
+    def __ne__(self, other):
+        if not isinstance(other, Text):
+            return NotImplemented
+        return not self == other
 
     def property_by_object(self, s):
         Transformable.property_by_object(self, s)
@@ -7747,7 +7751,9 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         self.font_size = Length(values.get("font_size", self.font_size)).value()
         self.font_size = Length(values.get(SVG_ATTR_FONT_SIZE, self.font_size)).value()
         self.font_weight = values.get("font_weight", self.font_weight)
-        self.font_weight = values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        self.font_weight = self.parse_font_weight(
+            values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        )
         self.anchor = values.get("text_anchor", self.anchor)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
         font = values.get(SVG_ATTR_FONT, None)
@@ -7783,7 +7789,7 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return self
 
     def __copy__(self):
-        return SVGText(self)
+        return Text(self)
 
     def bbox(self, transformed=True):
         """
@@ -7817,7 +7823,10 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return xmin, ymin, xmax, ymax
 
 
-class SVGImage(SVGElement, GraphicObject, Transformable):
+SVGText = Text
+
+
+class Image(SVGElement, GraphicObject, Transformable):
     """
     SVG Images are defined in SVG 2.0 12.3
 
@@ -7876,8 +7885,36 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("%s='%s'" % (SVG_ATTR_VIEWBOX, str(self.viewbox)))
         if self.url is not None:
             values.append("%s='%s'" % (SVG_HREF, self.url))
+        if not self.transform.is_identity():
+            values.append("transform=%s" % repr(self.transform))
         params = ", ".join(values)
-        return "SVGImage(%s)" % params
+        return "Image(%s)" % params
+
+    def __eq__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        if self.url != other.url:
+            return False
+        if self.data != other.data:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.image != other.image:
+            return False
+        if self.viewbox != other.viewbox:
+            return False
+        return self.preserve_aspect_ratio == other.preserve_aspect_ratio
+
+    def __ne__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        return not self == other
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
@@ -7942,11 +7979,11 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
     def __copy__(self):
         """
-        Copy of SVGImage. This will not copy the .image subobject in a deep manner
+        Copy of Image. This will not copy the .image subobject in a deep manner
         since it's optional that that object will exist or not. As such if using PIL it would
         be required to either say self.image = self.image.copy() or call .load() again.
         """
-        return SVGImage(self)
+        return Image(self)
 
     @property
     def viewbox_transform(self):
@@ -7956,7 +7993,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
     def load(self, directory=None):
         try:
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.data is not None:
                 self.load_data()
@@ -7969,12 +8006,12 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
     def load_data(self):
         try:
             # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.data is not None:
                 from io import BytesIO
 
-                self.image = Image.open(BytesIO(self.data))
+                self.image = PILImage.open(BytesIO(self.data))
             else:
                 return
         except ImportError:
@@ -7984,11 +8021,11 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
     def load_file(self, directory):
         try:
             # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.url is not None:
                 try:
-                    self.image = Image.open(self.url)
+                    self.image = PILImage.open(self.url)
                 except IOError:
                     try:
                         if directory is not None:
@@ -8040,6 +8077,9 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         max_x = max(x_vals)
         max_y = max(y_vals)
         return min_x, min_y, max_x, max_y
+
+
+SVGImage = Image
 
 
 class Desc(SVGElement):
@@ -8526,7 +8566,7 @@ class SVG(Group):
                         elif SVG_TAG_RECT == tag:
                             s = Rect(values)
                         else:  # SVG_TAG_IMAGE == tag:
-                            s = SVGImage(values)
+                            s = Image(values)
                     except ValueError:
                         continue
                     s.render(ppi=ppi, width=width, height=height)
@@ -8579,7 +8619,7 @@ class SVG(Group):
                     if SVG_ATTR_ID in attributes and root is not None:
                         root.objects[attributes[SVG_ATTR_ID]] = s
                 if tag in (SVG_TAG_TEXT, SVG_TAG_TSPAN):
-                    s = SVGText(values, text=elem.text)
+                    s = Text(values, text=elem.text)
                     s.render(ppi=ppi, width=width, height=height)
                     if reify:
                         s.reify()
