@@ -111,8 +111,6 @@ SVG_ATTR_RADIUS_Y = "ry"
 SVG_ATTR_RADIUS = "r"
 SVG_ATTR_POINTS = "points"
 SVG_ATTR_PRESERVEASPECTRATIO = "preserveAspectRatio"
-SVG_ATTR_START = "start"
-SVG_ATTR_END = "end"
 SVG_ATTR_X = "x"
 SVG_ATTR_Y = "y"
 SVG_ATTR_X0 = "x0"
@@ -3821,10 +3819,10 @@ class PathSegment:
         values = []
         s = self.start
         if s is not None:
-            values.append("%s=%s" % (SVG_ATTR_START, repr(s)))
+            values.append("start=%s" % repr(s))
         e = self.end
         if e is not None:
-            values.append("%s=%s" % (SVG_ATTR_END, repr(e)))
+            values.append("end=%s" % repr(e))
         return "%s(%s)" % (self.__class__.__name__, ", ".join(values))
 
     def __mul__(self, other):
