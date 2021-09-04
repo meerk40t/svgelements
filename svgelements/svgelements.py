@@ -3400,15 +3400,15 @@ class GraphicObject:
         self.stroke_width = None
 
     def property_by_object(self, s):
-        self.fill = Color(s.fill) if s.fill is not None  and s.fill != "None" and s.fill != "none" else None
-        self.stroke = Color(s.stroke) if s.stroke is not None and s.stroke != "None" and s.stroke != "none" else None
+        self.fill = Color(s.fill) if s.fill is not None else None
+        self.stroke = Color(s.stroke) if s.stroke is not None else None
         self.stroke_width = (
             Length(s.stroke_width).value() if s.stroke_width is not None else None
         )
 
     def property_by_values(self, values):
         stroke = values.get(SVG_ATTR_STROKE)
-        self.stroke = Color(stroke) if stroke is not None  and stroke != "None" and stroke != "none" else None
+        self.stroke = Color(stroke) if stroke is not None else None
         stroke_opacity = values.get("stroke_opacity")
         stroke_opacity = values.get(SVG_ATTR_STROKE_OPACITY, stroke_opacity)
         if (
@@ -3421,7 +3421,7 @@ class GraphicObject:
             except ValueError:
                 pass
         fill = values.get(SVG_ATTR_FILL)
-        self.fill = Color(fill) if fill is not None and fill != "None" and fill != "none" else None
+        self.fill = Color(fill) if fill is not None else None
         fill_opacity = values.get("fill_opacity")
         fill_opacity = values.get(SVG_ATTR_FILL_OPACITY, fill_opacity)
         if (
@@ -3726,16 +3726,16 @@ class Shape(SVGElement, GraphicObject, Transformable):
         arg_length = len(args)
 
         if arg_length >= 1:
-            if args[0] is not None and args[0] != "None" and args[0] != "none":
+            if args[0] is not None:
                 self.transform = Matrix(args[0])
         if arg_length >= 2:
-            if args[1] is not None and args[1] != "None" and args[1] != "none":
+            if args[1] is not None:
                 self.stroke = Color(args[1])
         if arg_length >= 3:
-            if args[2] is not None and args[2] != "None" and args[2] != "none":
+            if args[2] is not None:
                 self.fill = Color(args[2])
         if arg_length >= 4:
-            if args[3] is not None and args[3] != "None" and args[3] != "none":
+            if args[3] is not None:
                 self.apply = bool(args[3])
 
     def _repr_shape(self, values):
@@ -5417,8 +5417,8 @@ class Path(Shape, MutableSequence):
         self._segments = list()
         if len(args) != 1:
             for segment in args:
-                if not isinstance(s, PathSegment):
-                    raise ValueError("Object not PathSegment when instantiating a Path: %s" % s.__class__.__name__)
+                if not isinstance(segment, PathSegment):
+                    raise ValueError("Object not PathSegment when instantiating a Path: %s" % segment.__class__.__name__)
             self._segments.extend(args)
         else:
             s = args[0]
@@ -6905,12 +6905,14 @@ class SimpleLine(Shape):
 
     def __repr__(self):
         values = []
+        self._attrs(values)
         self._repr_shape(values)
         params = ", ".join(values)
         return "SimpleLine(%s)" % params
 
     def __str__(self):
         values = []
+        self._attrs(values)
         self._str_shape(values)
         params = ", ".join(values)
         return "SimpleLine(%s)" % params
