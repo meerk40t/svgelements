@@ -3092,7 +3092,9 @@ class Viewbox:
         if self.height is not None:
             values.append("%s=%s" % (SVG_ATTR_HEIGHT, Length.str(self.height)))
         if self.preserve_aspect_ratio is not None:
-            values.append("%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio))
+            values.append(
+                "%s='%s'" % (SVG_ATTR_PRESERVEASPECTRATIO, self.preserve_aspect_ratio)
+            )
         params = ", ".join(values)
         return "Viewbox(%s)" % params
 
@@ -3432,7 +3434,9 @@ class GraphicObject:
             except ValueError:
                 pass
         self.stroke_width = Length(values.get("stroke_width", 1.0)).value()
-        self.stroke_width = Length(values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)).value()
+        self.stroke_width = Length(
+            values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)
+        ).value()
 
     def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
@@ -3749,7 +3753,9 @@ class Shape(SVGElement, GraphicObject, Transformable):
             if self.fill.opacity is not None and self.fill.opacity != 1.0:
                 values.append("%s='%s'" % ("fill_opacity", self.fill.opacity))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+            values.append(
+                "stroke_width=%s" % str(self.stroke_width)
+            )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.apply is not None and not self.apply:
@@ -3764,7 +3770,9 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if self.stroke is not None:
             values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
             if self.stroke.opacity is not None and self.stroke.opacity != 1.0:
-                values.append("%s='%s'" % (SVG_ATTR_STROKE_OPACITY, self.stroke.opacity))
+                values.append(
+                    "%s='%s'" % (SVG_ATTR_STROKE_OPACITY, self.stroke.opacity)
+                )
         if self.fill is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
             if self.fill.opacity is not None and self.fill.opacity != 1.0:
@@ -5416,7 +5424,10 @@ class Path(Shape, MutableSequence):
         if len(args) != 1:
             for segment in args:
                 if not isinstance(segment, PathSegment):
-                    raise ValueError("Object not PathSegment when instantiating a Path: %s" % segment.__class__.__name__)
+                    raise ValueError(
+                        "Object not PathSegment when instantiating a Path: %s"
+                        % segment.__class__.__name__
+                    )
             self._segments.extend(args)
         else:
             s = args[0]
@@ -7623,20 +7634,22 @@ class Text(SVGElement, GraphicObject, Transformable):
         values.append("font_size=%d" % self.font_size)
         values.append("font_weight='%s'" % str(self.font_weight))
         values.append("text_anchor='%s'" % self.anchor)
-        if self.x !=0:
+        if self.x != 0:
             values.append("%s=%s" % (SVG_ATTR_X, self.x))
-        if self.y !=0:
+        if self.y != 0:
             values.append("%s=%s" % (SVG_ATTR_Y, self.y))
-        if self.dx !=0:
+        if self.dx != 0:
             values.append("%s=%s" % (SVG_ATTR_DX, self.dx))
-        if self.dy !=0:
+        if self.dy != 0:
             values.append("%s=%s" % (SVG_ATTR_DY, self.dy))
         if self.stroke is not None:
             values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
         if self.fill is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("stroke_width=%s" % str(self.stroke_width)) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+            values.append(
+                "stroke_width=%s" % str(self.stroke_width)
+            )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
@@ -7750,7 +7763,9 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.font_size = Length(values.get("font_size", self.font_size)).value()
         self.font_size = Length(values.get(SVG_ATTR_FONT_SIZE, self.font_size)).value()
         self.font_weight = values.get("font_weight", self.font_weight)
-        self.font_weight = self.parse_font_weight(values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight))
+        self.font_weight = self.parse_font_weight(
+            values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        )
         self.anchor = values.get("text_anchor", self.anchor)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
         font = values.get(SVG_ATTR_FONT, None)
