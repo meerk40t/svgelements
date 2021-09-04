@@ -7672,6 +7672,38 @@ class SVGText(SVGElement, GraphicObject, Transformable):
             values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
         return "Text(%s)" % (", ".join(values))
 
+    def __eq__(self, other):
+        if not isinstance(other, Text):
+            return NotImplemented
+        if self.text != other.text:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.dx != other.dx:
+            return False
+        if self.dy != other.dy:
+            return False
+        if self.anchor != other.anchor:
+            return False
+        if self.font_family != other.font_family:
+            return False
+        if self.font_size != other.font_size:
+            return False
+        if self.font_weight != other.font_weight:
+            return False
+        return self.font_face == other.font_face
+
+    def __ne__(self, other):
+        if not isinstance(other, Text):
+            return NotImplemented
+        return not self == other
+
     def property_by_object(self, s):
         Transformable.property_by_object(self, s)
         GraphicObject.property_by_object(self, s)
@@ -7747,7 +7779,7 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         self.font_size = Length(values.get("font_size", self.font_size)).value()
         self.font_size = Length(values.get(SVG_ATTR_FONT_SIZE, self.font_size)).value()
         self.font_weight = values.get("font_weight", self.font_weight)
-        self.font_weight = values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        self.font_weight = self.parse_font_weight(values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight))
         self.anchor = values.get("text_anchor", self.anchor)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
         font = values.get(SVG_ATTR_FONT, None)
@@ -7876,8 +7908,36 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
             values.append("%s='%s'" % (SVG_ATTR_VIEWBOX, str(self.viewbox)))
         if self.url is not None:
             values.append("%s='%s'" % (SVG_HREF, self.url))
+        if not self.transform.is_identity():
+            values.append("transform=%s" % repr(self.transform))
         params = ", ".join(values)
-        return "SVGImage(%s)" % params
+        return "Image(%s)" % params
+
+    def __eq__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        if self.url != other.url:
+            return False
+        if self.data != other.data:
+            return False
+        if self.width != other.width:
+            return False
+        if self.height != other.height:
+            return False
+        if self.x != other.x:
+            return False
+        if self.y != other.y:
+            return False
+        if self.image != other.image:
+            return False
+        if self.viewbox != other.viewbox:
+            return False
+        return self.preserve_aspect_ratio == other.preserve_aspect_ratio
+
+    def __ne__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        return not self == other
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
@@ -7942,11 +8002,11 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
     def __copy__(self):
         """
-        Copy of SVGImage. This will not copy the .image subobject in a deep manner
+        Copy of Image. This will not copy the .image subobject in a deep manner
         since it's optional that that object will exist or not. As such if using PIL it would
         be required to either say self.image = self.image.copy() or call .load() again.
         """
-        return SVGImage(self)
+        return Image(self)
 
     @property
     def viewbox_transform(self):
