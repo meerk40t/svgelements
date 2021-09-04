@@ -39,7 +39,7 @@ The goal is to provide svg like path objects and structures. The svg standard 1.
 be used to provide much of the decisions within path objects. Such that if there is a question on
 implementation if the SVG documentation has a methodology it should be used.
 
-Though not required the SVGImage class acquires new functionality if provided with PIL/Pillow as an import
+Though not required the Image class acquires new functionality if provided with PIL/Pillow as an import
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
@@ -7580,7 +7580,7 @@ class Pattern(SVGElement, list):
         return self
 
 
-class SVGText(SVGElement, GraphicObject, Transformable):
+class Text(SVGElement, GraphicObject, Transformable):
     """
     SVG Text are defined in SVG 2.0 Chapter 11
 
@@ -7612,35 +7612,6 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
         SVGElement.__init__(self, *args, **kwargs)
-
-    def __str__(self):
-        values = list()
-        values.append("'%s'" % self.text)
-        values.append("%s='%s'" % (SVG_ATTR_FONT_FAMILY, self.font_family))
-        if self.font_face:
-            values.append("%s=%s" % (SVG_ATTR_FONT_FACE, self.font_face))
-        values.append("%s=%d" % (SVG_ATTR_FONT_SIZE, self.font_size))
-        values.append("%s='%s'" % (SVG_ATTR_FONT_WEIGHT, str(self.font_weight)))
-        values.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
-        if self.x !=0:
-            values.append("%s=%s" % (SVG_ATTR_X, self.x))
-        if self.y !=0:
-            values.append("%s=%s" % (SVG_ATTR_Y, self.y))
-        if self.dx !=0:
-            values.append("%s=%s" % (SVG_ATTR_DX, self.dx))
-        if self.dy !=0:
-            values.append("%s=%s" % (SVG_ATTR_DY, self.dy))
-        if self.stroke is not None:
-            values.append("%s='%s'" % (SVG_ATTR_STROKE, self.stroke))
-        if self.fill is not None:
-            values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
-        if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
-        if not self.transform.is_identity():
-            values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
-        if self.id is not None:
-            values.append("%s='%s'" % (SVG_ATTR_ID, self.id))
-        return "Text(%s)" % (", ".join(values))
 
     def __repr__(self):
         # Cannot use SVG_ATTR_FONT_* or SVG_ATTR_TEXT_ANCHOR for repr because they contain hyphens
@@ -7815,7 +7786,7 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return self
 
     def __copy__(self):
-        return SVGText(self)
+        return Text(self)
 
     def bbox(self, transformed=True):
         """
@@ -7849,7 +7820,10 @@ class SVGText(SVGElement, GraphicObject, Transformable):
         return xmin, ymin, xmax, ymax
 
 
-class SVGImage(SVGElement, GraphicObject, Transformable):
+SVGText = Text
+
+
+class Image(SVGElement, GraphicObject, Transformable):
     """
     SVG Images are defined in SVG 2.0 12.3
 
@@ -8016,7 +7990,7 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
 
     def load(self, directory=None):
         try:
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.data is not None:
                 self.load_data()
@@ -8029,12 +8003,12 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
     def load_data(self):
         try:
             # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.data is not None:
                 from io import BytesIO
 
-                self.image = Image.open(BytesIO(self.data))
+                self.image = PILImage.open(BytesIO(self.data))
             else:
                 return
         except ImportError:
@@ -8044,11 +8018,11 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
     def load_file(self, directory):
         try:
             # This code will not activate without PIL/Pillow installed.
-            from PIL import Image
+            from PIL import Image as PILImage
 
             if self.url is not None:
                 try:
-                    self.image = Image.open(self.url)
+                    self.image = PILImage.open(self.url)
                 except IOError:
                     try:
                         if directory is not None:
@@ -8100,6 +8074,9 @@ class SVGImage(SVGElement, GraphicObject, Transformable):
         max_x = max(x_vals)
         max_y = max(y_vals)
         return min_x, min_y, max_x, max_y
+
+
+SVGImage = Image
 
 
 class Desc(SVGElement):
@@ -8586,7 +8563,7 @@ class SVG(Group):
                         elif SVG_TAG_RECT == tag:
                             s = Rect(values)
                         else:  # SVG_TAG_IMAGE == tag:
-                            s = SVGImage(values)
+                            s = Image(values)
                     except ValueError:
                         continue
                     s.render(ppi=ppi, width=width, height=height)
@@ -8639,7 +8616,7 @@ class SVG(Group):
                     if SVG_ATTR_ID in attributes and root is not None:
                         root.objects[attributes[SVG_ATTR_ID]] = s
                 if tag in (SVG_TAG_TEXT, SVG_TAG_TSPAN):
-                    s = SVGText(values, text=elem.text)
+                    s = Text(values, text=elem.text)
                     s.render(ppi=ppi, width=width, height=height)
                     if reify:
                         s.reify()
