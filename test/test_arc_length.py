@@ -363,6 +363,17 @@ class TestElementArcLength(unittest.TestCase):
             self.assertAlmostEqual(exact, length, places=1)
         print("Average arc-line error: %g" % (error / n))
 
+    def test_arc_issue_126(self):
+        """
+        Numerical Instability within arc bulge code.
+        """
+        arc = Arc(
+            start=(-35.61856796405604, -3.1190066784519077),
+            end=(-37.881309663852996, -5.381748378248861),
+            bulge=0.9999999999999999
+        )
+        self.assertLessEqual(arc.sweep, tau/2)
+
 
 class TestElementArcPoint(unittest.TestCase):
 
