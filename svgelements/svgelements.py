@@ -3772,7 +3772,6 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if self.fill is not None and self.fill.rgb is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill.hexrgb))
             if self.fill.opacity != 1.0:
-                print(self.fill.opacity)
                 values.append(
                     "%s=%s" % (SVG_ATTR_FILL_OPACITY, str(self.fill.opacity))
                 )
@@ -8425,7 +8424,6 @@ class SVG(Group):
             """
             SVG element parsing parses the job compiling any parsed elements into their compiled object forms.
             """
-            # print(event, elem)
             if event == "start":
                 stack.append((context, values))
                 if (
