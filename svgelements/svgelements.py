@@ -31,7 +31,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.2"
+SVGELEMENTS_VERSION = "1.6.3"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -3366,7 +3366,7 @@ class Transformable:
             self.transform.render(**kwargs)
         return self
 
-    def bbox(self, transformed=True):
+    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         """
         Returns the bounding box of the given object.
 
@@ -3698,7 +3698,7 @@ class Shape(SVGElement, GraphicObject, Transformable):
         """
         return Path(self.segments(transformed=transformed)).d(relative=relative)
 
-    def bbox(self, transformed=True):
+    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         """
         Get the bounding box for the given shape.
         """
@@ -3707,11 +3707,23 @@ class Shape(SVGElement, GraphicObject, Transformable):
             for seg in self.segments(transformed=transformed)
             if not isinstance(Close, Move)
         ]
+
         try:
             xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
-        return min(xmins), min(ymins), max(xmaxs), max(ymaxs)
+
+        if with_stroke and self.stroke_width is not None:
+            delta = float(self.stroke_width) / 2.0
+        else:
+            delta = 0.0
+
+        return (
+            min(xmins) - delta - margin_x,
+            min(ymins) - delta - margin_y,
+            max(xmaxs) + delta + margin_x,
+            max(ymaxs) + delta + margin_y,
+        )
 
     def _init_shape(self, *args):
         """
@@ -7441,12 +7453,12 @@ class Group(SVGElement, Transformable, list):
         Transformable.reify(self)
 
     @staticmethod
-    def union_bbox(elements, transformed=True):
+    def union_bbox(elements, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         boundary_points = []
         for e in elements:
             if not hasattr(e, "bbox"):
                 continue
-            box = e.bbox(False)
+            box = e.bbox(transformed=False, with_stroke=with_stroke)
             if box is None:
                 continue
             top_left = (box[0], box[1])
@@ -7468,9 +7480,9 @@ class Group(SVGElement, Transformable, list):
         ymin = min([e[1] for e in boundary_points])
         xmax = max([e[0] for e in boundary_points])
         ymax = max([e[1] for e in boundary_points])
-        return xmin, ymin, xmax, ymax
+        return xmin - margin_x, ymin - margin_y, xmax + margin_x, ymax + margin_y
 
-    def bbox(self, transformed=True):
+    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         """
         Returns the bounding box of the given object.
 
@@ -7482,7 +7494,13 @@ class Group(SVGElement, Transformable, list):
         :param transformed: bounding box of the properly transformed children.
         :return:
         """
-        return Group.union_bbox(self.select(), transformed)
+        return Group.union_bbox(
+            self.select(),
+            transformed=transformed,
+            with_stroke=with_stroke,
+            margin_x=margin_x,
+            margin_x=margin_y,
+        )
 
 
 class ClipPath(SVGElement, list):
@@ -7827,18 +7845,25 @@ class Text(SVGElement, GraphicObject, Transformable):
     def __copy__(self):
         return Text(self)
 
-    def bbox(self, transformed=True):
+    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         """
         Get the bounding box for the given text object.
         """
         if self.path is not None:
-            return (self.path * self.transform).bbox(transformed=True)
+            return (self.path * self.transform).bbox(
+                transformed=True,
+                with_stroke=with_stroke,
+                margin_x=margin_x,
+                margin_y=margin_y
+            )
+
         width = self.width
         height = self.height
         xmin = self.x
         ymin = self.y - height
         xmax = self.x + width
         ymax = self.y
+
         if not hasattr(self, "anchor") or self.anchor == "start":
             pass
         elif self.anchor == "middle":
@@ -7856,7 +7881,18 @@ class Text(SVGElement, GraphicObject, Transformable):
             ymin = min(p0[1], p1[1], p2[1], p3[1])
             xmax = max(p0[0], p1[0], p2[0], p3[0])
             ymax = max(p0[1], p1[1], p2[1], p3[1])
-        return xmin, ymin, xmax, ymax
+
+        if with_stroke and self.stroke_width is not None:
+            delta = float(self.stroke_width) / 2.0
+        else:
+            delta = 0.0
+
+        return (
+            xmin - delta - margin_x,
+            ymin - delta - margin_y,
+            xmax + delta + margin_x,
+            ymax + delta + margin_y,
+        )
 
 SVGText = Text
 
@@ -8086,9 +8122,11 @@ class Image(SVGElement, GraphicObject, Transformable):
         self.render(width=self.image_width, height=self.image_height)
         self.transform = Matrix(self.viewbox_transform) * self.transform
 
-    def bbox(self, transformed=True):
+    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
         """
         Get the bounding box for the given image object
+
+        There is no stroke for an image so with_stroke is ignored
         """
         if self.image_width is None or self.image_height is None:
             p = Point(0, 0)
@@ -8096,6 +8134,7 @@ class Image(SVGElement, GraphicObject, Transformable):
             return p.x, p.y, p.x, p.y
         width = self.image_width
         height = self.image_height
+
         if transformed:
             p = (
                 Point(0, 0) * self.transform,
@@ -8107,11 +8146,13 @@ class Image(SVGElement, GraphicObject, Transformable):
             p = (Point(0, 0), Point(width, 0), Point(width, height), Point(0, height))
         x_vals = list(s.x for s in p)
         y_vals = list(s.y for s in p)
-        min_x = min(x_vals)
-        min_y = min(y_vals)
-        max_x = max(x_vals)
-        max_y = max(y_vals)
-        return min_x, min_y, max_x, max_y
+
+        return (
+            min(x_vals) - margin_x,
+            min(y_vals) - margin_y,
+            max(x_vals) + margin_x,
+            max(y_vals) + margin_y,
+        )
 
 SVGImage = Image
 
