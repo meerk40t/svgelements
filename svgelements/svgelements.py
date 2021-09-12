@@ -8142,8 +8142,11 @@ class Image(SVGElement, GraphicObject, Transformable):
             p = (Point(0, 0), Point(width, 0), Point(width, height), Point(0, height))
         x_vals = list(s.x for s in p)
         y_vals = list(s.y for s in p)
-
-        return min(x_vals), min(y_vals), max(x_vals), max(y_vals)
+        min_x = min(x_vals)
+        min_y = min(y_vals)
+        max_x = max(x_vals)
+        max_y = max(y_vals)
+        return min_x, min_y, max_x, max_y
 
 SVGImage = Image
 
