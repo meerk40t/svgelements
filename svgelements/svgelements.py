@@ -3366,7 +3366,7 @@ class Transformable:
             self.transform.render(**kwargs)
         return self
 
-    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def bbox(self, transformed=True, with_stroke=False):
         """
         Returns the bounding box of the given object.
 
@@ -3698,7 +3698,7 @@ class Shape(SVGElement, GraphicObject, Transformable):
         """
         return Path(self.segments(transformed=transformed)).d(relative=relative)
 
-    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def bbox(self, transformed=True, with_stroke=False):
         """
         Get the bounding box for the given shape.
         """
@@ -3719,10 +3719,10 @@ class Shape(SVGElement, GraphicObject, Transformable):
             delta = 0.0
 
         return (
-            min(xmins) - delta - margin_x,
-            min(ymins) - delta - margin_y,
-            max(xmaxs) + delta + margin_x,
-            max(ymaxs) + delta + margin_y,
+            min(xmins) - delta,
+            min(ymins) - delta,
+            max(xmaxs) + delta,
+            max(ymaxs) + delta,
         )
 
     def _init_shape(self, *args):
@@ -7453,7 +7453,7 @@ class Group(SVGElement, Transformable, list):
         Transformable.reify(self)
 
     @staticmethod
-    def union_bbox(elements, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def union_bbox(elements, transformed=True, with_stroke=False):
         boundary_points = []
         for e in elements:
             if not hasattr(e, "bbox"):
@@ -7480,9 +7480,9 @@ class Group(SVGElement, Transformable, list):
         ymin = min([e[1] for e in boundary_points])
         xmax = max([e[0] for e in boundary_points])
         ymax = max([e[1] for e in boundary_points])
-        return xmin - margin_x, ymin - margin_y, xmax + margin_x, ymax + margin_y
+        return xmin, ymin, xmax, ymax
 
-    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def bbox(self, transformed=True, with_stroke=False):
         """
         Returns the bounding box of the given object.
 
@@ -7498,8 +7498,6 @@ class Group(SVGElement, Transformable, list):
             self.select(),
             transformed=transformed,
             with_stroke=with_stroke,
-            margin_x=margin_x,
-            margin_x=margin_y,
         )
 
 
@@ -7845,7 +7843,7 @@ class Text(SVGElement, GraphicObject, Transformable):
     def __copy__(self):
         return Text(self)
 
-    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def bbox(self, transformed=True, with_stroke=False):
         """
         Get the bounding box for the given text object.
         """
@@ -7853,8 +7851,6 @@ class Text(SVGElement, GraphicObject, Transformable):
             return (self.path * self.transform).bbox(
                 transformed=True,
                 with_stroke=with_stroke,
-                margin_x=margin_x,
-                margin_y=margin_y
             )
 
         width = self.width
@@ -7888,10 +7884,10 @@ class Text(SVGElement, GraphicObject, Transformable):
             delta = 0.0
 
         return (
-            xmin - delta - margin_x,
-            ymin - delta - margin_y,
-            xmax + delta + margin_x,
-            ymax + delta + margin_y,
+            xmin - delta,
+            ymin - delta,
+            xmax + delta,
+            ymax + delta,
         )
 
 SVGText = Text
@@ -8122,7 +8118,7 @@ class Image(SVGElement, GraphicObject, Transformable):
         self.render(width=self.image_width, height=self.image_height)
         self.transform = Matrix(self.viewbox_transform) * self.transform
 
-    def bbox(self, transformed=True, with_stroke=False, margin_x=0.0, margin_y=0.0):
+    def bbox(self, transformed=True, with_stroke=False):
         """
         Get the bounding box for the given image object
 
@@ -8147,12 +8143,7 @@ class Image(SVGElement, GraphicObject, Transformable):
         x_vals = list(s.x for s in p)
         y_vals = list(s.y for s in p)
 
-        return (
-            min(x_vals) - margin_x,
-            min(y_vals) - margin_y,
-            max(x_vals) + margin_x,
-            max(y_vals) + margin_y,
-        )
+        return min(x_vals), min(y_vals), max(x_vals), max(y_vals)
 
 SVGImage = Image
 
