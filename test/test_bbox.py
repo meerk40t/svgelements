@@ -21,6 +21,49 @@ class TestElementBbox(unittest.TestCase):
         e *= "translate(2)"
         self.assertEqual(e.bbox(), (52, 51, 72, 61))
 
+    def test_bbox_rect_stroke(self):
+        values = {
+            'tag': 'rect',
+            'rx': "4",
+            'ry': "2",
+            'x': "50",
+            'y': "51",
+            'width': "20",
+            'height': "10",
+            'stroke-width': "5"
+        }
+        e = Rect(values)
+        self.assertEqual(e.bbox(), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            50-(5./2.),
+            51-(5./2.),
+            70+(5./2.),
+            61+(5./2.)
+        ))
+        e *= "translate(2)"
+        self.assertEqual(e.bbox(), (52, 51, 72, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52 - (5. / 2.),
+            51 - (5. / 2.),
+            72 + (5. / 2.),
+            61 + (5. / 2.)
+        ))
+        e *= "scale(2)"
+        self.assertEqual(e.bbox(), (52 * 2, 51 * 2, 72 * 2, 61 * 2))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52 * 2 - 5.,
+            51 * 2 - 5.,
+            72 * 2 + 5.,
+            61 * 2 + 5.
+        ))
+        self.assertEqual(e.bbox(transformed=False), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(transformed=False, with_stroke=True), (
+            50 - (5. / 2.),
+            51 - (5. / 2.),
+            70 + (5. / 2.),
+            61 + (5. / 2.)
+        ))
+
     def test_issue_104(self):
         """Testing Issue 104 rotated bbox"""
         rect = Rect(10,10,10,10)
