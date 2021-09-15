@@ -3371,7 +3371,8 @@ class Transformable:
         Returns the bounding box of the given object.
 
         :param transformed: whether this is the transformed bounds or default.
-        :return:
+        :param with_stroke: should the stroke-width be included in the bounds.
+        :return: bounding box of the given element
         """
         raise NotImplementedError
 
@@ -3701,6 +3702,10 @@ class Shape(SVGElement, GraphicObject, Transformable):
     def bbox(self, transformed=True, with_stroke=False):
         """
         Get the bounding box for the given shape.
+
+        :param transformed: whether this is the transformed bounds or default.
+        :param with_stroke: should the stroke-width be included in the bounds.
+        :return: bounding box of the given element
         """
         bbs = [
             seg.bbox()
@@ -7454,6 +7459,13 @@ class Group(SVGElement, Transformable, list):
 
     @staticmethod
     def union_bbox(elements, transformed=True, with_stroke=False):
+        """
+        Returns the union of the bounding boxes for the elements within the iterator.
+
+        :param transformed: Should the children of this object be properly transformed.
+        :param with_stroke: should the stroke-width be included in the bounds of the elements
+        :return: union of all bounding boxes of elements within the iterable.
+        """
         boundary_points = []
         for e in elements:
             if not hasattr(e, "bbox"):
@@ -7492,7 +7504,8 @@ class Group(SVGElement, Transformable, list):
         ways.
 
         :param transformed: bounding box of the properly transformed children.
-        :return:
+        :param with_stroke: should the stroke-width be included in the bounds.
+        :return: bounding box of the given element
         """
         return Group.union_bbox(
             self.select(),
@@ -7846,6 +7859,10 @@ class Text(SVGElement, GraphicObject, Transformable):
     def bbox(self, transformed=True, with_stroke=False):
         """
         Get the bounding box for the given text object.
+
+        :param transformed: whether this is the transformed bounds or default.
+        :param with_stroke: should the stroke-width be included in the bounds.
+        :return: bounding box of the given element
         """
         if self.path is not None:
             return (self.path * self.transform).bbox(
@@ -8122,7 +8139,9 @@ class Image(SVGElement, GraphicObject, Transformable):
         """
         Get the bounding box for the given image object
 
-        There is no stroke for an image so with_stroke is ignored
+        :param transformed: whether this is the transformed bounds or default.
+        :param with_stroke: There is no stroke for an image so with_stroke is ignored
+        :return: bounding box of the given element
         """
         if self.image_width is None or self.image_height is None:
             p = Point(0, 0)
