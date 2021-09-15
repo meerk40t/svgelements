@@ -3719,7 +3719,10 @@ class Shape(SVGElement, GraphicObject, Transformable):
             return None  # No bounding box items existed. So no bounding box.
 
         if with_stroke and self.stroke_width is not None:
-            delta = float(self.implicit_stroke_width) / 2.0
+            if transformed:
+                delta = float(self.implicit_stroke_width) / 2.0
+            else:
+                delta = float(self.stroke_width) / 2.0
         else:
             delta = 0.0
 
@@ -7896,7 +7899,10 @@ class Text(SVGElement, GraphicObject, Transformable):
             ymax = max(p0[1], p1[1], p2[1], p3[1])
 
         if with_stroke and self.stroke_width is not None:
-            delta = float(self.implicit_stroke_width) / 2.0
+            if transformed:
+                delta = float(self.implicit_stroke_width) / 2.0
+            else:
+                delta = float(self.stroke_width) / 2.0
         else:
             delta = 0.0
 
