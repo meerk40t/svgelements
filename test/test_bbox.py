@@ -56,6 +56,13 @@ class TestElementBbox(unittest.TestCase):
             72 * 2 + 5.,
             61 * 2 + 5.
         ))
+        self.assertEqual(e.bbox(transformed=False), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(transformed=False, with_stroke=True), (
+            50 - (5. / 2.),
+            51 - (5. / 2.),
+            70 + (5. / 2.),
+            61 + (5. / 2.)
+        ))
 
     def test_issue_104(self):
         """Testing Issue 104 rotated bbox"""
