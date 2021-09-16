@@ -15,6 +15,17 @@ class TestPath(unittest.TestCase):
                 self.assertEqual(p.d(), "M 0,100 L 50,50 L 100,0")
             self.assertLessEqual(i, 1)
 
+    def test_count_subpaths(self):
+        path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
+        self.assertEqual(path.count_subpaths(), 2)
+
+    def test_subpath(self):
+        path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
+        subpath = path.subpath(0)
+        self.assertEqual(subpath.d(), "M 0,0 L 50,50 L 100,100 Z")
+        subpath = path.subpath(1)
+        self.assertEqual(subpath.d(), "M 0,100 L 50,50 L 100,0")
+
     def test_move_quad_smooth(self):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
