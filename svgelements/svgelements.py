@@ -6148,6 +6148,28 @@ class Path(Shape, MutableSequence):
                 arc_required = int(ceil(abs(segment.sweep) / sweep_limit))
                 self[s : s + 1] = list(segment.as_quad_curves(arc_required))
 
+    def add_missing_closes(self, subpaths=None, error=ERROR):
+        """
+        This method will close subpaths that have coincident endpoints
+        which do not end with a Close segment.
+
+        Because Subpath is a window on the underlying path,
+        we need to process subpaths in descending order.
+
+        If subpaths is provided by the caller,
+        then subpaths not provided will not
+        have been updated and will be invalid.
+        """
+        if subpaths is None:
+            subpaths = self.as_subpaths()
+        sorted_subpaths = sorted(subpaths, reverse=True)
+        for subpath in sorted_subpaths:
+            if isinstance(subpath._path._segments[self._end], Close):
+                continue
+            if abs(subpath.first_point - subpath.current_point) <= error:
+                subpath._end += 1
+                subpath._path.insert(self._end, Close(start=subpath.current_point, end=subpath.first_point))
+
 
 class Rect(Shape):
     """
@@ -7292,7 +7314,7 @@ class Subpath:
         if isinstance(other, str):
             return self.__eq__(Path(other))
         if not isinstance(other, (Path, Subpath)):
-            return NotImplemented
+            return NotImplemented("You can only check Subpath == Subpath or Path")
         if len(self) != len(other):
             return False
         for s, o in zip(self, other):
@@ -7305,6 +7327,14 @@ class Subpath:
             return NotImplemented
         return not self == other
 
+    def __lt__(self, other):
+        """
+        Implemented to allow a list of Subpaths to be sorted
+        """
+        if not isinstance(other, Subpath):
+            return NotImplemented("You can only check Subpath < Subpath (possibly in a sort)")
+        return self._start < other._start
+
     def segments(self, transformed=True):
         path = self._path
         if transformed:
@@ -7312,6 +7342,28 @@ class Subpath:
                 s * path.transform for s in path._segments[self._start : self._end + 1]
             ]
         return path._segments[self._start : self._end + 1]
+
+    @property
+    def first_point(self):
+        """
+        First point along the SubPath. This is the start point of the first segment unless it starts
+        with a Move command with a None start in which case first point is that Move's destination.
+        """
+        if self._path._segments[self._start].start is not None:
+            return Point(self._path._segments[self._start].start)
+        return (
+            Point(self._path._segments[self._start].end)
+            if self._path._segments[self._start].end is not None
+            else None
+        )
+
+    @property
+    def current_point(self):
+        return (
+            Point(self._path._segments[self._end].end)
+            if self._path._segments[self._end].end is not None
+            else None
+        )
 
     def _numeric_index(self, index):
         if index < 0:
