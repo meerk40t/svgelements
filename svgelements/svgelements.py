@@ -6021,7 +6021,7 @@ class Path(Shape, MutableSequence):
         self._segments[0].start = prepoint
         return self
 
-    def _subpath_map(self):
+    def _subpath_indices(self):
         """
         Returns the indexes of Move segments assuming that the first segment is a Move.
 
@@ -6029,27 +6029,27 @@ class Path(Shape, MutableSequence):
         """
         map = [0]
         for i in range(1, len(self)):
-          if isinstance(self[i], Move):
-            map.append(i)
+            if isinstance(self[i], Move):
+                map.append(i)
         return map
 
-    def subpath(self, index, subpath_map=None):
-        if subpath_map is None:
-            subpath_map = self._subpath_map()
+    def subpath(self, index, subpath_indices=None):
+        if subpath_indices is None:
+            subpath_indices = self._subpath_indices()
         if index >= len(self):
             raise IndexError("Subpath requested out of range")
-        end = subpath_map[index + 1] if index + 1 < len(subpath_map) else len(self)
-        return Subpath(self, subpath_map[index], end - 1)
+        end = subpath_indices[index + 1] if index + 1 < len(subpath_indices) else len(self)
+        return Subpath(self, subpath_indices[index], end - 1)
 
-    def count_subpaths(self, subpath_map=None):
-        if subpath_map is None:
-            subpath_map = self._subpath_map()
-        return len(subpath_map)
+    def count_subpaths(self, subpath_indices=None):
+        if subpath_indices is None:
+            subpath_indices = self._subpath_indices()
+        return len(subpath_indices)
 
     def as_subpaths(self):
-        subpath_map = self._subpath_map()
-        for i in range(len(subpath_map)):
-           yield self.subpath(i, subpath_map=subpath_map)
+        subpath_indices = self._subpath_indices()
+        for i in range(len(subpath_indices)):
+           yield self.subpath(i, subpath_indices=subpath_indices)
 
     def as_points(self):
         """Returns the list of defining points within path"""
