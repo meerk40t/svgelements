@@ -5517,13 +5517,15 @@ class Path(Shape, MutableSequence):
         """ensure the close element at this position correctly links to the previous move"""
         for i in range(index, -1, -1):
             segment = self._segments[i]
-            if isinstance(segment, Move):
+            if isinstance(segment, (Move, Close)):
                 self._segments[index].end = Point(segment.end)
                 return
         self._segments[index].end = (
-            Point(self._segments[0].end) if self._segments[0].end is not None else None
+            Point(self._segments[0].start) if self._segments[0].start is not None
+            Point(self._segments[0].end) if self._segments[0].end is not None
+            else None
         )
-        # If move is never found, just the end point of the first element. Unless that's not a thing.
+        # If move is never found, just the start point of the first element. Unless that's not a thing.
 
     def _validate_connection(self, index, prefer_second=False):
         """
