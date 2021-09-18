@@ -23,7 +23,6 @@ class TestPath(unittest.TestCase):
         path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
         subpath = path.subpath(0)
         self.assertEqual(subpath.d(), "M 0,0 L 50,50 L 100,100 Z")
-        print("indices", tuple(path._subpath_indices()))
         subpath = path.subpath(1)
         self.assertEqual(subpath.d(), "M 0,100 L 50,50 L 100,0")
 
