@@ -5744,17 +5744,13 @@ class Path(Shape, MutableSequence):
         This behavior of Z is defined in svg spec:
         http://www.w3.org/TR/SVG/paths.html#PathDataClosePathCommand
         """
-        end_pos = None
         for segment in reversed(self._segments):
-            if isinstance(segment, Move):
-                end_pos = segment.end
-                break
-        if end_pos is None:
-            try:
-                end_pos = self._segments[0].end
-            except IndexError:
-                pass  # entire path is "z".
-        return end_pos
+            if isinstance(segment, (Move, Close)):
+                return segment.end
+        try:
+            return self._segments[0].end
+        except IndexError:
+            return None  # entire path is "z"
 
     @property
     def smooth_point(self):
