@@ -7335,8 +7335,10 @@ class Subpath:
 
     def bbox(self, transformed=True, with_stroke=False):
         """returns a bounding box for the input Path"""
-        segments = self._path.segments(transformed=transformed)
-        segments = segments[self._start : self._end + 1]
+        if transformed:
+            return Path(self).bbox(transformed=transformed, with_stroke=with_stroke)
+
+        segments = self._path._segments[self._start : self._end + 1]
         bbs = [seg.bbox() for seg in segments if not isinstance(Close, Move)]
         try:
             xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
