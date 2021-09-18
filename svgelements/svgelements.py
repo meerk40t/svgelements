@@ -5497,10 +5497,10 @@ class Path(Shape, MutableSequence):
             if isinstance(close_search, Close):
                 for k in range(index, -1, -1):
                     move_search = self._segments[k]
-                    if isinstance(move_search, Move):
+                    if isinstance(move_search, (Move, Close)):
                         self._segments[j].end = Point(move_search.end)
                         return
-                self._segments[j].end = Point(self._segments[0].end)
+                self._segments[j].end = Point(self._segments[0].start)
                 return
 
     def _validate_move(self, index):
