@@ -6027,29 +6027,34 @@ class Path(Shape, MutableSequence):
 
         This can be used to count subpaths or to get segment start and end numbers for subpaths.
         """
-        map = [0]
+        yield 0
         for i in range(1, len(self)):
             if isinstance(self[i], Move):
-                map.append(i)
-        return map
+                yield i
 
-    def subpath(self, index, subpath_indices=None):
-        if subpath_indices is None:
-            subpath_indices = self._subpath_indices()
-        if index >= len(self):
-            raise IndexError("Subpath requested out of range")
-        end = subpath_indices[index + 1] if index + 1 < len(subpath_indices) else len(self)
-        return Subpath(self, subpath_indices[index], end - 1)
+    def subpath(self, index):
+        if index < 0:
+            raise IndexError("Subpath negative index")
+        start = None
+        for i, end in enumerate(self._subpath_indices()):
+            if i > index:
+                return Subpath(self, start, end - 1)
+            start = end
+        if i == index:
+            return Subpath(self, start, len(self) - 1)
+        else:
+            raise IndexError("Subpath index out of range")
 
-    def count_subpaths(self, subpath_indices=None):
-        if subpath_indices is None:
-            subpath_indices = self._subpath_indices()
-        return len(subpath_indices)
+    def count_subpaths(self):
+        return len(tuple(self._subpath_indices()))
 
     def as_subpaths(self):
-        subpath_indices = self._subpath_indices()
-        for i in range(len(subpath_indices)):
-           yield self.subpath(i, subpath_indices=subpath_indices)
+        last = None
+        for end in self._subpath_indices():
+            if last is not None:
+                yield Subpath(self, last, end - 1)
+            last = end
+        yield Subpath(self, end, len(self) - 1)
 
     def as_points(self):
         """Returns the list of defining points within path"""
