@@ -1989,13 +1989,16 @@ class Point:
         return hash(self.__key())
 
     def __eq__(self, other):
-        if other is None:
+        if other is None or self.x is None or self.y is None:
             return False
         try:
             if not isinstance(other, Point):
                 other = Point(other)
         except Exception:
             return NotImplemented
+
+        if other.x is None or other.y is None:
+            return False
 
         return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
 
@@ -5500,7 +5503,7 @@ class Path(Shape, MutableSequence):
                     if isinstance(move_search, (Move, Close)):
                         self._segments[j].end = Point(move_search.end)
                         return
-                if isinstance(self._segments[0], Move):
+                if isinstance(self._segments[0], (Move,Close)):
                     self._segments[j].end = Point(self._segments[0].end)
                 else:
                     self._segments[j].end = Point(self._segments[0].start)
@@ -5523,7 +5526,7 @@ class Path(Shape, MutableSequence):
             if isinstance(segment, (Move, Close)):
                 self._segments[index].end = Point(segment.end)
                 return
-        if isinstance(self._segments[index], Move):
+        if isinstance(self._segments[index], (Move,Close)):
             self._segments[index].end = Point(self._segments[0].end)
         else:
             self._segments[index].end = Point(self._segments[0].start)
@@ -5583,7 +5586,7 @@ class Path(Shape, MutableSequence):
             self.validate_connections()
         else:
             self._validate_connection(index - 1)
-            if isinstance(original_element, (Close, Move)):
+            if isinstance(original_element, (Move, Close)):
                 self._validate_subpath(index)
 
     def __iadd__(self, other):
@@ -5671,7 +5674,7 @@ class Path(Shape, MutableSequence):
         zpoint = None
         last_segment = None
         for segment in self._segments:
-            if zpoint is None or isinstance(segment, Move):
+            if zpoint is None and isinstance(segment, Move):
                 zpoint = segment.end
             if last_segment is not None:
                 if segment.start is None and last_segment.end is not None:
@@ -5751,7 +5754,9 @@ class Path(Shape, MutableSequence):
         for segment in reversed(self._segments):
             if isinstance(segment, (Move, Close)):
                 return segment.end
-        if isinstance(self._segments[0], Move):
+        if len(self._segments) == 0:
+            return None
+        if isinstance(self._segments[0], (Move,Close)):
             return self._segments[0].end
         else:
             return self._segments[0].start
