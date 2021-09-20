@@ -5500,7 +5500,10 @@ class Path(Shape, MutableSequence):
                     if isinstance(move_search, (Move, Close)):
                         self._segments[j].end = Point(move_search.end)
                         return
-                self._segments[j].end = Point(self._segments[0].start)
+                if isinstance(self._segments[0], Move):
+                    self._segments[j].end = Point(self._segments[0].end)
+                else:
+                    self._segments[j].end = Point(self._segments[0].start)
                 return
 
     def _validate_move(self, index):
@@ -5520,12 +5523,11 @@ class Path(Shape, MutableSequence):
             if isinstance(segment, (Move, Close)):
                 self._segments[index].end = Point(segment.end)
                 return
-        self._segments[index].end = (
-            Point(self._segments[0].start) if self._segments[0].start is not None
-            Point(self._segments[0].end) if self._segments[0].end is not None
-            else None
-        )
-        # If move is never found, just the start point of the first element. Unless that's not a thing.
+        if isinstance(self._segments[index], Move):
+            self._segments[index].end = Point(self._segments[0].end)
+        else:
+            self._segments[index].end = Point(self._segments[0].start)
+        return
 
     def _validate_connection(self, index, prefer_second=False):
         """
@@ -5749,10 +5751,11 @@ class Path(Shape, MutableSequence):
         for segment in reversed(self._segments):
             if isinstance(segment, (Move, Close)):
                 return segment.end
-        try:
+        if isinstance(self._segments[0], Move):
             return self._segments[0].end
-        except IndexError:
-            return None  # entire path is "z"
+        else:
+            return self._segments[0].start
+        return
 
     @property
     def smooth_point(self):
