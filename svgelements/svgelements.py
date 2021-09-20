@@ -7334,7 +7334,7 @@ class Subpath:
         return self._numeric_index(index)
 
     def bbox(self, transformed=True, with_stroke=False):
-        """returns a bounding box for the input Path"""
+        """returns a bounding box for the subpath"""
         if transformed:
             return Path(self).bbox(transformed=transformed, with_stroke=with_stroke)
 
@@ -7346,10 +7346,7 @@ class Subpath:
             return None  # No bounding box items existed. So no bounding box.
 
         if with_stroke and self._path.stroke_width is not None:
-            if transformed:
-                delta = float(self._path.implicit_stroke_width) / 2.0
-            else:
-                delta = float(self._path.stroke_width) / 2.0
+            delta = float(self._path.stroke_width) / 2.0
         else:
             delta = 0.0
 
