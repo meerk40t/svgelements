@@ -5503,10 +5503,7 @@ class Path(Shape, MutableSequence):
                     if isinstance(move_search, (Move, Close)):
                         self._segments[j].end = Point(move_search.end)
                         return
-                if isinstance(self._segments[0], (Move,Close)):
-                    self._segments[j].end = Point(self._segments[0].end)
-                else:
-                    self._segments[j].end = Point(self._segments[0].start)
+                self._segments[j].end = Point(self._segments[0].end)
                 return
 
     def _validate_move(self, index):
@@ -5521,15 +5518,12 @@ class Path(Shape, MutableSequence):
 
     def _validate_close(self, index):
         """ensure the close element at this position correctly links to the previous move"""
-        for i in range(index, -1, -1):
+        for i in range(index - 1, -1, -1):
             segment = self._segments[i]
             if isinstance(segment, (Move, Close)):
                 self._segments[index].end = Point(segment.end)
                 return
-        if isinstance(self._segments[index], (Move,Close)):
-            self._segments[index].end = Point(self._segments[0].end)
-        else:
-            self._segments[index].end = Point(self._segments[0].start)
+        self._segments[index].end = Point(self._segments[0].end)
         return
 
     def _validate_connection(self, index, prefer_second=False):
@@ -5674,7 +5668,7 @@ class Path(Shape, MutableSequence):
         zpoint = None
         last_segment = None
         for segment in self._segments:
-            if zpoint is None and isinstance(segment, Move):
+            if zpoint is None or isinstance(segment, Move):
                 zpoint = segment.end
             if last_segment is not None:
                 if segment.start is None and last_segment.end is not None:
@@ -5728,7 +5722,7 @@ class Path(Shape, MutableSequence):
         with a Move command with a None start in which case first point is that Move's destination."""
         if len(self._segments) == 0:
             return None
-        if self._segments[0].start is not None:
+        if not isinstance(self._segments[0], (Move,Close)) and self._segments[0].start is not None:
             return Point(self._segments[0].start)
         return (
             Point(self._segments[0].end) if self._segments[0].end is not None else None
@@ -5756,11 +5750,7 @@ class Path(Shape, MutableSequence):
                 return segment.end
         if len(self._segments) == 0:
             return None
-        if isinstance(self._segments[0], (Move,Close)):
-            return self._segments[0].end
-        else:
-            return self._segments[0].start
-        return
+        return self._segments[0].end
 
     @property
     def smooth_point(self):
