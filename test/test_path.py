@@ -15,6 +15,15 @@ class TestPath(unittest.TestCase):
                 self.assertEqual(p.d(), "M 0,100 L 50,50 L 100,0")
             self.assertLessEqual(i, 1)
 
+    def test_subpaths_no_move(self):
+        path = Path("M0,0 50,0 50,50 0,50 Z L0,100 100,100 100,0")
+        for i, p in enumerate(path.as_subpaths()):
+            if i == 0:
+                self.assertEqual(p.d(), "M 0,0 L 50,0 L 50,50 L 0,50 Z")
+            elif i == 1:
+                self.assertEqual(p.d(), "L 0,100 L 100,100 L 100,0")
+            self.assertLessEqual(i, 1)
+
     def test_count_subpaths(self):
         path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
         self.assertEqual(path.count_subpaths(), 2)
