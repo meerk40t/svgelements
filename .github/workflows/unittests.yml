@@ -58,7 +58,7 @@ jobs:
     - name: Install Python dependencies
       shell: bash
       run: |
-        python -m pip install --upgrade pip setuptools wheel babel
+        python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint flake8 flake8-deprecated black mypy isort
         if [ "${{ matrix.options }}" != "" ]; then
           pip install --upgrade --upgrade-strategy eager ${{ matrix.options }}
