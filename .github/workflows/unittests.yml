@@ -25,10 +25,10 @@ jobs:
         options: ['', scipy, numpy]
         include:
           - os: macos-10.15
-            python: 3.9
+            python-version: 3.9
             options: scipy
           - os: macos-11
-            python: 3.9
+            python-version: 3.9
             options: numpy
 
     steps:
