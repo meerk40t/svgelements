@@ -75,11 +75,11 @@ jobs:
       run: |
         isort svgelements -c --diff
 
-   - name: Analyse with mypy
-     id: mypy
-     continue-on-error: true
-     run: |
-       mypy svgelements
+    - name: Analyse with mypy
+      id: mypy
+      continue-on-error: true
+      run: |
+        mypy svgelements
 
     - name: Upload analysis results
       uses: actions/upload-artifact@v2
