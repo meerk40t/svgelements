@@ -20,9 +20,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04, windows-2019, macos-10.15, macos-11]
+        os: [ubuntu-18.04, windows-2019]
         python-version: [3.6, 3.9, 3.10.0-rc.2]
-        options: ["", "scipy", "numpy"]
+        options: ['', scipy, numpy]
+        include:
+          - os: macos-10.15
+            python: 3.9
+            options: scipy
+          - os: macos-11
+            python: 3.9
+            options: numpy
 
     steps:
 
