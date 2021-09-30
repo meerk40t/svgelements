@@ -2,9 +2,9 @@ name: Unittest
 
 on:
   push:
-    #branches: [master]
+    branches: [master]
   pull_request:
-    #branches: [master]
+    branches: [master]
   schedule:
     - cron: '0 23 * * 5'
 
@@ -21,9 +21,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-18.04, windows-2019]
-        python-version: [3.6, 3.9, 3.10.0-rc.2]
+        python-version: [3.6, 3.9]
         options: ['', scipy, numpy]
         include:
+          - os: ubuntu-18.04
+            python-version: 3.10.0-rc.2
+            options: ''
           - os: macos-10.15
             python-version: 3.9
             options: scipy
@@ -46,7 +49,7 @@ jobs:
       shell: bash
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
-    - name: Python Cache - ${{ runner.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
+    - name: Python Cache - ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
       uses: actions/cache@v2
       with:
         path: ${{ env.pythonLocation }}
@@ -57,7 +60,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint flake8 flake8-deprecated black mypy isort
-        if [ .${{ matrix.options }} != "." ]; then
+        if [ "${{ matrix.options }}" != "" ]; then
           pip install --upgrade --upgrade-strategy eager ${{ matrix.options }}
         fi
 
