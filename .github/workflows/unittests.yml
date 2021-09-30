@@ -15,7 +15,7 @@ concurrency:
 jobs:
   unittests:
 
-    name: ${{ matrix.os }} / py ${{ matrix.python-version }} / ${{ matrix.options }}
+    name: ${{ matrix.os }}+py${{ matrix.python-version }}+${{ matrix.options }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,7 +26,7 @@ jobs:
 
     steps:
 
-    - name: Checkout branch ${{ github.ref }}
+    - name: Checkout ${{ github.ref }}
       uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
@@ -34,15 +34,16 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Get full Python version
+    - name: Get detailed Python version
       id: full-python-version
       shell: bash
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
-    - uses: actions/cache@v2
+    - name: Python Cache - ${{ runner.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
+      uses: actions/cache@v2
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{ runner.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
+        key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
 
     - name: Install Python dependencies
       shell: bash
