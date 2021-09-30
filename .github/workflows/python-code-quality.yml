@@ -43,6 +43,7 @@ jobs:
         key: ${{ runner.os }}-python-${{ steps.full-python-version.outputs.version }}
 
     - name: Install Python dependencies
+      shell: bash
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
