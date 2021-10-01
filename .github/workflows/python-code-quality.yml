@@ -63,7 +63,7 @@ jobs:
       id: flake8
       continue-on-error: true
       run: |
-        pflake8 svgelements/ --tee --output-file=artifacts/flake8.txt
+        pflake8 svgelements/svgelements.py --tee --output-file=artifacts/flake8.txt
 
     - name: Analyse with black
       id: black
