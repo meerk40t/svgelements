@@ -8,8 +8,20 @@ except ImportError:
     from collections import MutableSequence  # noqa
 
 from copy import copy
-from math import (acos, atan, atan2, ceil, cos, degrees, hypot, log, radians,
-                  sin, sqrt, tan)
+from math import (
+    acos,
+    atan,
+    atan2,
+    ceil,
+    cos,
+    degrees,
+    hypot,
+    log,
+    radians,
+    sin,
+    sqrt,
+    tan,
+)
 from xml.etree.ElementTree import iterparse
 
 try:
@@ -902,7 +914,7 @@ class Length(object):
         font_size=None,
         font_height=None,
         viewbox=None,
-        **kwargs
+        **kwargs,
     ):
         if self.amount is None:
             return None
@@ -1687,17 +1699,13 @@ class Color(object):
     def hexa(self):
         if self.value is None:
             return None
-        return (
-            "#%02x%02x%02x%02x" % (self.red, self.green, self.blue, self.alpha)
-        )
+        return "#%02x%02x%02x%02x" % (self.red, self.green, self.blue, self.alpha)
 
     @property
     def hexrgb(self):
         if self.value is None:
             return None
-        return (
-            "#%02x%02x%02x" % (self.red, self.green, self.blue)
-        )
+        return "#%02x%02x%02x" % (self.red, self.green, self.blue)
 
     @property
     def hex(self):
@@ -2680,7 +2688,7 @@ class Matrix:
         font_size=None,
         font_height=None,
         viewbox=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Provides values to turn trans_x and trans_y values into user units floats rather
@@ -3769,9 +3777,7 @@ class Shape(SVGElement, GraphicObject, Transformable):
             if self.fill.opacity != 1.0:
                 values.append("%s=%s" % ("fill_opacity", str(self.fill.opacity)))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append(
-                "stroke_width=%s" % str(self.stroke_width)
-            )
+            values.append("stroke_width=%s" % str(self.stroke_width))
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.apply is not None and not self.apply:
@@ -3792,13 +3798,9 @@ class Shape(SVGElement, GraphicObject, Transformable):
         if self.fill is not None and self.fill.rgb is not None:
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill.hexrgb))
             if self.fill.opacity != 1.0:
-                values.append(
-                    "%s=%s" % (SVG_ATTR_FILL_OPACITY, str(self.fill.opacity))
-                )
+                values.append("%s=%s" % (SVG_ATTR_FILL_OPACITY, str(self.fill.opacity)))
         if self.stroke_width is not None and self.stroke_width != 1.0:
-            values.append(
-                "%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width))
-            )
+            values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.apply is not None and not self.apply:
@@ -7716,7 +7718,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         if self.stroke_width is not None and self.stroke_width != 1.0:
             values.append(
                 "stroke_width=%s" % str(self.stroke_width)
-            ) # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+            )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
@@ -7922,6 +7924,7 @@ class Text(SVGElement, GraphicObject, Transformable):
             xmax + delta,
             ymax + delta,
         )
+
 
 SVGText = Text
 
@@ -8182,6 +8185,7 @@ class Image(SVGElement, GraphicObject, Transformable):
         max_x = max(x_vals)
         max_y = max(y_vals)
         return min_x, min_y, max_x, max_y
+
 
 SVGImage = Image
 
