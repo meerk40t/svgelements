@@ -47,7 +47,7 @@ jobs:
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
-        #if [ -f requirements.txt ]; then pip install --upgrade --upgrade-strategy eager -r requirements.txt; fi
+        pip install --upgrade --upgrade-strategy eager scipy numpy
 
     - name: Create output directory
       run: mkdir -p artifacts
