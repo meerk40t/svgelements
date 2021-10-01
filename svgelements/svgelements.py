@@ -6028,7 +6028,7 @@ class Path(Shape, MutableSequence):
         This can be used to count subpaths or to get segment start and end numbers for subpaths.
         """
         if len(self._segments) == 0:
-            raise StopIteration
+            return
         yield 0
         last = self._segments[0]
         for i in range(1, len(self._segments)):
