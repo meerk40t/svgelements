@@ -64,7 +64,7 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        pip install --upgrade --upgrade-strategy eager pillow scipy>=1.7.1 numpy
+        pip install --upgrade --upgrade-strategy eager pillow scipy==1.7.1 numpy
 
     - name: List Python environment
       run: |
