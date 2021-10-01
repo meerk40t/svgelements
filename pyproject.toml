@@ -85,7 +85,7 @@ suggestion-mode = true
 unsafe-load-any-extension = false
 
 
-[tool.pylint.messages control]
+[tool.pylint.'messages control']
 # Only show warnings with the listed confidence levels. Leave empty to show
 # all. Valid levels: HIGH, INFERENCE, INFERENCE_FAILURE, UNDEFINED.
 confidence = ""
