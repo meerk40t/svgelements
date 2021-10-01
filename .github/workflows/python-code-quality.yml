@@ -15,7 +15,7 @@ concurrency:
 jobs:
   analyze:
 
-    name: ${{ matrix.os }} / ${{ matrix.python-version }}
+    name: Lint ${{ matrix.os }} / ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
