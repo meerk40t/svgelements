@@ -12,6 +12,10 @@ concurrency:
   group: codequality-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   analyze:
 
@@ -34,7 +38,6 @@ jobs:
 
     - name: Get full Python version
       id: full-python-version
-      shell: bash
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
     - name: Python Cache - ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
@@ -44,7 +47,6 @@ jobs:
         key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
     - name: Install Python dependencies
-      shell: bash
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
