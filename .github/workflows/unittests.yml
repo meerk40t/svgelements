@@ -67,4 +67,4 @@ jobs:
         python -m unittest discover test -v
         if [ ${{ matrix.experimental }} == true ];
             exit 0
-        ]
+        fi
