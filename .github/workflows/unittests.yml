@@ -65,6 +65,6 @@ jobs:
       shell: bash
       run: |
         python -m unittest discover test -v
-        if [ ${{ matrix.experimental }} == true ];
+        if ${{ matrix.experimental }} == true; then
             exit 0
         fi
