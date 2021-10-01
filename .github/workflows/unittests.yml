@@ -28,7 +28,7 @@ jobs:
             python-version: 3.6
             experimental: false
           - os: ubuntu-18.04
-            python-version: '~3.10'
+            python-version: '3.10.0-alpha - 3.10.9'
             experimental: true
           - os: macos-11
             python-version: 3.9
