@@ -7333,19 +7333,29 @@ class Subpath:
             return slice(start, stop, step)
         return self._numeric_index(index)
 
-    def bbox(self):
-        """returns a bounding box for the input Path"""
+    def bbox(self, transformed=True, with_stroke=False):
+        """returns a bounding box for the subpath"""
+        if transformed:
+            return Path(self).bbox(transformed=transformed, with_stroke=with_stroke)
+
         segments = self._path._segments[self._start : self._end + 1]
         bbs = [seg.bbox() for seg in segments if not isinstance(Close, Move)]
         try:
             xmins, ymins, xmaxs, ymaxs = list(zip(*bbs))
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
-        xmin = min(xmins)
-        xmax = max(xmaxs)
-        ymin = min(ymins)
-        ymax = max(ymaxs)
-        return xmin, ymin, xmax, ymax
+
+        if with_stroke and self._path.stroke_width is not None:
+            delta = float(self._path.stroke_width) / 2.0
+        else:
+            delta = 0.0
+
+        return (
+            min(xmins) - delta,
+            min(ymins) - delta,
+            max(xmaxs) + delta,
+            max(ymaxs) + delta,
+        )
 
     def d(self, relative=None, smooth=None):
         segments = self._path._segments[self._start : self._end + 1]
