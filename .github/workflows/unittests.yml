@@ -15,24 +15,18 @@ concurrency:
 jobs:
   unittests:
 
-    name: ${{ matrix.os }}+py${{ matrix.python-version }}+${{ matrix.options }}
+    name: ${{ matrix.os }}+py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-18.04, windows-2019]
+        os: [ubuntu-18.04, windows-2019, macos-10.15]
         python-version: [3.6, 3.9]
-        options: ['', scipy, numpy]
         include:
           - os: ubuntu-18.04
             python-version: 3.10.0-rc.2
-            options: ''
-          - os: macos-10.15
-            python-version: 3.9
-            options: scipy
           - os: macos-11
             python-version: 3.9
-            options: numpy
 
     steps:
 
@@ -59,10 +53,7 @@ jobs:
       shell: bash
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
-        pip install --upgrade --upgrade-strategy eager pylint flake8 flake8-deprecated black mypy isort
-        if [ "${{ matrix.options }}" != "" ]; then
-          pip install --upgrade --upgrade-strategy eager ${{ matrix.options }}
-        fi
+        pip install --upgrade --upgrade-strategy eager scipy numpy
 
     - name: Run Unittests
       run: |
