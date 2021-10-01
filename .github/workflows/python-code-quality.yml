@@ -48,7 +48,7 @@ jobs:
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
-        pip install --upgrade --upgrade-strategy eager scipy>=1.7.1 numpy
+        pip install --upgrade --upgrade-strategy eager pillow scipy>=1.7.1 numpy
 
     - name: Create output directory
       run: mkdir -p artifacts
