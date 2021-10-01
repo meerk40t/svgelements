@@ -468,7 +468,7 @@ method-naming-style = "snake_case"
 #method-rgx = ""
 
 # Naming style matching correct module names.
-module-naming-style = snake_case
+module-naming-style = "snake_case"
 
 # Regular expression matching correct module names. Overrides module-naming-
 # style.
@@ -539,7 +539,7 @@ ignored-modules = ""
 
 # Show a hint with possible names when a member name was not found. The aspect
 # of finding the hint is based on edit distance.
-missing-member-hint = yes
+missing-member-hint = true
 
 # The minimum edit distance a name should have in order to be considered a
 # similar match for a missing member name.
