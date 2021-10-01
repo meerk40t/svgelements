@@ -43,11 +43,11 @@ jobs:
       shell: bash
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
-    - name: Python Cache - ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
+    - name: Python Cache - ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
       uses: actions/cache@v2
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}-${{ matrix.options }}
+        key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
     - name: Install Python dependencies
       shell: bash
