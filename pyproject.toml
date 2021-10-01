@@ -26,7 +26,7 @@ include = '\.pyi?$'
 
 [tool.flake8]
 filename = "*.py"
-count = true
+count = "true"
 exclude = [
     "*.pyc",
     "__pycache__",
@@ -35,8 +35,8 @@ exclude = [
 indent-size = 4
 max-complexity = 10
 max-line-length = 88
-show-source = true
-statistics = true
+show-source = "true"
+statistics = "true"
 
 
 [tool.pylint.master]
