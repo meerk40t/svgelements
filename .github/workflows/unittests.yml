@@ -22,7 +22,7 @@ jobs:
       matrix:
         os: [ubuntu-18.04, windows-2019, macos-10.15]
         python-version: [3.9]
-        experimental: false
+        experimental: [false]
         include:
           - os: ubuntu-18.04
             python-version: 3.6
