@@ -29,6 +29,9 @@ jobs:
         experimental: [false]
         include:
           - os: ubuntu-18.04
+            python-version: 2.7
+            experimental: true
+          - os: ubuntu-18.04
             python-version: 3.6
             experimental: false
           #- os: ubuntu-18.04
