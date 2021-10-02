@@ -26,17 +26,16 @@ include = '\.pyi?$'
 
 [tool.flake8]
 filename = "*.py"
-count = true
+count = "true"
 exclude = [
     "*.pyc",
-    "__pycache__",
-    "svgelements.py"
-    ]
+    "__pycache__"
+]
 indent-size = 4
 max-complexity = 10
 max-line-length = 88
-show-source = true
-statistics = true
+show-source = "true"
+statistics = "true"
 
 
 [tool.pylint.master]
@@ -59,7 +58,7 @@ ignore-patterns = ""
 
 # Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
 # number of processors available to use.
-# jobs = 1
+jobs = 0
 
 # Control the amount of potential inferred values when inferring a single
 # object. This can help the performance when dealing with large functions or
