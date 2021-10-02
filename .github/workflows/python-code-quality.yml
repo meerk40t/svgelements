@@ -69,7 +69,7 @@ jobs:
       id: pylint
       continue-on-error: true
       run: |
-        pylint -j 0 --output-format=text:artifacts/pylint.txt,colorized svgelements
+        pylint --output-format=text:artifacts/pylint.txt,colorized svgelements
 
     - name: Analyse with flake8
       id: flake8
