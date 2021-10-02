@@ -12,10 +12,14 @@ concurrency:
   group: codequality-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   analyze:
 
-    name: ${{ matrix.os }} / ${{ matrix.python-version }}
+    name: Lint ${{ matrix.os }} / ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -34,20 +38,25 @@ jobs:
 
     - name: Get full Python version
       id: full-python-version
-      shell: bash
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
-    - uses: actions/cache@v2
+    - name: Python Cache - ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
+      uses: actions/cache@v2
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{ runner.os }}-python-${{ steps.full-python-version.outputs.version }}
+        key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
-    - name: Install Python dependencies
-      shell: bash
+    - name: Upgrade Python tools
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
+
+    - name: Install Lint tools
+      run: |
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
-        pip install --upgrade --upgrade-strategy eager scipy numpy
+
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade --upgrade-strategy eager pillow scipy numpy
 
     - name: Create output directory
       run: mkdir -p artifacts
@@ -56,7 +65,7 @@ jobs:
       id: pylint
       continue-on-error: true
       run: |
-        pylint --output-format=text:artifacts/pylint.txt,colorized svgelements
+        pylint -j 0 --output-format=text:artifacts/pylint.txt,colorized svgelements
 
     - name: Analyse with flake8
       id: flake8
@@ -92,6 +101,5 @@ jobs:
        #if: ${{ failure() }}
       run: |
         if ${{ steps.pylint.outcome != 'success' || steps.flake8.outcome != 'success' || steps.black.outcome != 'success' || steps.isort.outcome != 'success' }}; then
-         exit 0
          exit 1
         fi
