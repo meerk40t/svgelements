@@ -30,8 +30,7 @@ count = "true"
 exclude = [
     "*.pyc",
     "__pycache__",
-    "svgelements.py"
-    ]
+]
 indent-size = 4
 max-complexity = 10
 max-line-length = 88
