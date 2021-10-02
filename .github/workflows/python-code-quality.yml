@@ -46,11 +46,21 @@ jobs:
         path: ${{ env.pythonLocation }}
         key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
-    - name: Install Python dependencies
+    - name: Upgrade Python tools
       run: |
         python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
+
+    - name: Install Lint tools
+      run: |
         pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
-        pip install --upgrade --upgrade-strategy eager pillow scipy>=1.7.1 numpy
+
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade --upgrade-strategy eager pillow scipy numpy
+
+    - name: List Python environment
+      run: |
+        pip list
 
     - name: Create output directory
       run: mkdir -p artifacts
