@@ -1,0 +1,18 @@
+# Format at https://github.com/actions/labeler
+
+Config:
+- '*'
+- '.*/*'
+- '.*/**/*'
+
+Doc:
+- '**/*.md'
+
+Base:
+- 'svgelements/*.py'
+- 'svgelements/**/*.py'
+
+Test:
+- 'test/*.py'
+- 'test/**/*.py'
+
