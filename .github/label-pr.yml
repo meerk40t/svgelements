@@ -1,0 +1,8 @@
+- regExp: ".*\\.py$"
+  labels: ["python"]
+- regExp: ".*\\.md$"
+  labels: ["documentation"]
+- regExp: ".*\\.(cfg|yml|yaml|toml|txt)$"
+  labels: ["configuration"]
+- regExp: "(^|.*\\\\)setup\\.py$"
+  labels: ["configuration"]
