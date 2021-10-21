@@ -7,7 +7,7 @@ from svgelements import *
 class TestElementViewbox(unittest.TestCase):
 
     def test_viewbox_creation(self):
-        # Test various ways of creating a viewbox are equal.
+        """Test various ways of creating a viewbox are equal."""
         v1 = Viewbox('0 0 100 100', 'xMid')
         v2 = Viewbox(viewBox="0 0 100 100", preserve_aspect_ratio="xMid")
         v3 = Viewbox(x=0, y=0, width=100, height=100, preserveAspectRatio="xMid")
@@ -24,13 +24,17 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(v3, v5)
         self.assertEqual(v4, v5)
 
-    def test_viewbox_incomplete_transform(self):
+    def test_viewbox_incomplete_none(self):
+        """
+        Test viewboxes based on incomplete information.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg/>''')
         m = SVG.parse(q)
         self.assertEqual(m.viewbox_transform, '')
         self.assertEqual(m.width, 1000)
         self.assertEqual(m.height, 1000)
+
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg/>''')
         m = SVG.parse(q, width=500, height=500)
@@ -38,6 +42,10 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.width, 500)
         self.assertEqual(m.height, 500)
 
+    def test_viewbox_incomplete_height(self):
+        """
+        Test viewboxes based on incomplete information, only height.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg height="200"/>''')
         m = SVG.parse(q)
@@ -51,6 +59,10 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.width, 500)
         self.assertEqual(m.height, 200)
 
+    def test_viewbox_incomplete_width(self):
+        """
+        Test viewboxes based on incomplete information, only width.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg width="200"/>''')
         m = SVG.parse(q)
@@ -64,6 +76,10 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.width, 200)
         self.assertEqual(m.height, 500)
 
+    def test_viewbox_incomplete_dims(self):
+        """
+        Test viewboxes based on incomplete information, only dims.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg width="200" height="200"/>''')
         m = SVG.parse(q)
@@ -77,6 +93,10 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.width, 200)
         self.assertEqual(m.height, 200)
 
+    def test_viewbox_incomplete_viewbox(self):
+        """
+        Test viewboxes based on incomplete information, only viewbox.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100"/>''')
         m = SVG.parse(q)
@@ -90,6 +110,10 @@ class TestElementViewbox(unittest.TestCase):
         self.assertEqual(m.width, 500)
         self.assertEqual(m.height, 500)
 
+    def test_viewbox_incomplete_height_viewbox(self):
+        """
+        Test viewboxes based on incomplete information, only height and viewbox.
+        """
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100" height="100"/>''')
         m = SVG.parse(q)
