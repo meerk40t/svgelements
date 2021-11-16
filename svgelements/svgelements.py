@@ -4286,8 +4286,8 @@ class QuadraticBezier(Curve):
         def _compute_point(position):
             # compute factors
             n_pos = 1 - position
-            pos_2 = position ** 2
-            n_pos_2 = n_pos ** 2
+            pos_2 = position * position
+            n_pos_2 = n_pos * n_pos
             n_pos_pos = n_pos * position
 
             return (
@@ -4337,9 +4337,9 @@ class QuadraticBezier(Curve):
         try:
             # For an explanation of this case, see
             # http://www.malczak.info/blog/quadratic-bezier-curve-length/
-            A = 4 * (a.real ** 2 + a.imag ** 2)
+            A = 4 * (a.real * a.real + a.imag * a.imag)
             B = 4 * (a.real * b.real + a.imag * b.imag)
-            C = b.real ** 2 + b.imag ** 2
+            C = b.real * b.real + b.imag * b.imag
 
             Sabc = 2 * sqrt(A + B + C)
             A2 = sqrt(A)
@@ -4350,7 +4350,7 @@ class QuadraticBezier(Curve):
             s = (
                 A32 * Sabc
                 + A2 * B * (Sabc - C2)
-                + (4 * C * A - B ** 2) * log((2 * A2 + BA + Sabc) / (BA + C2))
+                + (4 * C * A - B * B) * log((2 * A2 + BA + Sabc) / (BA + C2))
             ) / (4 * A32)
         except (ZeroDivisionError, ValueError):
             # a_dot_b = a.real * b.real + a.imag * b.imag
@@ -4361,7 +4361,7 @@ class QuadraticBezier(Curve):
                 if k >= 2:
                     s = abs(b) - abs(a)
                 else:
-                    s = abs(a) * (k ** 2 / 2 - k + 1)
+                    s = abs(a) * (k * k / 2 - k + 1)
         return s
 
     def is_smooth_from(self, previous):
@@ -4483,9 +4483,9 @@ class CubicBezier(Curve):
 
         def _compute_point(position):
             # compute factors
-            pos_3 = position ** 3
+            pos_3 = position * position * position
             n_pos = 1 - position
-            n_pos_3 = n_pos ** 3
+            n_pos_3 = n_pos * n_pos * n_pos
             pos_2_n_pos = position * position * n_pos
             n_pos_2_pos = n_pos * n_pos * position
             return (
@@ -4769,17 +4769,17 @@ class Arc(Curve):
                 if r < hq:
                     kwargs["r"] = r = hq  # Correct potential math domain error.
                 self.center = Point(
-                    mid.x + sqrt(r ** 2 - hq ** 2) * (self.start.y - self.end.y) / q,
-                    mid.y + sqrt(r ** 2 - hq ** 2) * (self.end.x - self.start.x) / q,
+                    mid.x + sqrt(r * r - hq * hq) * (self.start.y - self.end.y) / q,
+                    mid.y + sqrt(r * r - hq * hq) * (self.end.x - self.start.x) / q,
                 )
                 cw = bool(Point.orientation(self.start, self.center, self.end) == 1)
                 if "ccw" in kwargs and kwargs["ccw"] and cw or not cw:
                     # ccw arg exists, is true, and we found the cw center, or we didn't find the cw center.
                     self.center = Point(
                         mid.x
-                        - sqrt(r ** 2 - hq ** 2) * (self.start.y - self.end.y) / q,
+                        - sqrt(r * r - hq * hq) * (self.start.y - self.end.y) / q,
                         mid.y
-                        - sqrt(r ** 2 - hq ** 2) * (self.end.x - self.start.x) / q,
+                        - sqrt(r * r - hq * hq) * (self.end.x - self.start.x) / q,
                     )
             elif "rx" in kwargs and "ry" in kwargs:
                 # This formulation will assume p1 and p2 are both axis aligned.
@@ -4992,7 +4992,8 @@ class Arc(Curve):
         def ellipse_part_integral(t1, t2, a, b, n=100000):
             # function to integrate
             def f(t):
-                return sqrt(1 - (1 - a ** 2 / b ** 2) * sin(t) ** 2)
+                sint = sin(t)
+                return sqrt(1 - (1 - (a * a) / (b * b)) * sint * sint)
 
             start = min(t1, t2)
             seg_len = abs(t1 - t2) / n
@@ -5010,11 +5011,11 @@ class Arc(Curve):
 
         a = self.rx
         b = self.ry
+        adb = a / b
+        m = 1 - adb * adb
         phi = self.get_start_t()
-        m = 1 - (a / b) ** 2
         d1 = ellipeinc(phi, m)
         phi = phi + self.sweep
-        m = 1 - (a / b) ** 2
         d2 = ellipeinc(phi, m)
         return b * abs(d2 - d1)
 
@@ -6842,7 +6843,7 @@ class _RoundShape(Shape):
         b = self.implicit_ry
         if b > a:
             a, b = b, a
-        h = (a - b) ** 2 / (a + b) ** 2
+        h = ((a - b) * (a - b)) / ((a + b) * (a + b))
         return pi * (a + b) * (1 + (3 * h / (10 + sqrt(4 - 3 * h))))
 
 
