@@ -386,20 +386,21 @@ class TestElementArcPoint(unittest.TestCase):
             self.assertTrue(np.all(np.array([list(arc.start), list(arc.end)])
                                    == arc.npoint([0, 1])))
 
-    # def test_arc_point_implementations_match(self):
-    #     import numpy as np
-    #     for _ in range(1000):
-    #         arc = get_random_arc()
-    #
-    #         pos = np.linspace(0, 1, 100)
-    #
-    #         v1 = arc.npoint(pos)
-    #         # with disable_numpy():
-    #         v2 = arc.npoint(pos)  # test is rendered pointless.
-    #
-    #         for p, p1, p2 in zip(pos, v1, v2):
-    #             self.assertEqual(arc.point(p), Point(p1))
-    #             self.assertEqual(Point(p1), Point(p2))
+    def test_arc_point_implementations_match(self):
+        import numpy as np
+        for _ in range(1000):
+            arc = get_random_arc()
+
+            pos = np.linspace(0, 1, 100)
+
+            v1 = arc.npoint(pos)
+            v2 = []
+            for i in range(len(pos)):
+                v2.append(arc.point(pos[i]))
+
+            for p, p1, p2 in zip(pos, v1, v2):
+                self.assertEqual(arc.point(p), Point(p1))
+                self.assertEqual(Point(p1), Point(p2))
 
 
 class TestElementArcApproximation(unittest.TestCase):

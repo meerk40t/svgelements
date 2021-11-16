@@ -586,12 +586,12 @@ class TestElementShape(unittest.TestCase):
 
         for shape in shapes:
             pos = np.linspace(0, 1, 1000)
-            # with disable_numpy():
             pts1 = shape.npoint(pos)  # Test rendered worthless.
+            v2 = []
+            for i in range(len(pos)):
+                v2.append(shape.point(pos[i]))
 
-            pts2 = shape.npoint(pos)
-
-            for p, p1, p2 in zip(pos, pts1, pts2):
+            for p, p1, p2 in zip(pos, pts1, v2):
                 self.assertEqual(shape.point(p), Point(p1))
                 self.assertEqual(Point(p1), Point(p2))
 
