@@ -195,6 +195,7 @@ PATTERN_TRANSFORM_UNITS = (
 )
 
 REGEX_IRI = re.compile(r"url\(#?(.*)\)")
+REGEX_DATA_URL = re.compile(r"^data:([^,]*),(.*)")
 REGEX_FLOAT = re.compile(PATTERN_FLOAT)
 REGEX_COORD_PAIR = re.compile(
     "(%s)%s(%s)" % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT)
@@ -7940,6 +7941,7 @@ class Image(SVGElement, GraphicObject, Transformable):
     def __init__(self, *args, **kwargs):
         self.url = None
         self.data = None
+        self.media_type = None
         self.viewbox = None
         self.preserve_aspect_ratio = None
         self.x = None
@@ -7957,18 +7959,17 @@ class Image(SVGElement, GraphicObject, Transformable):
         )  # Dataurl requires this be processed first.
 
         if self.url is not None:
-            if self.url.startswith("data:image/"):
+            match = REGEX_DATA_URL.match(self.url)
+            if match:
                 # Data URL
-                from base64 import b64decode
-
-                if self.url.startswith("data:image/png;base64,"):
-                    self.data = b64decode(self.url[22:])
-                elif self.url.startswith("data:image/jpg;base64,"):
-                    self.data = b64decode(self.url[22:])
-                elif self.url.startswith("data:image/jpeg;base64,"):
-                    self.data = b64decode(self.url[23:])
-                elif self.url.startswith("data:image/svg+xml;base64,"):
-                    self.data = b64decode(self.url[26:])
+                self.media_type = match.group(1).split(";")
+                self.data = match.group(2)
+                if "base64" in self.media_type:
+                    from base64 import b64decode
+                    self.data = b64decode(self.data)
+                else:
+                    from urllib.parse import unquote_to_bytes
+                    self.data = unquote_to_bytes(self.data)
 
     def __repr__(self):
         values = []
