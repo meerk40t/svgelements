@@ -1519,7 +1519,7 @@ class Color(object):
 
     @staticmethod
     def parse_color_rgb(values):
-        """Parse SVG Color, RGB value declarations """
+        """Parse SVG Color, RGB value declarations"""
         r = int(values[0])
         g = int(values[1])
         b = int(values[2])
@@ -4161,7 +4161,7 @@ class Linear(PathSegment):
             return 0
 
     def closest_segment_point(self, p, respect_bounds=True):
-        """ Gives the point on the line closest to the given point. """
+        """Gives the point on the line closest to the given point."""
         a = self.start
         b = self.end
         v_ap_x = p[0] - a.x
@@ -4520,7 +4520,9 @@ class CubicBezier(Curve):
         a = [c[v] for c in self]
         denom = a[0] - 3 * a[1] + 3 * a[2] - a[3]
         if abs(denom) >= 1e-12:
-            delta = a[1] * a[1] - (a[0] + a[1]) * a[2] + a[2] * a[2] + (a[0] - a[1]) * a[3]
+            delta = (
+                a[1] * a[1] - (a[0] + a[1]) * a[2] + a[2] * a[2] + (a[0] - a[1]) * a[3]
+            )
             if delta >= 0:  # otherwise no local extrema
                 sqdelta = sqrt(delta)
                 tau = a[0] - 2 * a[1] + a[2]
@@ -4776,10 +4778,8 @@ class Arc(Curve):
                 if "ccw" in kwargs and kwargs["ccw"] and cw or not cw:
                     # ccw arg exists, is true, and we found the cw center, or we didn't find the cw center.
                     self.center = Point(
-                        mid.x
-                        - sqrt(r * r - hq * hq) * (self.start.y - self.end.y) / q,
-                        mid.y
-                        - sqrt(r * r - hq * hq) * (self.end.x - self.start.x) / q,
+                        mid.x - sqrt(r * r - hq * hq) * (self.start.y - self.end.y) / q,
+                        mid.y - sqrt(r * r - hq * hq) * (self.end.x - self.start.x) / q,
                     )
             elif "rx" in kwargs and "ry" in kwargs:
                 # This formulation will assume p1 and p2 are both axis aligned.
@@ -7967,9 +7967,11 @@ class Image(SVGElement, GraphicObject, Transformable):
                 self.data = match.group(2)
                 if "base64" in self.media_type:
                     from base64 import b64decode
+
                     self.data = b64decode(self.data)
                 else:
                     from urllib.parse import unquote_to_bytes
+
                     self.data = unquote_to_bytes(self.data)
 
     def __repr__(self):
@@ -8608,7 +8610,9 @@ class SVG(Group):
 
                     if width is None:
                         # If a dim was not provided but a viewbox was, use the viewbox dim as physical size, else 1000
-                        width = s.viewbox.width if s.viewbox is not None else 1000  # 1000 default no information.
+                        width = (
+                            s.viewbox.width if s.viewbox is not None else 1000
+                        )  # 1000 default no information.
                     if height is None:
                         height = s.viewbox.height if s.viewbox is not None else 1000
 
