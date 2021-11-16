@@ -100,9 +100,9 @@ class TestElementViewbox(unittest.TestCase):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100"/>''')
         m = SVG.parse(q)
-        self.assertEqual(Matrix(m.viewbox_transform), 'scale(10)')
-        self.assertEqual(m.width, 1000)
-        self.assertEqual(m.height, 1000)
+        self.assertEqual(Matrix(m.viewbox_transform), 'scale(1)')
+        self.assertEqual(m.width, 100)
+        self.assertEqual(m.height, 100)
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100"/>''')
         m = SVG.parse(q, width=500, height=500)
@@ -117,8 +117,8 @@ class TestElementViewbox(unittest.TestCase):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100" height="100"/>''')
         m = SVG.parse(q)
-        self.assertEqual(Matrix(m.viewbox_transform), 'scale(1) translateX(450)')
-        self.assertEqual(m.width, 1000)
+        self.assertEqual(Matrix(m.viewbox_transform), '')
+        self.assertEqual(m.width, 100)
         self.assertEqual(m.height, 100)
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg viewBox="0, 0, 100, 100" height="100"/>''')

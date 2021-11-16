@@ -8461,8 +8461,8 @@ class SVG(Group):
         source,
         reify=True,
         ppi=DEFAULT_PPI,
-        width=1000,
-        height=1000,
+        width=None,
+        height=None,
         color="black",
         transform=None,
         context=None,
@@ -8604,6 +8604,13 @@ class SVG(Group):
                     # The ordering for transformations on the SVG object are:
                     # explicit transform, parent transforms, attribute transforms, viewport transforms
                     s = SVG(values)
+
+                    if width is None:
+                        # If a dim was not provided but a viewbox was, use the viewbox dim as physical size, else 1000
+                        width = s.viewbox.width if s.viewbox is not None else 1000  # 1000 default no information.
+                    if height is None:
+                        height = s.viewbox.height if s.viewbox is not None else 1000
+
                     s.render(ppi=ppi, width=width, height=height)
                     height, width = s.width, s.height
                     if s.viewbox is not None:
