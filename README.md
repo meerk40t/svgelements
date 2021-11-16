@@ -141,7 +141,8 @@ The `context` permits giving a context of already set values that are come from 
 
 The second function within parsing that matters is the `.elements()` this is a function that exists on any `SVG` object and will flatten the elements yielding them in order.
 
-Here's an example parser with elements().
+Here's an example parser with elements(). 
+
 ```python
        for element in svg.elements():
             try:
@@ -168,7 +169,7 @@ Here's an example parser with elements().
                     pass  
  ```
 
-Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditional function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path.
+Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditional function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path. `pathname` is an attempt to get the local directory for loading relative path images.
 
 
 # Overview
