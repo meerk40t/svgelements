@@ -720,6 +720,26 @@ class TestParseDisplay(unittest.TestCase):
         q = list(m.elements())
         self.assertFalse(isinstance(q[-1], SimpleLine))
 
+    def test_svgfile_display_None_class(self):
+        """
+        display:None is css and not svg it is case insensitive
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <style type="text/css">\n
+                        .hide { \n
+                             display:None;\n
+                        }\n
+                        </style>\n
+                        <g class="hide">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        q = list(m.elements())
+        self.assertFalse(isinstance(q[-1], SimpleLine))
+
+
     def test_svgfile_visibility_hidden(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 

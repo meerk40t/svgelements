@@ -8503,7 +8503,7 @@ class SVG(Group):
                 stack.append((context, values))
                 if (
                     SVG_ATTR_DISPLAY in values
-                    and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE
+                    and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
                     continue  # Values has a display=none. Do not render anything. No Shadow Dom.
                 current_values = values
@@ -8597,7 +8597,7 @@ class SVG(Group):
                 values[SVG_STRUCT_ATTRIB] = attributes
                 if (
                     SVG_ATTR_DISPLAY in values
-                    and values[SVG_ATTR_DISPLAY] == SVG_VALUE_NONE
+                    and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
                     continue  # If the attributes flags our values to display=none, stop rendering.
                 if SVG_NAME_TAG == tag:
