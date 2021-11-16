@@ -4520,7 +4520,7 @@ class CubicBezier(Curve):
         a = [c[v] for c in self]
         denom = a[0] - 3 * a[1] + 3 * a[2] - a[3]
         if abs(denom) >= 1e-12:
-            delta = a[1] ** 2 - (a[0] + a[1]) * a[2] + a[2] ** 2 + (a[0] - a[1]) * a[3]
+            delta = a[1] * a[1] - (a[0] + a[1]) * a[2] + a[2] * a[2] + (a[0] - a[1]) * a[3]
             if delta >= 0:  # otherwise no local extrema
                 sqdelta = sqrt(delta)
                 tau = a[0] - 2 * a[1] + a[2]
