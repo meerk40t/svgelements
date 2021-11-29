@@ -7349,7 +7349,11 @@ class Subpath:
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
 
-        if with_stroke and self._path.stroke_width is not None and self._path.stroke is not None:
+        if (
+            with_stroke
+            and self._path.stroke_width is not None
+            and self._path.stroke is not None
+        ):
             delta = float(self._path.stroke_width) / 2.0
         else:
             delta = 0.0
