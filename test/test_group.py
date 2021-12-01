@@ -69,3 +69,18 @@ class TestElementGroup(unittest.TestCase):
         n = m * 'scale(2)'  # Test __mult__
         self.assertEqual(n[0][0].transform, Matrix("matrix(2,0,0,2,200,200)"))
         self.assertEqual(m[0][0].transform, Matrix("matrix(1,0,0,1,100,100)"))
+
+    def test_issue_152(self):
+        """
+        Tests issue 152, closed text objects within a group with style:display=None
+        This should have the SVG element and nothing else.
+
+        https://github.com/meerk40t/svgelements/issues/152
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg>
+        <g style="display:none">
+            <text><textPath><tspan>Issue 152</tspan></textPath></text>
+        </g>
+        </svg>''')
+        elements = list(SVG.parse(q).elements())
+        self.assertEqual(len(elements), 1)
