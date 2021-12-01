@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.4"
+SVGELEMENTS_VERSION = "1.6.5"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -3727,7 +3727,11 @@ class Shape(SVGElement, GraphicObject, Transformable):
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
 
-        if with_stroke and self.stroke_width is not None:
+        if (
+            with_stroke
+            and self.stroke_width is not None
+            and not (self.stroke is None or self.stroke.value is None)
+        ):
             if transformed:
                 delta = float(self.implicit_stroke_width) / 2.0
             else:
@@ -7349,7 +7353,11 @@ class Subpath:
         except ValueError:
             return None  # No bounding box items existed. So no bounding box.
 
-        if with_stroke and self._path.stroke_width is not None:
+        if (
+            with_stroke
+            and self._path.stroke_width is not None
+            and not (self._path.stroke is None or self._path.stroke.value is None)
+        ):
             delta = float(self._path.stroke_width) / 2.0
         else:
             delta = 0.0
@@ -7912,7 +7920,11 @@ class Text(SVGElement, GraphicObject, Transformable):
             xmax = max(p0[0], p1[0], p2[0], p3[0])
             ymax = max(p0[1], p1[1], p2[1], p3[1])
 
-        if with_stroke and self.stroke_width is not None:
+        if (
+            with_stroke
+            and self.stroke_width is not None
+            and not (self.stroke is None or self.stroke.value is None)
+        ):
             if transformed:
                 delta = float(self.implicit_stroke_width) / 2.0
             else:
@@ -8727,6 +8739,13 @@ class SVG(Group):
                     root.objects[attributes[SVG_ATTR_ID]] = s
             elif event == "end":  # End event.
                 # The iterparse spec makes it clear that internal text data is undefined except at the end.
+                if (
+                    SVG_ATTR_DISPLAY in values
+                    and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
+                ):
+                    # We are in a display=none, do not render this. Pop values and continue.
+                    context, values = stack.pop()
+                    continue
                 s = None
                 if tag in (
                     SVG_TAG_TEXT,
@@ -8787,5 +8806,6 @@ class SVG(Group):
                 context, values = stack.pop()
             elif event == "start-ns":
                 if elem[0] != SVG_ATTR_DATA:
+                    # Rare wc3 test uses a 'd' namespace.
                     values[elem[0]] = elem[1]
         return root

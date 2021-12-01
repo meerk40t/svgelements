@@ -30,7 +30,8 @@ class TestElementBbox(unittest.TestCase):
             'y': "51",
             'width': "20",
             'height': "10",
-            'stroke-width': "5"
+            'stroke-width': "5",
+            'stroke': 'red',
         }
         e = Rect(values)
         self.assertEqual(e.bbox(), (50, 51, 70, 61))
@@ -88,7 +89,8 @@ class TestElementBbox(unittest.TestCase):
             'y': "51",
             'width': "20",
             'height': "10",
-            'stroke-width': "5"
+            'stroke-width': "5",
+            'stroke': 'red',
         }
         e = Path(Rect(values))
         self.assertEqual(e.bbox(), (50, 51, 70, 61))
@@ -122,6 +124,100 @@ class TestElementBbox(unittest.TestCase):
             61 + (5. / 2.)
         ))
 
+    def test_bbox_path_stroke_none(self):
+        """
+        Same as test_bbox_path_stroke but stroke is set to none, so the bbox should not change.
+        """
+        values = {
+            'tag': 'rect',
+            'rx': "4",
+            'ry': "2",
+            'x': "50",
+            'y': "51",
+            'width': "20",
+            'height': "10",
+            'stroke-width': "5",
+            'stroke': "none",
+        }
+        e = Path(Rect(values))
+        self.assertEqual(e.bbox(), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            50,
+            51,
+            70,
+            61
+        ))
+        e *= "translate(2)"
+        self.assertEqual(e.bbox(), (52, 51, 72, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52,
+            51,
+            72,
+            61
+        ))
+        e *= "scale(2)"
+        self.assertEqual(e.bbox(), (52 * 2, 51 * 2, 72 * 2, 61 * 2))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52 * 2,
+            51 * 2,
+            72 * 2,
+            61 * 2
+        ))
+        self.assertEqual(e.bbox(transformed=False), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(transformed=False, with_stroke=True), (
+            50,
+            51,
+            70,
+            61
+        ))
+
+    def test_bbox_path_stroke_unset(self):
+        """
+        Same as test_bbox_path_stroke but the stroke is unset and thus shouldn't contribute to the bbox even if
+        with_stroke is set.
+        """
+        values = {
+            'tag': 'rect',
+            'rx': "4",
+            'ry': "2",
+            'x': "50",
+            'y': "51",
+            'width': "20",
+            'height': "10",
+            'stroke-width': "5",
+        }
+        e = Path(Rect(values))
+        self.assertEqual(e.bbox(), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            50,
+            51,
+            70,
+            61
+        ))
+        e *= "translate(2)"
+        self.assertEqual(e.bbox(), (52, 51, 72, 61))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52,
+            51,
+            72,
+            61
+        ))
+        e *= "scale(2)"
+        self.assertEqual(e.bbox(), (52 * 2, 51 * 2, 72 * 2, 61 * 2))
+        self.assertEqual(e.bbox(with_stroke=True), (
+            52 * 2,
+            51 * 2,
+            72 * 2,
+            61 * 2
+        ))
+        self.assertEqual(e.bbox(transformed=False), (50, 51, 70, 61))
+        self.assertEqual(e.bbox(transformed=False, with_stroke=True), (
+            50,
+            51,
+            70,
+            61
+        ))
+
     def test_bbox_subpath(self):
         values = {
             'tag': 'rect',
@@ -147,7 +243,8 @@ class TestElementBbox(unittest.TestCase):
             'y': "51",
             'width': "20",
             'height': "10",
-            'stroke-width': "5"
+            'stroke-width': "5",
+            'stroke': 'red',
         }
         p = Path(Rect(values))
         e = p.subpath(0)
