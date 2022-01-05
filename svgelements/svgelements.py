@@ -8392,7 +8392,7 @@ class SVG(Group):
         yield tag, "end", elem
 
     @staticmethod
-    def _use_structure_parse(source):
+    def _use_structure_parse(source, strip_ns=False, prefix_ns=False, strip_attr=False, prefix_attr=False):
         """
         SVG structure pass: parses the svg file such that it creates the structure implied by reused objects in a
         generalized context. Objects ids are read and put into an unparsed shadow tree. <use> objects seamlessly contain
@@ -8401,13 +8401,47 @@ class SVG(Group):
         defs = {}
         parent = None  # Define Root Node.
         children = list()
-
+        namespaces = {}
+        namespace_re = None
         for event, elem in iterparse(source, events=("start", "end", "start-ns")):
             try:
                 tag = elem.tag
-                if tag.startswith("{http://www.w3.org/2000/svg"):
-                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
+                m = namespace_re.match(tag)
+                end = m.end()
+                kind = m.lastgroup
+                if kind == "svg" or kind == "DEFAULT":
+                    # SVG tags are always stripped.
+                    tag = tag[end:]
+                elif strip_ns:
+                    # All namespaces are stripped.
+                    tag = tag[end:]
+                    if prefix_ns:
+                        # Namespaces are prefixed with ns
+                        tag = kind + ":" + tag
+                if strip_attr:
+                    # Attributes are stripped.
+                    attribs = {}
+                    for attrib in elem.attrib:
+                        m = namespace_re.match(attrib)
+                        if m:
+                            end = m.end()
+                            kind = m.lastgroup
+                            attrib_name = attrib[end:]
+                            if prefix_attr:
+                                attrib_name = kind + ":" + attrib_name
+                            attribs[attrib_name] = elem.attrib[attrib]
+                        else:
+                            attribs[attrib] = elem.attrib[attrib]
+                    elem.attrib = attribs
+                print(elem.attrib)
             except AttributeError:
+                if event == "start-ns":
+                    namespaces[elem[0]] = elem[1]
+                    ns_re = "^" + "|".join(
+                        "(?P<%s>\{%s\})" % ((ns if ns else "DEFAULT"), namespaces[ns])
+                        for ns in namespaces
+                    )
+                    namespace_re = re.compile(ns_re)
                 yield None, event, elem
                 continue
 
