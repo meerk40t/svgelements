@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.6"
+SVGELEMENTS_VERSION = "1.6.7"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -8081,7 +8081,7 @@ class Image(SVGElement, GraphicObject, Transformable):
     def render(self, **kwargs):
         GraphicObject.render(self, **kwargs)
         Transformable.render(self, **kwargs)
-        SVGElements.render(self, **kwargs)
+        SVGElement.render(self, **kwargs)
         width = kwargs.get("width", kwargs.get("relative_length"))
         height = kwargs.get("height", kwargs.get("relative_length"))
         try:
