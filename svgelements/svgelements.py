@@ -7834,6 +7834,7 @@ class Text(SVGElement, GraphicObject, Transformable):
     def property_by_values(self, values):
         Transformable.property_by_values(self, values)
         GraphicObject.property_by_values(self, values)
+        SVGElement.property_by_values(self, values)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
         self.font_face = values.get("font_face")
         self.font_face = values.get(SVG_ATTR_FONT_FACE, self.font_face)
