@@ -8081,6 +8081,7 @@ class Image(SVGElement, GraphicObject, Transformable):
     def render(self, **kwargs):
         GraphicObject.render(self, **kwargs)
         Transformable.render(self, **kwargs)
+        SVGElements.render(self, **kwargs)
         width = kwargs.get("width", kwargs.get("relative_length"))
         height = kwargs.get("height", kwargs.get("relative_length"))
         try:
