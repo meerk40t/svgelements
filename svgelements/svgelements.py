@@ -8403,25 +8403,40 @@ class SVG(Group):
         children = list()
 
         for event, elem in iterparse(source, events=("start", "end", "start-ns")):
-            try:
-                tag = elem.tag
-                if tag.startswith("{http://www.w3.org/2000/svg"):
-                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
-            except AttributeError:
-                yield None, event, elem
-                continue
-
             if event == "start":
-                attributes = elem.attrib
-                # Create new node.
                 siblings = children  # Parent's children are now my siblings.
                 parent = (parent, children)  # parent is now previous node context
                 children = list()  # new node has no children.
-                node = (tag, elem, children)  # define this node.
+                node = (elem, children)  # define this node.
                 siblings.append(node)  # siblings now includes this node.
+                attributes = elem.attrib
+                if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
+                    defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
+            elif event == "end":
+                parent, children = parent
+            else:
+                children.append((elem, None))
+        event_defs = defs
+        nodes = children
+        # End preprocess
 
+        children = list()
+        parent = None
+        defs = {}
+
+        def semiparse(nodes):
+            for elem, children  in nodes:
+                if children is None:
+                    yield "start-ns", elem
+                    continue
+                yield "start", elem
+                yield from semiparse(children)
+                tag = elem.tag
+                if tag.startswith("{http://www.w3.org/2000/svg"):
+                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
                 if SVG_TAG_USE == tag:
                     url = None
+                    attributes = elem.attrib
                     if XLINK_HREF in attributes:
                         url = attributes[XLINK_HREF]
                     if SVG_HREF in attributes:
@@ -8454,24 +8469,158 @@ class SVG(Group):
                                     x,
                                     y,
                                 )
-                        yield tag, event, elem
                         try:
-                            shadow_node = defs[url[1:]]
-                            children.append(
-                                shadow_node
-                            )  # Shadow children are children of the use.
-                            for n in SVG._shadow_iter(*shadow_node):
-                                yield n
+                            yield from semiparse(defs[url[1:]])
                         except KeyError:
                             pass  # Failed to find link.
-                else:
-                    yield tag, event, elem
+
+                yield "end", elem
+
+
+        for event, elem in semiparse(nodes):
+            try:
+                tag = elem.tag
+                if tag.startswith("{http://www.w3.org/2000/svg"):
+                    tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
+            except AttributeError:
+                yield None, event, elem
+                continue
+
+            if event == "start":
+                attributes = elem.attrib
+                # Create new node.
+                siblings = children  # Parent's children are now my siblings.
+                parent = (parent, children)  # parent is now previous node context
+                children = list()  # new node has no children.
+                node = (tag, elem, children)  # define this node.
+                siblings.append(node)  # siblings now includes this node.
+
+                # if SVG_TAG_USE == tag:
+                #     url = None
+                #     if XLINK_HREF in attributes:
+                #         url = attributes[XLINK_HREF]
+                #     if SVG_HREF in attributes:
+                #         url = attributes[SVG_HREF]
+                #     if url is not None:
+                #         transform = False
+                #         try:
+                #             x = attributes[SVG_ATTR_X]
+                #             del attributes[SVG_ATTR_X]
+                #             transform = True
+                #         except KeyError:
+                #             x = "0"
+                #         try:
+                #             y = attributes[SVG_ATTR_Y]
+                #             del attributes[SVG_ATTR_Y]
+                #             transform = True
+                #         except KeyError:
+                #             y = "0"
+                #         if transform:
+                #             try:
+                #                 attributes[
+                #                     SVG_ATTR_TRANSFORM
+                #                 ] = "%s translate(%s, %s)" % (
+                #                     attributes[SVG_ATTR_TRANSFORM],
+                #                     x,
+                #                     y,
+                #                 )
+                #             except KeyError:
+                #                 attributes[SVG_ATTR_TRANSFORM] = "translate(%s, %s)" % (
+                #                     x,
+                #                     y,
+                #                 )
+                #         yield tag, event, elem
+                #         try:
+                #             shadow_node = defs[url[1:]]
+                #             children.append(
+                #                 shadow_node
+                #             )  # Shadow children are children of the use.
+                #             for n in SVG._shadow_iter(*shadow_node):
+                #                 yield n
+                #         except KeyError:
+                #             pass  # Failed to find link.
+                # else:
+                yield tag, event, elem
                 if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
                     defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
             elif event == "end":
                 yield tag, event, elem
                 # event is 'end', pop values.
                 parent, children = parent  # Parent is now node.
+
+        parent = None  # Define Root Node.
+        children = list()
+
+        # for event, elem in iterparse(source, events=("start", "end", "start-ns")):
+        #     try:
+        #         tag = elem.tag
+        #         if tag.startswith("{http://www.w3.org/2000/svg"):
+        #             tag = tag[28:]  # Removing namespace. http://www.w3.org/2000/svg:
+        #     except AttributeError:
+        #         yield None, event, elem
+        #         continue
+        #
+        #     if event == "start":
+        #         attributes = elem.attrib
+        #         # Create new node.
+        #         siblings = children  # Parent's children are now my siblings.
+        #         parent = (parent, children)  # parent is now previous node context
+        #         children = list()  # new node has no children.
+        #         node = (tag, elem, children)  # define this node.
+        #         siblings.append(node)  # siblings now includes this node.
+        #
+        #         if SVG_TAG_USE == tag:
+        #             url = None
+        #             if XLINK_HREF in attributes:
+        #                 url = attributes[XLINK_HREF]
+        #             if SVG_HREF in attributes:
+        #                 url = attributes[SVG_HREF]
+        #             if url is not None:
+        #                 transform = False
+        #                 try:
+        #                     x = attributes[SVG_ATTR_X]
+        #                     del attributes[SVG_ATTR_X]
+        #                     transform = True
+        #                 except KeyError:
+        #                     x = "0"
+        #                 try:
+        #                     y = attributes[SVG_ATTR_Y]
+        #                     del attributes[SVG_ATTR_Y]
+        #                     transform = True
+        #                 except KeyError:
+        #                     y = "0"
+        #                 if transform:
+        #                     try:
+        #                         attributes[
+        #                             SVG_ATTR_TRANSFORM
+        #                         ] = "%s translate(%s, %s)" % (
+        #                             attributes[SVG_ATTR_TRANSFORM],
+        #                             x,
+        #                             y,
+        #                         )
+        #                     except KeyError:
+        #                         attributes[SVG_ATTR_TRANSFORM] = "translate(%s, %s)" % (
+        #                             x,
+        #                             y,
+        #                         )
+        #                 yield tag, event, elem
+        #                 try:
+        #                     shadow_node = defs[url[1:]]
+        #                     children.append(
+        #                         shadow_node
+        #                     )  # Shadow children are children of the use.
+        #                     for n in SVG._shadow_iter(*shadow_node):
+        #                         yield n
+        #                 except KeyError:
+        #                     pass  # Failed to find link.
+        #         else:
+        #             yield tag, event, elem
+        #         if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
+        #             defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
+        #     elif event == "end":
+        #         yield tag, event, elem
+        #         # event is 'end', pop values.
+        #         parent, children = parent  # Parent is now node.
 
     @staticmethod
     def parse(
