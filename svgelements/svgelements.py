@@ -8425,7 +8425,7 @@ class SVG(Group):
         defs = {}
 
         def semiparse(nodes):
-            for elem, children  in nodes:
+            for elem, children in nodes:
                 if children is None:
                     yield "start-ns", elem
                     continue
@@ -8470,7 +8470,7 @@ class SVG(Group):
                                     y,
                                 )
                         try:
-                            yield from semiparse(defs[url[1:]])
+                            yield from semiparse(event_defs[url[1:]])
                         except KeyError:
                             pass  # Failed to find link.
 
