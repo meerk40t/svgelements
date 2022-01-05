@@ -8466,7 +8466,7 @@ class SVG(Group):
                                     y,
                                 )
                         try:
-                            yield from semiparse(event_defs[url[1:]][1])
+                            yield from semiparse([event_defs[url[1:]]])
                         except KeyError:
                             pass  # Failed to find link.
                 yield tag, "end", elem
