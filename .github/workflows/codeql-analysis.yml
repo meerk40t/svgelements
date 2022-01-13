@@ -48,13 +48,10 @@ jobs:
         path: ${{ env.pythonLocation }}
         key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
-    - name: Upgrade Python tools
-      run: |
-        python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
-
     - name: Install Python dependencies
       run: |
-        pip install --upgrade --upgrade-strategy eager pillow scipy numpy
+        python3 -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
+        pip3 install --upgrade --upgrade-strategy eager pillow scipy numpy
 
     - name: List environment
       env:
