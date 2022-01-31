@@ -81,6 +81,13 @@ class TestElementColor(unittest.TestCase):
         self.assertEqual(reference, Color(rgba=0x0000FFFF))
         self.assertEqual(reference, Color(0x0000FF, 1.0))
 
+    def test_color_bgr(self):
+        reference = Color("#26A")
+        self.assertEqual(reference, Color(bgr=0xAA6622))
+        reference.bgr = 0x2468AC
+        self.assertEqual(reference, Color(rgb=0xAC6824))
+        self.assertEqual(reference.alpha, 0xFF)
+
     def test_color_red_half(self):
         half_ref = Color("rgba(100%, 0%, 0%, 0.5)")
         self.assertNotEqual(half_ref, 'red')
