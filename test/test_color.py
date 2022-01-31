@@ -27,6 +27,7 @@ class TestElementColor(unittest.TestCase):
         color.rgb = 0xFF0000
         self.assertEqual(reference, color)
         self.assertEqual(reference, Color(rgb=0xFF0000))
+        self.assertEqual(reference, Color(bgr=0x0000FF))
         self.assertEqual(reference, Color(argb=0xFFFF0000))
         self.assertEqual(reference, Color(rgba=0xFF0000FF))
         self.assertEqual(reference, Color(0xFF0000, 1.0))
@@ -50,6 +51,7 @@ class TestElementColor(unittest.TestCase):
         color.rgb = 0x00FF00
         self.assertEqual(reference, color)
         self.assertEqual(reference, Color(rgb=0x00FF00))
+        self.assertEqual(reference, Color(bgr=0x00FF00))
         self.assertEqual(reference, Color(argb=0xFF00FF00))
         self.assertEqual(reference, Color(rgba=0x00FF00FF))
         self.assertEqual(reference, Color(0x00FF00, 1.0))
@@ -74,6 +76,7 @@ class TestElementColor(unittest.TestCase):
         color.rgb = 0x0000FF
         self.assertEqual(reference, color)
         self.assertEqual(reference, Color(rgb=0x0000FF))
+        self.assertEqual(reference, Color(bgr=0xFF0000))
         self.assertEqual(reference, Color(argb=0xFF0000FF))
         self.assertEqual(reference, Color(rgba=0x0000FFFF))
         self.assertEqual(reference, Color(0x0000FF, 1.0))
