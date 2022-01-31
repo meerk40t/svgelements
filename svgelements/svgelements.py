@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.7"
+SVGELEMENTS_VERSION = "1.6.8"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -1068,6 +1068,8 @@ class Color(object):
             self.blue = kwargs["b"]
         if "rgb" in kwargs:
             self.rgb = kwargs["rgb"]
+        if "bgr" in kwargs:
+            self.bgr = kwargs["bgr"]
         if "argb" in kwargs:
             self.argb = kwargs["argb"]
         if "rgba" in kwargs:
@@ -1617,6 +1619,20 @@ class Color(object):
         rgb <<= 8
         rgb |= 0xFF
         self.value = rgb
+
+    @property
+    def bgr(self):
+        if self.value is None:
+            return None
+        return self.blue << 16 | self.green << 8 | self.red
+
+    @bgr.setter
+    def bgr(self, bgr):
+        self.value = 0
+        self.alpha = 0xFF
+        self.red = bgr & 0xFF
+        self.green = (bgr >> 8) & 0xFF
+        self.blue = (bgr >> 16) & 0xFF
 
     @property
     def rgba(self):
