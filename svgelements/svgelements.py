@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.8"
+SVGELEMENTS_VERSION = "1.6.9"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -4101,6 +4101,10 @@ class Move(PathSegment):
             return self.end
         else:
             raise IndexError
+
+    def bbox(self):
+        """Return the bounding box for a Move which is the end point."""
+        return self.end.x, self.end.y, self.end.x, self.end.y
 
     def d(self, current_point=None, relative=None, smooth=None):
         if (
