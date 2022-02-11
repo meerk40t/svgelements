@@ -225,6 +225,11 @@ class TestElementBbox(unittest.TestCase):
         e *= "translate(5)"
         self.assertEqual(e.bbox(), (25, 10, 65, 70))
 
+    def test_bbox_move_subpath2(self):
+        p = Path("M 0,0 Z m 100,100 h 20 v 20 h -20 Z")
+        e = p.subpath(1)
+        self.assertEqual(e.bbox(), (100, 100, 120, 120))
+
     def test_bbox_subpath_stroke(self):
         values = {
             'tag': 'rect',
