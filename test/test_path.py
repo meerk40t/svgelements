@@ -15,6 +15,26 @@ class TestPath(unittest.TestCase):
                 self.assertEqual(p.d(), "M 0,100 L 50,50 L 100,0")
             self.assertLessEqual(i, 1)
 
+    def test_subpaths_no_move(self):
+        path = Path("M0,0 50,0 50,50 0,50 Z L0,100 100,100 100,0")
+        for i, p in enumerate(path.as_subpaths()):
+            if i == 0:
+                self.assertEqual(p.d(), "M 0,0 L 50,0 L 50,50 L 0,50 Z")
+            elif i == 1:
+                self.assertEqual(p.d(), "L 0,100 L 100,100 L 100,0")
+            self.assertLessEqual(i, 1)
+
+    def test_count_subpaths(self):
+        path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
+        self.assertEqual(path.count_subpaths(), 2)
+
+    def test_subpath(self):
+        path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
+        subpath = path.subpath(0)
+        self.assertEqual(subpath.d(), "M 0,0 L 50,50 L 100,100 Z")
+        subpath = path.subpath(1)
+        self.assertEqual(subpath.d(), "M 0,100 L 50,50 L 100,0")
+
     def test_move_quad_smooth(self):
         path = Path()
         path.move((4, 4), (20, 20), (25, 25), 6 + 3j)
@@ -77,6 +97,14 @@ class TestPath(unittest.TestCase):
         self.assertEqual(
             path,
             "M 2,2 L 20,20 Q 34,34 182,4 T 18,18 C 80,80 40,0 18,18 S 120,100 0,0 A 50,50 -30 0,1 60,60 ZM100,100z")
+
+    def test_subpath_index(self):
+        path = Path("M 0,0 L 50,50 L 100,100 Z M 0,100 L 50,50 L 100,0")
+        def subindex(i):
+            return path.subpath(i)
+        self.assertRaises(IndexError, subindex, -1)
+        self.assertEqual(str(subindex(1)), "M 0,100 L 50,50 L 100,0")
+        self.assertRaises(IndexError, subindex, 2)
 
     def test_subpath_reverse(self):
         #Issue 45
