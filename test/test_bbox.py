@@ -219,20 +219,11 @@ class TestElementBbox(unittest.TestCase):
         ))
 
     def test_bbox_subpath(self):
-        values = {
-            'tag': 'rect',
-            'rx': "4",
-            'ry': "2",
-            'x': "50",
-            'y': "51",
-            'width': "20",
-            'height': "10"
-        }
-        p = Path(Rect(values))
-        e = p.subpath(0)
-        self.assertEqual(e.bbox(), (50,51,70,61))
-        e *= "translate(2)"
-        self.assertEqual(e.bbox(), (52, 51, 72, 61))
+        p = Path("M 10,100 H 20 V 80 H 10 Z m 10,-90 H 60 V 70 H 20 Z")
+        e = p.subpath(1)
+        self.assertEqual(e.bbox(), (20, 10, 60, 70))
+        e *= "translate(5)"
+        self.assertEqual(e.bbox(), (25, 10, 65, 70))
 
     def test_bbox_subpath_stroke(self):
         values = {
