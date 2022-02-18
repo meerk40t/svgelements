@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.9"
+SVGELEMENTS_VERSION = "1.6.10"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -2415,7 +2415,7 @@ class Angle(float):
 
     @property
     def as_radians(self):
-        return self
+        return float(self)
 
     @property
     def as_degrees(self):
