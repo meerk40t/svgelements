@@ -162,3 +162,13 @@ class TestElementLength(unittest.TestCase):
         self.assertAlmostEqual(q[2].cy, q[3].cy, delta=1)
         self.assertAlmostEqual(q[5].rx, q[6].rx, delta=1)
         self.assertAlmostEqual(q[6].rx, q[7].rx, delta=1)
+
+    def test_length_viewbox(self):
+        q = io.StringIO(u'''<svg width="100vw" height="100vh" 
+        viewBox="0 0 750 950" style="background-color:hsl(100, 0%, 100%);"
+         xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:version="1.1.1 (c3084ef, 2021-09-22)"
+          xmlns="http://www.w3.org/2000/svg"><path d="M 0 0 M 750 950"></path></svg>''')
+        m = SVG.parse(q, ppi=96.0)
+        q = list(m.elements())
+        self.assertEqual(q[0].width, 750)
+        self.assertEqual(q[0].height, 950)
