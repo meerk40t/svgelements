@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.10"
+SVGELEMENTS_VERSION = "1.6.11"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -157,11 +157,11 @@ SVG_VALUE_CURRENT_COLOR = "currentColor"
 
 SVG_VALUE_NON_SCALING_STROKE = "non-scaling-stroke"
 
-PATTERN_WS = r"[\s\t\n]*"
+PATTERN_WS = r"[\s\t\n]"
 PATTERN_COMMA = r"(?:\s*,\s*|\s+|(?=-))"
 PATTERN_COMMAWSP = r"[ ,\t\n\x09\x0A\x0C\x0D]+"
 PATTERN_FLOAT = r"[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?"
-PATTERN_LENGTH_UNITS = "cm|mm|Q|in|pt|pc|px|em|cx|ch|rem|vw|vh|vmin|vmax"
+PATTERN_LENGTH_UNITS = "cm|mm|Q|in|pt|pc|px|em|cx|ch|rem|vw|vh|vmin|vmax|mil"
 PATTERN_ANGLE_UNITS = "deg|grad|rad|turn"
 PATTERN_TIME_UNITS = "s|ms"
 PATTERN_FREQUENCY_UNITS = "Hz|kHz"
@@ -201,10 +201,15 @@ REGEX_COORD_PAIR = re.compile(
     "(%s)%s(%s)" % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT)
 )
 REGEX_TRANSFORM_TEMPLATE = re.compile(
-    r"(?u)(%s)%s\(([^)]+)\)" % (PATTERN_TRANSFORM, PATTERN_WS)
+    r"(?u)(%s)%s*\(([^)]+)\)" % (PATTERN_TRANSFORM, PATTERN_WS)
 )
 REGEX_TRANSFORM_PARAMETER = re.compile(
-    "(%s)%s(%s)?" % (PATTERN_FLOAT, PATTERN_WS, PATTERN_TRANSFORM_UNITS)
+    "(%s)%s*(%s)?(?:%s+|,|$)" % (
+        PATTERN_FLOAT,
+        PATTERN_WS,
+        PATTERN_TRANSFORM_UNITS,
+        PATTERN_WS,
+    )
 )
 REGEX_COLOR_HEX = re.compile(r"^#?([0-9A-Fa-f]{3,8})$")
 REGEX_COLOR_RGB = re.compile(
@@ -652,6 +657,8 @@ class Length(object):
                 self.amount += other.amount / 10.0
             elif other.units == "in":
                 self.amount += other.amount / 0.393701
+            elif other.units == "mil":
+                self.amount += other.amount / 393.701
             else:
                 raise ValueError
             return self
@@ -660,6 +667,8 @@ class Length(object):
                 self.amount += other.amount * 10.0
             elif other.units == "in":
                 self.amount += other.amount / 0.0393701
+            elif other.units == "mil":
+                self.amount += other.amount / 39.3701
             else:
                 raise ValueError
             return self
@@ -668,6 +677,18 @@ class Length(object):
                 self.amount += other.amount * 0.393701
             elif other.units == "mm":
                 self.amount += other.amount * 0.0393701
+            elif other.units == "mil":
+                self.amount += other.amount / 1000.0
+            else:
+                raise ValueError
+            return self
+        elif self.units == "mil":
+            if other.units == "cm":
+                self.amount += other.amount * 393.701
+            elif other.units == "mm":
+                self.amount += other.amount * 39.3701
+            elif other.units == "in":
+                self.amount += other.amount * 1000.0
             else:
                 raise ValueError
             return self
@@ -719,6 +740,8 @@ class Length(object):
                 return self.amount / (other.amount / 10.0)
             elif other.units == "in":
                 return self.amount / (other.amount / 0.393701)
+            elif other.units == "mil":
+                return self.amount / (other.amount / 393.701)
             else:
                 raise ValueError
         if self.units == "mm":
@@ -726,6 +749,8 @@ class Length(object):
                 return self.amount / (other.amount * 10.0)
             elif other.units == "in":
                 return self.amount / (other.amount / 0.0393701)
+            elif other.units == "mil":
+                return self.amount / (other.amount / 39.3701)
             else:
                 raise ValueError
         if self.units == "in":
@@ -733,6 +758,17 @@ class Length(object):
                 return self.amount / (other.amount * 0.393701)
             elif other.units == "mm":
                 return self.amount / (other.amount * 0.0393701)
+            elif other.units == "mil":
+                return self.amount / (other.amount / 1000.)
+            else:
+                raise ValueError
+        if self.units == "mil":
+            if other.units == "cm":
+                return self.amount / (other.amount * 393.701)
+            elif other.units == "mm":
+                return self.amount / (other.amount * 39.3701)
+            elif other.units == "in":
+                return self.amount / (other.amount * 1000.)
             else:
                 raise ValueError
         raise ValueError
@@ -850,6 +886,8 @@ class Length(object):
             return self.amount * 0.0393701
         if self.units == "cm":
             return self.amount * 0.393701
+        if self.units == "mil":
+            return self.amount / 1000.
         if self.units == "in":
             return self.amount
         return None
@@ -908,6 +946,24 @@ class Length(object):
         v = value / ppi
         return Length("%sin" % (Length.str(v)))
 
+    def to_mil(
+        self,
+        ppi=DEFAULT_PPI,
+        relative_length=None,
+        font_size=None,
+        font_height=None,
+        viewbox=None,
+    ):
+        value = self.value(
+            ppi=ppi,
+            relative_length=relative_length,
+            font_size=font_size,
+            font_height=font_height,
+            viewbox=viewbox,
+        )
+        v = value / (ppi / 1000)
+        return Length("%smil" % (Length.str(v)))
+
     def value(
         self,
         ppi=None,
@@ -944,6 +1000,10 @@ class Length(object):
             if ppi is None:
                 return self
             return self.amount * ppi * 0.393701
+        if self.units == "mil":
+            if ppi is None:
+                return self
+            return self.amount * ppi / 1000.
         if self.units == "in":
             if ppi is None:
                 return self
