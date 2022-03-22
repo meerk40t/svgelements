@@ -55,7 +55,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
+        key: new-${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
     - name: Install Python dependencies
       run: |
