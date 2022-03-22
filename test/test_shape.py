@@ -553,7 +553,11 @@ class TestElementShape(unittest.TestCase):
         m = SVG.parse(q)
         self.assertEqual(len(m), 0)
 
-    def test_polyline_single_point_copy(self):
+    def test_issue_172(self):
+        """
+        Polylines were checked whether the payload had a lenght of one and replaced them. However that was wrong
+        as when the payload was *actually* 1 it made it a point and then did not produce the single point.
+        """
         p = Polyline(0,0)
         q = Polyline(p)
         self.assertEqual(len(q), 1)
