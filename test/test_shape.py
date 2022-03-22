@@ -553,6 +553,11 @@ class TestElementShape(unittest.TestCase):
         m = SVG.parse(q)
         self.assertEqual(len(m), 0)
 
+    def test_polyline_single_point_copy(self):
+        p = Polyline(0,0)
+        q = Polyline(p)
+        self.assertEqual(len(q), 1)
+
     def test_rect_strict(self):
         values = {
             'tag': 'rect',
