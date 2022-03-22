@@ -555,11 +555,15 @@ class TestElementShape(unittest.TestCase):
 
     def test_issue_172(self):
         """
-        Polylines were checked whether the payload had a lenght of one and replaced them. However that was wrong
+        Polylines were checked whether the payload had a length of one and replaced them. However that was wrong
         as when the payload was *actually* 1 it made it a point and then did not produce the single point.
         """
         p = Polyline(0,0)
         q = Polyline(p)
+        self.assertEqual(len(q), 1)
+
+        p = Polygon(0, 0)
+        q = Polygon(p)
         self.assertEqual(len(q), 1)
 
     def test_rect_strict(self):
