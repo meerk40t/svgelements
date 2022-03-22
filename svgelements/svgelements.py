@@ -7113,7 +7113,7 @@ class _Polyshape(Shape):
                 self.points = list()
                 return
         try:
-            if len(points) == 1 and isinstance(points[0], (list, tuple)):
+            if len(points) == 1 and isinstance(points[0], (list, tuple, str)):
                 points = points[0]
         except TypeError:
             pass
