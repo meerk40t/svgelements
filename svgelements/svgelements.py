@@ -6076,12 +6076,17 @@ class Path(Shape, MutableSequence):
         return len(subpaths)
 
     def as_subpaths(self):
-        last = 0
+        start = 0
         for current, seg in enumerate(self):
-            if current != last and isinstance(seg, Move):
-                yield Subpath(self, last, current - 1)
-                last = current
-        yield Subpath(self, last, len(self) - 1)
+            if isinstance(seg, Move):
+                if current != start:
+                    yield Subpath(self, start, current - 1)
+                    start = current
+            if isinstance(seg, Close):
+                yield Subpath(self, start, current)
+                start = current + 1
+        if start != len(self):
+            yield Subpath(self, start, len(self) - 1)
 
     def as_points(self):
         """Returns the list of defining points within path"""

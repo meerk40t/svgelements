@@ -28,6 +28,9 @@ class TestPath(unittest.TestCase):
             elif i == 1:
                 self.assertEqual(p.d(), "L 0,100 L 100,100 L 100,0")
             self.assertLessEqual(i, 1)
+        path = Path("M0,0ZZZZZ")
+        subpaths = list(path.as_subpaths())
+        self.assertEqual(len(subpaths), 5)
 
     def test_count_subpaths(self):
         path = Path("M0,0 50,50 100,100Z M0,100 50,50, 100,0")
@@ -102,14 +105,6 @@ class TestPath(unittest.TestCase):
         self.assertEqual(
             path,
             "M 2,2 L 20,20 Q 34,34 182,4 T 18,18 C 80,80 40,0 18,18 S 120,100 0,0 A 50,50 -30 0,1 60,60 ZM100,100z")
-
-    def test_subpath_index(self):
-        path = Path("M 0,0 L 50,50 L 100,100 Z M 0,100 L 50,50 L 100,0")
-        def subindex(i):
-            return path.subpath(i)
-        self.assertRaises(IndexError, subindex, -1)
-        self.assertEqual(str(subindex(1)), "M 0,100 L 50,50 L 100,0")
-        self.assertRaises(IndexError, subindex, 2)
 
     def test_subpath_reverse(self):
         #Issue 45
