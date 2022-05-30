@@ -8622,6 +8622,8 @@ class SVG(Group):
                             style += styles[css_tag]
                 # Split style element into parts; priority highest
                 if SVG_ATTR_STYLE in attributes:
+                    if len(style) != 0:
+                        style += ";"
                     style += attributes[SVG_ATTR_STYLE]
 
                 # Process style tag left to right.
