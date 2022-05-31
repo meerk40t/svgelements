@@ -877,3 +877,18 @@ class TestParseDefUse(unittest.TestCase):
         line = list(m.elements(conditional=lambda el: isinstance(el, Shape)))[0]
         self.assertIsInstance(line, SimpleLine)
         self.assertEqual(line.stroke, "blue")
+
+    def test_font_bolder_parsing(self):
+        """
+        Test to verify that a CSS stylesheet variable that does not end with a `;` is properly combined with the
+        per attribute and inherited values.
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <text font-weight="bolder"> Bolder would crash. </text>
+                        </svg>''')
+        m = SVG.parse(q)
+        line = list(m.elements(conditional=lambda el: isinstance(el, Text)))[0]
+        self.assertIsInstance(line, Text)
+        self.assertEqual(line.font_weight, 400)
