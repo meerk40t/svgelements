@@ -7880,7 +7880,7 @@ class Text(SVGElement, GraphicObject, Transformable):
             return 400
         try:
             return int(weight)
-        except KeyError:
+        except ValueError:
             return 400
 
     def property_by_values(self, values):
