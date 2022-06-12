@@ -4791,7 +4791,10 @@ class Arc(Curve):
                         if abs(delta_b.x) < 1e-12:  # slope_b == inf
                             cy = bc_mid.y
                         else:
-                            cy = bc_mid.y + (bc_mid.x - cx) / slope_b
+                            if abs(slope_b) > 1e-12:
+                                cy = bc_mid.y + (bc_mid.x - cx) / slope_b
+                            else:
+                                cy = float("inf")
                     elif abs(delta_b.y) < 1e-12:  # slope_b == 0
                         cx = bc_mid.x
                         if abs(delta_a.y) < 1e-12:  # slope_a == inf
