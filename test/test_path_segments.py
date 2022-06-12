@@ -55,6 +55,6 @@ class TestArcControlPoints(unittest.TestCase):
         Colinear Arcs should raise value errors.
         """
         arc_vertical = Arc(start=(0, 0), control=(25, 0), end=(50, 0))
-        print(arc_vertical)
+        # print(arc_vertical)
         arc_horizontal = Arc(start=(0, 0), control=(0, 25), end=(0, 50))
-        print(arc_horizontal)
+        # print(arc_horizontal)
