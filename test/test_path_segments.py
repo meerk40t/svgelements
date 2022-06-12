@@ -40,3 +40,9 @@ class TestBoundingBox(unittest.TestCase):
     def test_null_arc_bbox(self):
         self.assertEqual(Path("M0,0A0,0 0 0 0 0,0z").bbox(), (0,0,0,0))
 
+
+class TestArcControlPoints(unittest.TestCase):
+
+    def test_control_point_arc(self):
+        arc = Arc(start=(0,0), control=(50,0), end=(0,0))
+        self.assertAlmostEqual(arc.rx, 25)
