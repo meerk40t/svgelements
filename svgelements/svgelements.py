@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.16"
+SVGELEMENTS_VERSION = "1.6.17"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
