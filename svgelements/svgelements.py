@@ -8552,6 +8552,7 @@ class SVG(Group):
         color="black",
         transform=None,
         context=None,
+        parse_display_none=False,
     ):
         """
         Parses the SVG file. All attributes are things which the SVG document itself could not be aware of, such as
@@ -8565,6 +8566,7 @@ class SVG(Group):
         :param color: the `currentColor` value from outside the current scope.
         :param transform: Any required transformations to be pre-applied to this document
         :param context: Any existing document context.
+        :param parse_display_none: Parse display_none values anyway.
         :return:
         """
         clip = 0
@@ -8588,7 +8590,8 @@ class SVG(Group):
             if event == "start":
                 stack.append((context, values))
                 if (
-                    SVG_ATTR_DISPLAY in values
+                    not parse_display_none
+                    and SVG_ATTR_DISPLAY in values
                     and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
                     continue  # Values has a display=none. Do not render anything. No Shadow Dom.
