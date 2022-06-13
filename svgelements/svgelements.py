@@ -8687,6 +8687,7 @@ class SVG(Group):
                 values.update(attributes)
                 values[SVG_STRUCT_ATTRIB] = attributes
                 if (
+                    not parse_display_none and
                     SVG_ATTR_DISPLAY in values
                     and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
