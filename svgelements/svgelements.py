@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.6.16"
+SVGELEMENTS_VERSION = "1.6.17"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -4813,10 +4813,10 @@ class Arc(Curve):
                         cy = ab_mid.y
                     else:
                         cx = (
-                                     slope_a * slope_b * (ab_mid.y - bc_mid.y)
-                                     - slope_a * bc_mid.x
-                                     + slope_b * ab_mid.x
-                             ) / (slope_b - slope_a)
+                            slope_a * slope_b * (ab_mid.y - bc_mid.y)
+                            - slope_a * bc_mid.x
+                            + slope_b * ab_mid.x
+                        ) / (slope_b - slope_a)
                         cy = ab_mid.y - (cx - ab_mid.x) / slope_a
                 self.center = Point(cx, cy)
                 cw = bool(Point.orientation(self.start, control, self.end) == 2)
@@ -8552,6 +8552,7 @@ class SVG(Group):
         color="black",
         transform=None,
         context=None,
+        parse_display_none=False,
     ):
         """
         Parses the SVG file. All attributes are things which the SVG document itself could not be aware of, such as
@@ -8565,6 +8566,7 @@ class SVG(Group):
         :param color: the `currentColor` value from outside the current scope.
         :param transform: Any required transformations to be pre-applied to this document
         :param context: Any existing document context.
+        :param parse_display_none: Parse display_none values anyway.
         :return:
         """
         clip = 0
@@ -8588,7 +8590,8 @@ class SVG(Group):
             if event == "start":
                 stack.append((context, values))
                 if (
-                    SVG_ATTR_DISPLAY in values
+                    not parse_display_none
+                    and SVG_ATTR_DISPLAY in values
                     and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
                     continue  # Values has a display=none. Do not render anything. No Shadow Dom.
@@ -8684,6 +8687,7 @@ class SVG(Group):
                 values.update(attributes)
                 values[SVG_STRUCT_ATTRIB] = attributes
                 if (
+                    not parse_display_none and
                     SVG_ATTR_DISPLAY in values
                     and values[SVG_ATTR_DISPLAY].lower() == SVG_VALUE_NONE
                 ):
@@ -8844,7 +8848,7 @@ class SVG(Group):
                     context.append(s)
                 elif SVG_TAG_STYLE == tag:
                     textstyle = elem.text
-                    textstyle = re.sub(REGEX_CSS_COMMENT, '', textstyle)
+                    textstyle = re.sub(REGEX_CSS_COMMENT, "", textstyle)
                     assignments = list(re.findall(REGEX_CSS_STYLE, textstyle.strip()))
                     for key, value in assignments:
                         key = key.strip()

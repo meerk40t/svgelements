@@ -672,9 +672,15 @@ class TestParseDisplay(unittest.TestCase):
                         <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
                         </g>
                         </svg>''')
+
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_none_attribute(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -685,8 +691,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_mixed(self):
         """
@@ -700,9 +711,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        print(q)
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_none_class(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -717,8 +732,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_None_class(self):
         """
@@ -736,9 +756,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
 
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_visibility_hidden(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -749,8 +773,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertTrue(isinstance(q[-1], SimpleLine))  # Hidden elements still exist.
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))  # Hidden elements still exist.
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))  # forcing none does not affect
 
 
 class TestParseDefUse(unittest.TestCase):
