@@ -48,7 +48,7 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_size, Length("12pt").value())
         self.assertEqual(text_object.line_height, Length("14pt").value())
         self.assertEqual(text_object.font_family, "sans-serif")
-        self.assertEqual(text_object.families, ["sans-serif"])
+        self.assertEqual(text_object.font_list, ["sans-serif"])
 
     def test_shorthand_fontproperty_2(self):
         font = "80% sans-serif"
@@ -93,7 +93,7 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_size, "x-large")
         self.assertEqual(text_object.line_height, "110%")
         self.assertEqual(text_object.font_family, '"new century schoolbook", serif')
-        self.assertEqual(text_object.familes, ["new century schoolbook", "serif"])
+        self.assertEqual(text_object.font_list, ["new century schoolbook", "serif"])
 
     def test_shorthand_fontproperty_4(self):
         font = "bold italic large Palatino, serif"
@@ -117,7 +117,7 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_size, "large")
         self.assertEqual(text_object.line_height, 16.0)
         self.assertEqual(text_object.font_family, 'Palatino, serif')
-        self.assertEqual(text_object.families, ["Palatino", "serif"])
+        self.assertEqual(text_object.font_list, ["Palatino", "serif"])
 
     def test_shorthand_fontproperty_5(self):
         font = "normal small-caps 120%/120% fantasy"
@@ -162,7 +162,7 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_size, Length("12pt").value())
         self.assertEqual(text_object.line_height, Length("12pt").value())
         self.assertEqual(text_object.font_family, '"Helvetica Neue", serif')
-        self.assertEqual(text_object.families, ["Helvetica Neue", "serif"])
+        self.assertEqual(text_object.font_list, ["Helvetica Neue", "serif"])
 
     def test_issue_154(self):
         """

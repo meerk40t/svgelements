@@ -7957,7 +7957,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.font_family = match.group(7)
 
     @property
-    def families(self):
+    def font_list(self):
         return [family[1:-1] if family.startswith('"') else family for family in REGEX_CSS_FONT_FAMILY.findall(self.font_family)]
 
     @property
