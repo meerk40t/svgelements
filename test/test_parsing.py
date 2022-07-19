@@ -920,4 +920,4 @@ class TestParseDefUse(unittest.TestCase):
         m = SVG.parse(q)
         line = list(m.elements(conditional=lambda el: isinstance(el, Text)))[0]
         self.assertIsInstance(line, Text)
-        self.assertEqual(line.font_weight, 400)
+        self.assertEqual(line.font_weight, "bolder")

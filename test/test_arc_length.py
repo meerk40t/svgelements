@@ -406,7 +406,7 @@ class TestElementArcPoint(unittest.TestCase):
 class TestElementArcApproximation(unittest.TestCase):
 
     def test_approx_quad(self):
-        n = 100
+        n = 2
         for i in range(n):
             arc = get_random_arc()
             path1 = Path([Move(), arc])
@@ -419,7 +419,7 @@ class TestElementArcApproximation(unittest.TestCase):
             self.assertAlmostEqual(d, 0.0, delta=20)
 
     def test_approx_cubic(self):
-        n = 100
+        n = 2
         for i in range(n):
             arc = get_random_arc()
             path1 = Path([Move(), arc])
