@@ -231,7 +231,7 @@ REGEX_CSS_FONT = re.compile(
     r"(?:(normal|small-caps)\s)?"
     r"(?:(normal|bold|bolder|lighter|[0-9]{3})\s)?"
     r"(?:(normal|(?:ultra-|extra-|semi-)?condensed|(?:semi-|extra-)?expanded)\s)"
-    r"?){0,3}"
+    r"?){0,4}"
     r"(?:"
     r"((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))"
     r"(?:/"
