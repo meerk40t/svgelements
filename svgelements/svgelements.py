@@ -7758,7 +7758,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.anchor = "start"  # start, middle, end.
         self.font_style = "normal"
         self.font_variant = "normal"
-        self.font_weight = 400.0
+        self.font_weight = 400
         self.font_stretch = "normal"
         self.font_size = 16.0   # 16px font 'normal' 12pt font
         self.line_height = 16.0
@@ -7998,6 +7998,11 @@ class Text(SVGElement, GraphicObject, Transformable):
 
         self.font_weight = values.get("font_weight", self.font_weight)
         self.font_weight = values.get(SVG_ATTR_FONT_WEIGHT, self.font_weight)
+        try:
+            self.font_weight = int(self.font_weight)
+        except ValueError:
+            pass
+
 
         self.font_stretch = values.get("font_stretch", self.font_stretch)
         self.font_stretch = values.get(SVG_ATTR_FONT_STRETCH, self.font_stretch)
