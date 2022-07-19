@@ -596,7 +596,7 @@ class Length(object):
         if self.amount is None:
             return None
         if self.units == "pt":
-            return self.amount * 1.3333
+            return self.amount * 4.0 / 3.0
         elif self.units == "pc":
             return self.amount * 16.0
         return self.amount
@@ -641,7 +641,7 @@ class Length(object):
             if other.units == "px" or other.units == "":
                 self.amount += other.amount
             elif other.units == "pt":
-                self.amount += other.amount * 1.3333
+                self.amount += other.amount * 4.0 / 3.0
             elif other.units == "pc":
                 self.amount += other.amount * 16.0
             else:
@@ -649,7 +649,7 @@ class Length(object):
             return self
         if self.units == "pt":
             if other.units == "px" or other.units == "":
-                self.amount += other.amount / 1.3333
+                self.amount += other.amount / 4.0 / 3.0
             elif other.units == "pc":
                 self.amount += other.amount * 12.0
             else:
@@ -711,7 +711,7 @@ class Length(object):
             if other.units == "px" or other.units == "":
                 return self.amount / other.amount
             elif other.units == "pt":
-                return self.amount / (other.amount * 1.3333)
+                return self.amount / (other.amount * 4.0 / 3.0)
             elif other.units == "pc":
                 return self.amount / (other.amount * 16.0)
             else:
@@ -856,7 +856,7 @@ class Length(object):
         if self.units == "px" or self.units == "":
             return self.amount
         if self.units == "pt":
-            return self.amount / 1.3333
+            return self.amount * 3.0 / 4.0
         if self.units == "pc":
             return self.amount / 16.0
         return None
