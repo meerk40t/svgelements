@@ -225,21 +225,21 @@ REGEX_LENGTH = re.compile(r"(%s)([A-Za-z%%]*)" % PATTERN_FLOAT)
 REGEX_CSS_COMMENT = re.compile(r"\/\*[\s\S]*?\*\/|\/\/.*$", re.MULTILINE)
 REGEX_CSS_STYLE = re.compile(r"([^{]+)\s*\{\s*([^}]+)\s*\}")
 REGEX_CSS_FONT = re.compile(
-    r'^'
-    r'(?:'
-    r'(?:(normal|italic|oblique)\s)?'
-    r'(?:(normal|small-caps)\s)?'
-    r'(?:(normal|bold|bolder|lighter|[0-9]{3})\s)?'
-    r'(?:(normal|(?:ultra-|extra-|semi-)?condensed|(?:semi-|extra-)?expanded)\s)'
-    r'?){0,3}'
-    r'(?:'
-    r'((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))'
-    r'(?:/'
-    r'((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))'
-    r')?\s'
-    r')?'
-    r'([^;]*);?'
-    r'$'
+    r"^"
+    r"(?:"
+    r"(?:(normal|italic|oblique)\s)?"
+    r"(?:(normal|small-caps)\s)?"
+    r"(?:(normal|bold|bolder|lighter|[0-9]{3})\s)?"
+    r"(?:(normal|(?:ultra-|extra-|semi-)?condensed|(?:semi-|extra-)?expanded)\s)"
+    r"?){0,3}"
+    r"(?:"
+    r"((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))"
+    r"(?:/"
+    r"((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))"
+    r")?\s"
+    r")?"
+    r"([^;]*);?"
+    r"$"
 )
 REGEX_CSS_FONT_FAMILY = re.compile(
     r'(?:([^\s";,]+|"[^";,]+"|serif|sans-serif|cursive|fantasy|monospace)),?\s*;?'
@@ -7760,7 +7760,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.font_variant = "normal"
         self.font_weight = 400
         self.font_stretch = "normal"
-        self.font_size = 16.0   # 16px font 'normal' 12pt font
+        self.font_size = 16.0  # 16px font 'normal' 12pt font
         self.line_height = 16.0
         self.font_family = "san-serif"
         self.path = None
@@ -7948,7 +7948,9 @@ class Text(SVGElement, GraphicObject, Transformable):
             height = self.line_height
             self.line_height = Length(self.line_height)
             try:
-                self.line_height = Length(self.line_height, relative_length=self.font_size).value()
+                self.line_height = Length(
+                    self.line_height, relative_length=self.font_size
+                ).value()
                 if self.line_height == 0:
                     self.line_height = height
             except ValueError:
@@ -7958,7 +7960,10 @@ class Text(SVGElement, GraphicObject, Transformable):
 
     @property
     def font_list(self):
-        return [family[1:-1] if family.startswith('"') else family for family in REGEX_CSS_FONT_FAMILY.findall(self.font_family)]
+        return [
+            family[1:-1] if family.startswith('"') else family
+            for family in REGEX_CSS_FONT_FAMILY.findall(self.font_family)
+        ]
 
     @property
     def weight(self):
@@ -8002,7 +8007,6 @@ class Text(SVGElement, GraphicObject, Transformable):
             self.font_weight = int(self.font_weight)
         except ValueError:
             pass
-
 
         self.font_stretch = values.get("font_stretch", self.font_stretch)
         self.font_stretch = values.get(SVG_ATTR_FONT_STRETCH, self.font_stretch)
