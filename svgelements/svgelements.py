@@ -223,7 +223,22 @@ REGEX_LENGTH = re.compile(r"(%s)([A-Za-z%%]*)" % PATTERN_FLOAT)
 REGEX_CSS_COMMENT = re.compile(r"\/\*[\s\S]*?\*\/|\/\/.*$", re.MULTILINE)
 REGEX_CSS_STYLE = re.compile(r"([^{]+)\s*\{\s*([^}]+)\s*\}")
 REGEX_CSS_FONT = re.compile(
-    r"(?:(normal|italic|oblique)\s|(normal|small-caps)\s|(normal|bold|bolder|lighter|\d{3})\s|(normal|ultra-condensed|extra-condensed|condensed|semi-condensed|semi-expanded|expanded|extra-expanded|ultra-expanded)\s)*\s*(xx-small|x-small|small|medium|large|x-large|xx-large|larger|smaller|\d+(?:em|pt|pc|px|%))(?:/(xx-small|x-small|small|medium|large|x-large|xx-large|larger|smaller|\d+(?:em|pt|pc|px|%)))?\s*(.*),?\s+(serif|sans-serif|cursive|fantasy|monospace);?"
+    r'^'
+    r'(?:'
+    r'(?:(normal|italic|oblique)\s)?'
+    r'(?:(normal|small-caps)\s)?'
+    r'(?:(normal|bold|bolder|lighter|[0-9]{3})\s)?'
+    r'(?:(normal|(?:ultra-|extra-|semi-)?condensed|(?:semi-|extra-)?expanded)\s)'
+    r'?){0,3}'
+    r'(?:'
+    r'((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))'
+    r'(?:/'
+    r'((?:x-|xx-)?small|medium|(?:x-|xx-)?large|larger|smaller|[0-9]+(?:em|pt|pc|px|%))'
+    r')?\s'
+    r')?'
+    r'([^\s,"]+|"[^"]+")'
+    r'(?:,\s+(serif|sans-serif|cursive|fantasy|monospace);?)?'
+    r'$'
 )
 
 svg_parse = [("COMMAND", r"[MmZzLlHhVvCcSsQqTtAa]"), ("SKIP", PATTERN_COMMAWSP)]
@@ -7868,16 +7883,18 @@ class Text(SVGElement, GraphicObject, Transformable):
         generic-family:  `serif`, `sans-serif`, `cursive`, `fantasy`, and `monospace`
         """
         # https://www.w3.org/TR/css-fonts-3/#font-prop
-        font_elements = list(*re.findall(REGEX_CSS_FONT, font))
-
-        font_style = font_elements[0]
-        font_variant = font_elements[1]
-        font_weight = font_elements[2]
-        font_stretch = font_elements[3]
-        font_size = font_elements[4]
-        line_height = font_elements[5]
-        font_face = font_elements[6]
-        font_family = font_elements[7]
+        match = REGEX_CSS_FONT.match(font)
+        if not match:
+            # This is not a qualified shorthand font.
+            return
+        font_style = match.group(1)
+        font_variant = match.group(2)
+        font_weight = match.group(3)
+        font_stretch = match.group(4)
+        font_size = match.group(5)
+        line_height = match.group(6)
+        font_face = match.group(7)
+        font_family = match.group(8)
         if len(font_weight) > 0:
             self.font_weight = self.parse_font_weight(font_weight)
         if len(font_size) > 0:
