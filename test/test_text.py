@@ -43,13 +43,12 @@ class TestElementText(unittest.TestCase):
         text_object = list(m.elements())[1]
         self.assertEqual(text_object.font_style, "normal")
         self.assertEqual(text_object.font_variant, 'normal')
-        self.assertEqual(text_object.font_weight, 400)  # Normal
+        self.assertEqual(text_object.font_weight, "normal")  # Normal
         self.assertEqual(text_object.font_stretch, "normal")
-        self.assertEqual(text_object.font_size, "12pt")
-        self.assertEqual(text_object.line_height, "14pt")
+        self.assertEqual(text_object.font_size, Length("12pt").value())
+        self.assertEqual(text_object.line_height, Length("14pt").value())
         self.assertEqual(text_object.font_family, "sans-serif")
-        self.assertEqual(text_object.family_name, None)
-        self.assertEqual(text_object.generic_family, "sans-serif")
+        self.assertEqual(text_object.families, ["sans-serif"])
 
     def test_shorthand_fontproperty_2(self):
         font = "80% sans-serif"
@@ -67,13 +66,11 @@ class TestElementText(unittest.TestCase):
         text_object = list(m.elements())[1]
         self.assertEqual(text_object.font_style, 'normal')
         self.assertEqual(text_object.font_variant, 'normal')
-        self.assertEqual(text_object.font_weight, 400)  # Normal
+        self.assertEqual(text_object.font_weight, "normal")  # Normal
         self.assertEqual(text_object.font_stretch, "normal")
         self.assertEqual(text_object.font_size, "80%")
-        self.assertEqual(text_object.line_height, "normal")
+        self.assertEqual(text_object.line_height, 16.0)
         self.assertEqual(text_object.font_family, "sans-serif")
-        self.assertEqual(text_object.family_name, None)
-        self.assertEqual(text_object.generic_family, "sans-serif")
 
     def test_shorthand_fontproperty_3(self):
         font = 'x-large/110% "new century schoolbook", serif'
@@ -82,7 +79,7 @@ class TestElementText(unittest.TestCase):
             f"""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
         <svg>
             <text
-               font="{font}"
+               font="{font.replace('"', "&quot;")}"
                id="textobject">Shorthand</text>
         </svg>
         """
@@ -91,13 +88,12 @@ class TestElementText(unittest.TestCase):
         text_object = list(m.elements())[1]
         self.assertEqual(text_object.font_style, "normal")
         self.assertEqual(text_object.font_variant, 'normal')
-        self.assertEqual(text_object.font_weight, 400)  # Normal
+        self.assertEqual(text_object.font_weight, "normal")  # Normal
         self.assertEqual(text_object.font_stretch, "normal")
         self.assertEqual(text_object.font_size, "x-large")
         self.assertEqual(text_object.line_height, "110%")
         self.assertEqual(text_object.font_family, '"new century schoolbook", serif')
-        self.assertEqual(text_object.family_name, 'new century schoolbook')
-        self.assertEqual(text_object.generic_family, "serif")
+        self.assertEqual(text_object.familes, ["new century schoolbook", "serif"])
 
     def test_shorthand_fontproperty_4(self):
         font = "bold italic large Palatino, serif"
@@ -119,10 +115,9 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_weight, "bold")  # Normal
         self.assertEqual(text_object.font_stretch, "normal")
         self.assertEqual(text_object.font_size, "large")
-        self.assertEqual(text_object.line_height, "normal")
+        self.assertEqual(text_object.line_height, 16.0)
         self.assertEqual(text_object.font_family, 'Palatino, serif')
-        self.assertEqual(text_object.family_name, "Palatino")
-        self.assertEqual(text_object.generic_family, "serif")
+        self.assertEqual(text_object.families, ["Palatino", "serif"])
 
     def test_shorthand_fontproperty_5(self):
         font = "normal small-caps 120%/120% fantasy"
@@ -140,22 +135,20 @@ class TestElementText(unittest.TestCase):
         text_object = list(m.elements())[1]
         self.assertEqual(text_object.font_style, "normal")
         self.assertEqual(text_object.font_variant, 'small-caps')
-        self.assertEqual(text_object.font_weight, 400)  # Normal
+        self.assertEqual(text_object.font_weight, "normal")  # Normal
         self.assertEqual(text_object.font_stretch, "normal")
         self.assertEqual(text_object.font_size, "120%")
         self.assertEqual(text_object.line_height, "120%")
         self.assertEqual(text_object.font_family, 'fantasy')
-        self.assertEqual(text_object.family_name, None)
-        self.assertEqual(text_object.generic_family, "fantasy")
 
     def test_shorthand_fontproperty_6(self):
-        font = ('condensed oblique 12pt "Helvetica Neue", serif;',)
+        font = 'condensed oblique 12pt "Helvetica Neue", serif;'
 
         q = io.StringIO(
             f"""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
         <svg>
             <text
-               font="{font}"
+               font="{font.replace('"', "&quot;")}"
                id="textobject">Shorthand</text>
         </svg>
         """
@@ -164,15 +157,17 @@ class TestElementText(unittest.TestCase):
         text_object = list(m.elements())[1]
         self.assertEqual(text_object.font_style, 'oblique')
         self.assertEqual(text_object.font_variant, 'normal')
-        self.assertEqual(text_object.font_weight, 400)  # Normal
+        self.assertEqual(text_object.font_weight, "normal")
         self.assertEqual(text_object.font_stretch, "condensed")
-        self.assertEqual(text_object.font_size, "12pt")
-        self.assertEqual(text_object.line_height, "normal")
+        self.assertEqual(text_object.font_size, Length("12pt").value())
+        self.assertEqual(text_object.line_height, Length("12pt").value())
         self.assertEqual(text_object.font_family, '"Helvetica Neue", serif')
-        self.assertEqual(text_object.family_name, "Helvetica Neue")
-        self.assertEqual(text_object.generic_family, "serif")
+        self.assertEqual(text_object.families, ["Helvetica Neue", "serif"])
 
     def test_issue_154(self):
+        """
+        reDoS check. If suffering from Issue 154 this takes about 20 seconds. Normally 0.01s.
+        """
         font = "normal " * 12
         q = io.StringIO(
             f"""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -185,7 +180,5 @@ class TestElementText(unittest.TestCase):
         )
         t = time.time()
         m = SVG.parse(q)
-        q = list(m.elements())
         t2 = time.time()
-        print(f"{t} {t2} d:{t2-t}")
-        self.assertFalse(time.time() - t < 1000)
+        self.assertTrue((time.time() - t) < 1000)
