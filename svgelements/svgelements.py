@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.7.0"
+SVGELEMENTS_VERSION = "1.7.1"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -7762,7 +7762,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.font_stretch = "normal"
         self.font_size = 16.0  # 16px font 'normal' 12pt font
         self.line_height = 16.0
-        self.font_family = "san-serif"
+        self.font_family = "sans-serif"
         self.path = None
 
         Transformable.__init__(self, *args, **kwargs)
