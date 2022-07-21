@@ -164,6 +164,30 @@ class TestElementText(unittest.TestCase):
         self.assertEqual(text_object.font_family, '"Helvetica Neue", serif')
         self.assertEqual(text_object.font_list, ["Helvetica Neue", "serif"])
 
+    def test_shorthand_fontproperty_7(self):
+        font = """condensed oblique 12pt "Helvetica", 'Veranda', serif;"""
+
+        q = io.StringIO(
+            f"""<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        <svg>
+            <text
+               font="{font.replace('"', "&quot;")}"
+               id="textobject">Shorthand</text>
+        </svg>
+        """
+        )
+        m = SVG.parse(q)
+        text_object = list(m.elements())[1]
+        self.assertEqual(text_object.font_style, 'oblique')
+        self.assertEqual(text_object.font_variant, 'normal')
+        self.assertEqual(text_object.font_weight, "normal")
+        self.assertEqual(text_object.font_stretch, "condensed")
+        self.assertEqual(text_object.font_size, Length("12pt").value())
+        self.assertEqual(text_object.line_height, Length("12pt").value())
+        self.assertEqual(text_object.font_family, '''"Helvetica", 'Veranda', serif''')
+        self.assertEqual(text_object.font_list, ["Helvetica", "Veranda", "serif"])
+
+
     def test_issue_154(self):
         """
         reDoS check. If suffering from Issue 154 this takes about 20 seconds. Normally 0.01s.
