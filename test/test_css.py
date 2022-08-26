@@ -71,3 +71,15 @@ class TestSVGCSS(unittest.TestCase):
 
         self.assertEqual(circ2.fill, "none")
         self.assertEqual(circ2.stroke, "red")
+
+
+    def test_issue_174b(self):
+        """
+        aliflux-omo noted a crash parsing https://upload.wikimedia.org/wikipedia/commons/5/58/Axis_Occupation_of_Europe_%281942%29.svg
+        Which contained a pointless blank style comment.
+        """
+
+        q = io.StringIO(u'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+        <style/>
+        </svg>''')
+        SVG.parse(q)
