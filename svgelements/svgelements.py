@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.7.3"
+SVGELEMENTS_VERSION = "1.7.4"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -8952,6 +8952,8 @@ class SVG(Group):
                     context.append(s)
                 elif SVG_TAG_STYLE == tag:
                     textstyle = elem.text
+                    if textstyle is None:
+                        textstyle = ""
                     textstyle = re.sub(REGEX_CSS_COMMENT, "", textstyle)
                     assignments = list(re.findall(REGEX_CSS_STYLE, textstyle.strip()))
                     for key, value in assignments:
