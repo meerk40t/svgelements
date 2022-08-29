@@ -3667,9 +3667,12 @@ class Shape(SVGElement, GraphicObject, Transformable):
             self._calc_lengths(error=error, segments=segments)
         xy = np.empty((len(positions), 2), dtype=float)
         if self._length == 0:
-            i = int(round(positions * (len(segments) - 1)))
-            point = segments[i].point(0.0)
-            xy[:] = point
+            # all segments have 0 length
+            seg_points = np.empty((len(segments), 2), dtype=float)
+            for i, seg in enumerate(segments):
+                seg_points[i] = seg.point(0)
+            indexes = np.round(positions * (len(segments) - 1)).astype(int)
+            xy[:] = seg_points[indexes]
             return xy
 
         # Find which segment the point we search for is located on:
