@@ -605,6 +605,29 @@ class TestElementShape(unittest.TestCase):
             for p, p1, p2 in zip(pos, v1, v2):
                 self.assertEqual(Point(p1), Point(p2))
 
+    def test_shape_npoints_len0(self):
+        """
+        If the length of a shape is 0 the npoint code calls 0-length fallback which used an illegal round command
+        """
+        import numpy as np
+        shapes = [
+            Rect(0, 0, 0, 0),
+            Circle(0, 0, 0),
+            Ellipse(0, 0, 0, 0),
+            Polygon(points=((0, 0), (0, 0), (0, 0))),
+            Polyline(points=((0, 0), (0, 0), (0, 0), (0, 0))),
+        ]
+
+        for shape in shapes:
+            pos = np.linspace(0, 1, 1000)
+            v1 = shape.npoint(pos)
+            if v1 is None:
+                continue  # Degenerate shape had no segments
+            v2 = [shape.point(p) for p in pos]
+
+            for p, p1, p2 in zip(pos, v1, v2):
+                self.assertEqual(Point(p1), Point(p2))
+
 
 def reification_checks(test, shape):
     correct_reify(test, shape * "rotate(-90) translate(20,0)")
