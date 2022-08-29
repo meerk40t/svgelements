@@ -616,6 +616,7 @@ class TestElementShape(unittest.TestCase):
             Ellipse(0, 0, 0, 0),
             Polygon(points=((0, 0), (0, 0), (0, 0))),
             Polyline(points=((0, 0), (0, 0), (0, 0), (0, 0))),
+            Path("M0,0zM1,1z")
         ]
 
         for shape in shapes:
