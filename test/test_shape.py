@@ -553,6 +553,19 @@ class TestElementShape(unittest.TestCase):
         m = SVG.parse(q)
         self.assertEqual(len(m), 0)
 
+    def test_issue_172(self):
+        """
+        Polylines were checked whether the payload had a length of one and replaced them. However that was wrong
+        as when the payload was *actually* 1 it made it a point and then did not produce the single point.
+        """
+        p = Polyline(0,0)
+        q = Polyline(p)
+        self.assertEqual(len(q), 1)
+
+        p = Polygon(0, 0)
+        q = Polygon(p)
+        self.assertEqual(len(q), 1)
+
     def test_rect_strict(self):
         values = {
             'tag': 'rect',
@@ -586,13 +599,34 @@ class TestElementShape(unittest.TestCase):
 
         for shape in shapes:
             pos = np.linspace(0, 1, 1000)
-            pts1 = shape.npoint(pos)  # Test rendered worthless.
-            v2 = []
-            for i in range(len(pos)):
-                v2.append(shape.point(pos[i]))
+            v1 = shape.npoint(pos)
+            v2 = [shape.point(p) for p in pos]
 
-            for p, p1, p2 in zip(pos, pts1, v2):
-                self.assertEqual(shape.point(p), Point(p1))
+            for p, p1, p2 in zip(pos, v1, v2):
+                self.assertEqual(Point(p1), Point(p2))
+
+    def test_shape_npoints_len0(self):
+        """
+        If the length of a shape is 0 the npoint code calls 0-length fallback which used an illegal round command
+        """
+        import numpy as np
+        shapes = [
+            Rect(0, 0, 0, 0),
+            Circle(0, 0, 0),
+            Ellipse(0, 0, 0, 0),
+            Polygon(points=((0, 0), (0, 0), (0, 0))),
+            Polyline(points=((0, 0), (0, 0), (0, 0), (0, 0))),
+            Path("M0,0zM1,1z")
+        ]
+
+        for shape in shapes:
+            pos = np.linspace(0, 1, 1000)
+            v1 = shape.npoint(pos)
+            if v1 is None:
+                continue  # Degenerate shape had no segments
+            v2 = [shape.point(p) for p in pos]
+
+            for p, p1, p2 in zip(pos, v1, v2):
                 self.assertEqual(Point(p1), Point(p2))
 
 

@@ -3,10 +3,16 @@ name: Python code quality
 on:
   push:
     branches: [master]
+    paths:
+      - '**.py'
+      - '.github/workflows/python-code-quality.yml'
+      - 'pyproject.toml'
   pull_request:
     branches: [master]
-  schedule:
-    - cron: '0 22 * * 5'
+    paths:
+      - '**.py'
+      - '.github/workflows/python-code-quality.yml'
+      - 'pyproject.toml'
 
 concurrency:
   group: codequality-${{ github.ref }}
@@ -21,6 +27,7 @@ jobs:
 
     name: Lint ${{ matrix.os }} / ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -28,15 +35,15 @@ jobs:
         python-version: [3.9]
 
     steps:
-
-    - uses: actions/checkout@v2
+    - name: Checkout ${{ github.ref }}
+      uses: actions/checkout@v2
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Get full Python version
+    - name: Get detailed Python version
       id: full-python-version
       run: echo ::set-output name=version::$(python -c "import sys; print('-'.join(str(v) for v in sys.version_info))")
 
@@ -46,22 +53,23 @@ jobs:
         path: ${{ env.pythonLocation }}
         key: ${{ matrix.os }}-python-${{ steps.full-python-version.outputs.version }}
 
-    - name: Upgrade Python tools
-      run: |
-        python -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
-
-    - name: Install Lint tools
-      run: |
-        pip install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
-
     - name: Install Python dependencies
       run: |
-        pip install --upgrade --upgrade-strategy eager pillow scipy numpy
+        python3 -m pip install --upgrade --upgrade-strategy eager pip setuptools wheel babel
+        pip3 install --upgrade --upgrade-strategy eager pylint pyproject-flake8 flake8-deprecated black mypy isort
+        pip3 install --upgrade --upgrade-strategy eager pillow scipy numpy
 
-    - name: List Python environment
+    - name: List environment
+      env:
+        GITHUB_CONTEXT: ${{ toJSON(github) }}
+        JOB_CONTEXT: ${{ toJSON(job) }}
+        STEPS_CONTEXT: ${{ toJSON(steps) }}
+        RUNNER_CONTEXT: ${{ toJSON(runner) }}
+        STRATEGY_CONTEXT: ${{ toJSON(strategy) }}
+        MATRIX_CONTEXT: ${{ toJSON(matrix) }}
       run: |
-        pip list
-
+        pip3 list
+        env
 
     - name: Create output directory
       run: mkdir -p artifacts

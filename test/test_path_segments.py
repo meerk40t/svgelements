@@ -40,3 +40,21 @@ class TestBoundingBox(unittest.TestCase):
     def test_null_arc_bbox(self):
         self.assertEqual(Path("M0,0A0,0 0 0 0 0,0z").bbox(), (0,0,0,0))
 
+
+class TestArcControlPoints(unittest.TestCase):
+
+    def test_coincident_end_arc(self):
+        """
+        Tests the creation of a control point with a coincident start and end.
+        """
+        arc = Arc(start=(0,0), control=(50,0), end=(0,0))
+        self.assertAlmostEqual(arc.rx, 25)
+
+    def test_linear_arc(self):
+        """
+        Colinear Arcs should raise value errors.
+        """
+        arc_vertical = Arc(start=(0, 0), control=(25, 0), end=(50, 0))
+        # print(arc_vertical)
+        arc_horizontal = Arc(start=(0, 0), control=(0, 25), end=(0, 50))
+        # print(arc_horizontal)

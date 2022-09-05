@@ -672,9 +672,15 @@ class TestParseDisplay(unittest.TestCase):
                         <line x1="0.0" x2="0.0" y1="0.0" y2="100"/>
                         </g>
                         </svg>''')
+
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_none_attribute(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -685,8 +691,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_mixed(self):
         """
@@ -700,9 +711,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        print(q)
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_none_class(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -717,8 +732,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_display_None_class(self):
         """
@@ -736,9 +756,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertFalse(isinstance(q[-1], SimpleLine))
+        e = list(m.elements())
+        self.assertFalse(isinstance(e[-1], SimpleLine))
 
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))
 
     def test_svgfile_visibility_hidden(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
@@ -749,8 +773,13 @@ class TestParseDisplay(unittest.TestCase):
                         </g>
                         </svg>''')
         m = SVG.parse(q)
-        q = list(m.elements())
-        self.assertTrue(isinstance(q[-1], SimpleLine))  # Hidden elements still exist.
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))  # Hidden elements still exist.
+
+        q.seek(0)
+        m = SVG.parse(q, parse_display_none=True)
+        e = list(m.elements())
+        self.assertTrue(isinstance(e[-1], SimpleLine))  # forcing none does not affect
 
 
 class TestParseDefUse(unittest.TestCase):
@@ -853,3 +882,42 @@ class TestParseDefUse(unittest.TestCase):
 
         for s in SVG.parse(svg_str).elements(conditional=lambda el: isinstance(el, Path)):
             self.assertEqual(type(s), Path)
+
+    def test_style_concat_issue_180(self):
+        """
+        Test to verify that a CSS stylesheet variable that does not end with a `;` is properly combined with the
+        per attribute and inherited values.
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <style type="text/css" >
+                          <![CDATA[
+                            line {
+                               stroke: #006600
+                            }
+                          ]]>
+                        </style>
+                        <g style="stroke:red">
+                        <line x1="0.0" x2="0.0" y1="0.0" y2="100" style="stroke:blue"/>
+                        </g>
+                        </svg>''')
+        m = SVG.parse(q)
+        line = list(m.elements(conditional=lambda el: isinstance(el, Shape)))[0]
+        self.assertIsInstance(line, SimpleLine)
+        self.assertEqual(line.stroke, "blue")
+
+    def test_font_bolder_parsing(self):
+        """
+        Test to verify that a CSS stylesheet variable that does not end with a `;` is properly combined with the
+        per attribute and inherited values.
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg width="3.0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <text font-weight="bolder"> Bolder would crash. </text>
+                        </svg>''')
+        m = SVG.parse(q)
+        line = list(m.elements(conditional=lambda el: isinstance(el, Text)))[0]
+        self.assertIsInstance(line, Text)
+        self.assertEqual(line.font_weight, "bolder")
