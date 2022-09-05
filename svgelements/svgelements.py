@@ -8676,6 +8676,7 @@ class SVG(Group):
         :param parse_display_none: Parse display_none values anyway.
         :return:
         """
+        use = 0
         clip = 0
         root = context
         styles = {}
@@ -8852,6 +8853,12 @@ class SVG(Group):
                     context = s  # Non-Rendered
                     s.render(ppi=ppi, width=width, height=height)
                     clip += 1
+                elif SVG_TAG_USE == tag:
+                    s = SVGElement(values)
+                    context.append(s)
+                    use += 1
+                    if SVG_ATTR_ID in attributes and root is not None and use == 1:
+                        root.objects[attributes[SVG_ATTR_ID]] = s
                 elif SVG_TAG_PATTERN == tag:
                     s = Pattern(values)
                     context = s  # Non-rendered
@@ -8919,7 +8926,7 @@ class SVG(Group):
                             s.clip_rule = clip_rule
                     except AttributeError:
                         pass
-                if SVG_ATTR_ID in attributes and root is not None:
+                if SVG_ATTR_ID in attributes and root is not None and use == 0:
                     root.objects[attributes[SVG_ATTR_ID]] = s
             elif event == "end":  # End event.
                 # The iterparse spec makes it clear that internal text data is undefined except at the end.
@@ -8939,7 +8946,7 @@ class SVG(Group):
                     SVG_TAG_STYLE,
                 ):
                     attributes = elem.attrib
-                    if SVG_ATTR_ID in attributes and root is not None:
+                    if SVG_ATTR_ID in attributes and root is not None and use == 0:
                         root.objects[attributes[SVG_ATTR_ID]] = s
                 if tag in (SVG_TAG_TEXT, SVG_TAG_TSPAN):
                     s = Text(values, text=elem.text)
@@ -8972,6 +8979,8 @@ class SVG(Group):
                                 styles[sel] += value
                 elif SVG_TAG_CLIPPATH == tag:
                     clip -= 1
+                elif SVG_TAG_USE == tag:
+                    use -= 1
                 if s is not None:
                     # Assign optional linked properties.
                     try:
