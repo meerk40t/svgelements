@@ -229,7 +229,7 @@ C 294 0 333 0 461 0
 L 3674 0 
 C 3814 0 3821 6 3866 110 
 L 4448 1489 
-z''', transform="translate(0, 0) scale(1.333333333333, 1.333333333333) translate(0 21.294961)scale(0.3 -0.3) scale(0.996264) scale(0.015625)")
+z''', transform="translate(0, 0) scale(1.333333333333, 1.333333333333) translate(0 21.294961) scale(0.3 -0.3) scale(0.996264) scale(0.015625)")
         self.assertEqual(path1.values["transform"], path2.values["transform"])
         self.assertEqual(path1.transform, path2.transform)
         self.assertEqual(path1, path2)
