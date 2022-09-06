@@ -8615,6 +8615,7 @@ class SVG(Group):
         nodes = children
         # End preprocess
 
+        # Semiparse the nodes. All nodes are given in iterparse ordering with start-ns, start, and end. Use values are inlined.
         def semiparse(nodes):
             for elem, children in nodes:
                 if children is None:
@@ -8733,10 +8734,12 @@ class SVG(Group):
                     del values[SVG_ATTR_VIEWBOX]
                 if SVG_ATTR_ID in values:
                     del values[SVG_ATTR_ID]
+                if SVG_ATTR_CLASS in values:
+                    del values[SVG_ATTR_CLASS]
                 if SVG_ATTR_CLIP_PATH in values:
                     del values[SVG_ATTR_CLIP_PATH]
 
-                attributes = elem.attrib  # priority; lowest
+                attributes = dict(elem.attrib)  # priority; lowest
                 attributes[SVG_ATTR_TAG] = tag
 
                 # Split any Style block elements into parts; priority medium
