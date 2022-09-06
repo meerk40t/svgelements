@@ -7632,6 +7632,25 @@ class Group(SVGElement, Transformable, list):
         )
 
 
+class Use(SVGElement, list):
+    """
+    Use elements are defined in svg 5.6
+    https://www.w3.org/TR/SVG11/struct.html#UseElement
+
+    Use is a generic container object group-like that use reference objects,
+    """
+
+    def __init__(self, *args, **kwargs):
+        list.__init__(self)
+        SVGElement.__init__(self, *args, **kwargs)
+
+    def property_by_object(self, s):
+        SVGElement.property_by_object(self, s)
+
+    def property_by_values(self, values):
+        SVGElement.property_by_values(self, values)
+
+
 class ClipPath(SVGElement, list):
     """
     clipPath elements are defined in svg 14.3.5
@@ -8854,8 +8873,9 @@ class SVG(Group):
                     s.render(ppi=ppi, width=width, height=height)
                     clip += 1
                 elif SVG_TAG_USE == tag:
-                    s = SVGElement(values)
+                    s = Use(values)
                     context.append(s)
+                    context = s
                     use += 1
                     if SVG_ATTR_ID in attributes and root is not None and use == 1:
                         root.objects[attributes[SVG_ATTR_ID]] = s
