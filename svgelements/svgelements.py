@@ -8593,10 +8593,11 @@ class SVG(Group):
         generalized context. Objects ids are read and put into an unparsed shadow tree. <use> objects seamlessly contain
         their definitions.
         """
-        defs = {}
+        event_defs = {}
         parent = None  # Define Root Node.
         children = list()
 
+        # Preprocess iterparse tree. Store all events. Reference all tags.
         for event, elem in iterparse(source, events=("start", "end", "start-ns")):
             if event == "start":
                 siblings = children  # Parent's children are now my siblings.
@@ -8606,12 +8607,11 @@ class SVG(Group):
                 siblings.append(node)  # siblings now includes this node.
                 attributes = elem.attrib
                 if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
-                    defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
+                    event_defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
             elif event == "end":
                 parent, children = parent
             else:
                 children.append((elem, None))
-        event_defs = defs
         nodes = children
         # End preprocess
 
@@ -8810,7 +8810,6 @@ class SVG(Group):
                         attributes[SVG_ATTR_TRANSFORM] = attributes[SVG_ATTR_TRANSFORM]
 
                 # All class and attribute properties are compiled.
-
                 values.update(attributes)
                 values[SVG_STRUCT_ATTRIB] = attributes
                 if (
