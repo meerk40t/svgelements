@@ -8686,11 +8686,11 @@ class SVG(Group):
                 yield from semiparse(children)
                 if SVG_TAG_USE == tag:
                     url = None
-                    attributes = elem.attrib
-                    if XLINK_HREF in attributes:
-                        url = attributes[XLINK_HREF]
-                    if SVG_HREF in attributes:
-                        url = attributes[SVG_HREF]
+                    semiattr = elem.attrib
+                    if XLINK_HREF in semiattr:
+                        url = semiattr[XLINK_HREF]
+                    if SVG_HREF in semiattr:
+                        url = semiattr[SVG_HREF]
                     if url is not None:
                         try:
                             yield from semiparse([event_defs[url[1:]]])
