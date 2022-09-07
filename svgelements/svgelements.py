@@ -244,7 +244,7 @@ REGEX_CSS_FONT = re.compile(
     r"$"
 )
 REGEX_CSS_FONT_FAMILY = re.compile(
-     r"""(?:([^\s"';,]+|"[^";,]+"|'[^';,]+'|serif|sans-serif|cursive|fantasy|monospace)),?\s*;?"""
+    r"""(?:([^\s"';,]+|"[^";,]+"|'[^';,]+'|serif|sans-serif|cursive|fantasy|monospace)),?\s*;?"""
 )
 
 svg_parse = [("COMMAND", r"[MmZzLlHhVvCcSsQqTtAa]"), ("SKIP", PATTERN_COMMAWSP)]
@@ -7667,9 +7667,7 @@ class Use(SVGElement, Transformable, list):
         if self.x != 0 or self.y != 0:
             # If x or y is set, apply this to transform
             try:
-                values[
-                    SVG_ATTR_TRANSFORM
-                ] = "%s translate(%s, %s)" % (
+                values[SVG_ATTR_TRANSFORM] = "%s translate(%s, %s)" % (
                     values[SVG_ATTR_TRANSFORM],
                     self.x,
                     self.y,
@@ -8649,7 +8647,9 @@ class SVG(Group):
                 siblings.append(node)  # siblings now includes this node.
                 attributes = elem.attrib
                 if SVG_ATTR_ID in attributes:  # If we have an ID, we save the node.
-                    event_defs[attributes[SVG_ATTR_ID]] = node  # store node value in defs.
+                    event_defs[
+                        attributes[SVG_ATTR_ID]
+                    ] = node  # store node value in defs.
             elif event == "end":
                 parent, children = parent
             else:
