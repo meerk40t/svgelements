@@ -8629,21 +8629,6 @@ class SVG(Group):
         return self.viewbox.transform(self)
 
     @staticmethod
-    def _shadow_iter(tag, elem, children):
-        yield tag, "start", elem
-        try:
-            for t, e, c in children:
-                for shadow_tag, shadow_event, shadow_elem in SVG._shadow_iter(t, e, c):
-                    yield shadow_tag, shadow_event, shadow_elem
-        except ValueError:
-            """
-            Strictly speaking it is possible to reference use from other use objects. If this is an infinite loop
-            we should not block the rendering. Just say we finished. See: W3C, struct-use-12-f
-            """
-            pass
-        yield tag, "end", elem
-
-    @staticmethod
     def _use_structure_parse(source):
         """
         SVG structure pass: parses the svg file such that it creates the structure implied by reused objects in a
