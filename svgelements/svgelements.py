@@ -8910,6 +8910,14 @@ class SVG(Group):
                     if SVG_ATTR_TRANSFORM in s.values:
                         # Update value in case x or y applied.
                         values[SVG_ATTR_TRANSFORM] = s.values[SVG_ATTR_TRANSFORM]
+                    if SVG_ATTR_X in values:
+                        del values[SVG_ATTR_X]
+                    if SVG_ATTR_Y in values:
+                        del values[SVG_ATTR_Y]
+                    if SVG_ATTR_WIDTH in values:
+                        del values[SVG_ATTR_WIDTH]
+                    if SVG_ATTR_HEIGHT in values:
+                        del values[SVG_ATTR_HEIGHT]
                     context.append(s)
                     context = s
                     use += 1
