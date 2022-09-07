@@ -6941,7 +6941,7 @@ class _RoundShape(Shape):
         if b > a:
             a, b = b, a
         h = ((a - b) * (a - b)) / ((a + b) * (a + b))
-        return pi * (a + b) * (1 + (3 * h / (10 + sqrt(4 - 3 * h))))
+        return tau / 2 * (a + b) * (1 + (3 * h / (10 + sqrt(4 - 3 * h))))
 
 
 class Ellipse(_RoundShape):
