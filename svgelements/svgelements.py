@@ -8907,6 +8907,9 @@ class SVG(Group):
                     clip += 1
                 elif SVG_TAG_USE == tag:
                     s = Use(values)
+                    if SVG_ATTR_TRANSFORM in s.values:
+                        # Update value in case x or y applied.
+                        values[SVG_ATTR_TRANSFORM] = s.values[SVG_ATTR_TRANSFORM]
                     context.append(s)
                     context = s
                     use += 1
