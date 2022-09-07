@@ -7632,7 +7632,7 @@ class Group(SVGElement, Transformable, list):
         )
 
 
-class Use(SVGElement, list):
+class Use(SVGElement, Transformable, list):
     """
     Use elements are defined in svg 5.6
     https://www.w3.org/TR/SVG11/struct.html#UseElement
@@ -7642,13 +7642,49 @@ class Use(SVGElement, list):
 
     def __init__(self, *args, **kwargs):
         list.__init__(self)
-        SVGElement.__init__(self, *args, **kwargs)
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+        Transformable.__init__(self, *args, **kwargs)
+        SVGElement.__init__(
+            self, *args, **kwargs
+        )  # Must go last, triggers, by_object, by_value, by_arg functions.
 
     def property_by_object(self, s):
         SVGElement.property_by_object(self, s)
+        Transformable.property_by_object(self, s)
+        self.x = s.x
+        self.y = s.y
+        self.width = s.width
+        self.height = s.height
 
     def property_by_values(self, values):
+        self.x = Length(values.get(SVG_ATTR_X, 0)).value()
+        self.y = Length(values.get(SVG_ATTR_Y, 0)).value()
+        self.width = Length(values.get(SVG_ATTR_WIDTH, 1)).value()
+        self.height = Length(values.get(SVG_ATTR_HEIGHT, 1)).value()
+        if self.x != 0 or self.y != 0:
+            # If x or y is set, apply this to transform
+            try:
+                values[
+                    SVG_ATTR_TRANSFORM
+                ] = "%s translate(%s, %s)" % (
+                    values[SVG_ATTR_TRANSFORM],
+                    self.x,
+                    self.y,
+                )
+            except KeyError:
+                values[SVG_ATTR_TRANSFORM] = "translate(%s, %s)" % (
+                    self.x,
+                    self.y,
+                )
         SVGElement.property_by_values(self, values)
+        Transformable.property_by_values(self, values)
+
+    def render(self, **kwargs):
+        SVGElement.render(self, **kwargs)
+        Transformable.render(self, **kwargs)
 
     def select(self, conditional=None):
         """
@@ -8636,7 +8672,8 @@ class SVG(Group):
         nodes = children
         # End preprocess
 
-        # Semiparse the nodes. All nodes are given in iterparse ordering with start-ns, start, and end. Use values are inlined.
+        # Semiparse the nodes. All nodes are given in iterparse ordering with start-ns, start, and end.
+        # Use values are inlined.
         def semiparse(nodes):
             for elem, children in nodes:
                 if children is None:
@@ -8655,33 +8692,6 @@ class SVG(Group):
                     if SVG_HREF in attributes:
                         url = attributes[SVG_HREF]
                     if url is not None:
-                        transform = False
-                        try:
-                            x = attributes[SVG_ATTR_X]
-                            del attributes[SVG_ATTR_X]
-                            transform = True
-                        except KeyError:
-                            x = "0"
-                        try:
-                            y = attributes[SVG_ATTR_Y]
-                            del attributes[SVG_ATTR_Y]
-                            transform = True
-                        except KeyError:
-                            y = "0"
-                        if transform:
-                            try:
-                                attributes[
-                                    SVG_ATTR_TRANSFORM
-                                ] = "%s translate(%s, %s)" % (
-                                    attributes[SVG_ATTR_TRANSFORM],
-                                    x,
-                                    y,
-                                )
-                            except KeyError:
-                                attributes[SVG_ATTR_TRANSFORM] = "translate(%s, %s)" % (
-                                    x,
-                                    y,
-                                )
                         try:
                             yield from semiparse([event_defs[url[1:]]])
                         except KeyError:
