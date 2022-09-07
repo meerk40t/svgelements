@@ -7561,14 +7561,14 @@ class Group(SVGElement, Transformable, list):
         if conditional is None:
             for subitem in self:
                 yield subitem
-                if isinstance(subitem, Group):
+                if isinstance(subitem, (Group, Use)):
                     for s in subitem.select(conditional):
                         yield s
         else:
             for subitem in self:
                 if conditional(subitem):
                     yield subitem
-                if isinstance(subitem, Group):
+                if isinstance(subitem, (Group, Use)):
                     for s in subitem.select(conditional):
                         yield s
 
@@ -7649,6 +7649,27 @@ class Use(SVGElement, list):
 
     def property_by_values(self, values):
         SVGElement.property_by_values(self, values)
+
+    def select(self, conditional=None):
+        """
+        Finds all flattened subobjects of this group for which the conditional returns
+        true.
+
+        :param conditional: function taking element and returns True to include or False if exclude
+        """
+        if conditional is None:
+            for subitem in self:
+                yield subitem
+                if isinstance(subitem, (Group, Use)):
+                    for s in subitem.select(conditional):
+                        yield s
+        else:
+            for subitem in self:
+                if conditional(subitem):
+                    yield subitem
+                if isinstance(subitem, (Group, Use)):
+                    for s in subitem.select(conditional):
+                        yield s
 
 
 class ClipPath(SVGElement, list):
