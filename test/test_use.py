@@ -236,10 +236,7 @@ z''', transform="translate(0, 0) scale(1.333333333333, 1.333333333333) translate
 
     def test_issue_170(self):
         """
-        Rendered wrongly because the matrix from the group as well as the viewport and even the original parse routine
-        is utilized twice. The use references the use object rather than the use xml. And should only have the render
-        elements of where it is inserted and not of where it appeared in the tree. A Use is effectively copying and
-        pasting that node into that place and only overriding x, y, length, and width.
+        Rendered wrongly since the x and y values do not get applied correctly to the use in question.
         """
 
         q1 = io.StringIO(u'''<?xml version='1.0' encoding='UTF-8'?>
@@ -269,5 +266,7 @@ z''', transform="translate(0, 0) scale(1.333333333333, 1.333333333333) translate
             context=None
         )
         elements = list(layout.elements(lambda e: isinstance(e, Path)))
-        for i in range(1, len(elements)):
+        for i in range(2, len(elements)):
+            self.assertEqual(elements[i-1].d(transformed=False), elements[i].d(transformed=False))
+            self.assertNotEqual(elements[i - 1].transform, elements[i].transform)
             self.assertNotEqual(elements[i-1], elements[i])
