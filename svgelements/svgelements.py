@@ -7584,33 +7584,18 @@ class Group(SVGElement, Transformable, list):
         :param with_stroke: should the stroke-width be included in the bounds of the elements
         :return: union of all bounding boxes of elements within the iterable.
         """
-        boundary_points = []
+        boxes = []
         for e in elements:
-            if not hasattr(e, "bbox"):
+            if not hasattr(e, "bbox") or isinstance(e, (Group, Use)):
                 continue
-            box = e.bbox(transformed=False, with_stroke=with_stroke)
+            box = e.bbox(transformed=transformed, with_stroke=with_stroke)
             if box is None:
                 continue
-            top_left = (box[0], box[1])
-            top_right = (box[2], box[1])
-            bottom_left = (box[0], box[3])
-            bottom_right = (box[2], box[3])
-            if transformed:
-                top_left = e.transform.point_in_matrix_space(top_left)
-                top_right = e.transform.point_in_matrix_space(top_right)
-                bottom_left = e.transform.point_in_matrix_space(bottom_left)
-                bottom_right = e.transform.point_in_matrix_space(bottom_right)
-            boundary_points.append(top_left)
-            boundary_points.append(top_right)
-            boundary_points.append(bottom_left)
-            boundary_points.append(bottom_right)
-        if len(boundary_points) == 0:
+            boxes.append(box)
+        if len(boxes) == 0:
             return None
-        xmin = min([e[0] for e in boundary_points])
-        ymin = min([e[1] for e in boundary_points])
-        xmax = max([e[0] for e in boundary_points])
-        ymax = max([e[1] for e in boundary_points])
-        return xmin, ymin, xmax, ymax
+        (xmins, ymins, xmaxs, ymaxs) = zip(*boxes)
+        return (min(xmins), min(ymins), max(xmaxs), max(ymaxs))
 
     def bbox(self, transformed=True, with_stroke=False):
         """
