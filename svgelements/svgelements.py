@@ -7690,6 +7690,47 @@ class Use(SVGElement, Transformable, list):
                     for s in subitem.select(conditional):
                         yield s
 
+    @staticmethod
+    def union_bbox(elements, transformed=True, with_stroke=False):
+        """
+        Returns the union of the bounding boxes for the elements within the iterator.
+
+        :param transformed: Should the children of this object be properly transformed.
+        :param with_stroke: should the stroke-width be included in the bounds of the elements
+        :return: union of all bounding boxes of elements within the iterable.
+        """
+        boxes = []
+        for e in elements:
+            if not hasattr(e, "bbox") or isinstance(e, (Group, Use)):
+                continue
+            box = e.bbox(transformed=transformed, with_stroke=with_stroke)
+            if box is None:
+                continue
+            boxes.append(box)
+        if len(boxes) == 0:
+            return None
+        (xmins, ymins, xmaxs, ymaxs) = zip(*boxes)
+        return (min(xmins), min(ymins), max(xmaxs), max(ymaxs))
+
+    def bbox(self, transformed=True, with_stroke=False):
+        """
+        Returns the bounding box of the given object.
+
+        In the case of groups this is the union of all the bounding boxes of all bound children.
+
+        Setting transformed to false, may yield unexpected results if subitems are transformed in non-uniform
+        ways.
+
+        :param transformed: bounding box of the properly transformed children.
+        :param with_stroke: should the stroke-width be included in the bounds.
+        :return: bounding box of the given element
+        """
+        return Use.union_bbox(
+            self.select(),
+            transformed=transformed,
+            with_stroke=with_stroke,
+        )
+
 
 class ClipPath(SVGElement, list):
     """
