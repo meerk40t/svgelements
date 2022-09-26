@@ -275,6 +275,58 @@ class TestElementBbox(unittest.TestCase):
             61 + (5. / 2.)
         ))
 
+    def test_bbox_rotated_circle(self):
+        # Rotation of circle must not affect it's bounding box
+        c = Circle(cx=0, cy=0, r=1, transform="rotate(45)")
+        (xmin, ymin, xmax, ymax) = c.bbox()
+        self.assertAlmostEqual(-1, xmin)
+        self.assertAlmostEqual(-1, ymin)
+        self.assertAlmostEqual( 1, xmax)
+        self.assertAlmostEqual( 1, ymax)
+
+    def test_bbox_svg_with_rotated_circle(self):
+        # Rotation of circle within group must not affect it's bounding box
+        q = io.StringIO(
+            u'''<?xml version="1.0" encoding="utf-8" ?>
+            <svg>
+              <circle cx="0" cy="0" r="1" transform="rotate(45)"/>
+            </svg>
+            '''
+        )
+        svg = SVG.parse(q)
+        (xmin, ymin, xmax, ymax) = svg.bbox()
+        self.assertAlmostEqual(-1, xmin)
+        self.assertAlmostEqual(-1, ymin)
+        self.assertAlmostEqual( 1, xmax)
+        self.assertAlmostEqual( 1, ymax)
+
+    def test_bbox_translated_circle(self):
+        c = Circle(cx=0, cy=0, r=1, transform="translate(-1,-1)")
+        (xmin, ymin, xmax, ymax) = c.bbox()
+        self.assertAlmostEqual(-2, xmin)
+        self.assertAlmostEqual(-2, ymin)
+        self.assertAlmostEqual( 0, xmax)
+        self.assertAlmostEqual( 0, ymax)
+
+    def test_bbox_svg_with_translated_group_with_circle(self):
+        # Translation of nested group must be applied correctly
+        q = io.StringIO(
+            u'''<?xml version="1.0" encoding="utf-8" ?>
+            <svg>
+              <g transform="translate(-1,-1)">
+                <circle cx="0" cy="0" r="1"/>
+              </g>
+            </svg>
+            '''
+        )
+        svg = SVG.parse(q)
+        (xmin, ymin, xmax, ymax) = svg.bbox()
+        self.assertAlmostEqual(-2, xmin)
+        self.assertAlmostEqual(-2, ymin)
+        self.assertAlmostEqual( 0, xmax)
+        self.assertAlmostEqual( 0, ymax)
+
+
     def test_issue_104(self):
         """Testing Issue 104 rotated bbox"""
         rect = Rect(10,10,10,10)
