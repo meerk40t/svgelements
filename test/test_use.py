@@ -6,6 +6,22 @@ from svgelements import *
 
 class TestElementUse(unittest.TestCase):
 
+    def test_use_bbox_method(self):
+        q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg viewBox="0, 0, 100, 100" height="100" width="100"
+                             xmlns:xlink="http://www.w3.org/1999/xlink">
+                            <use x="0" y="0" xlink:href="#rect1234"/>
+                            <use x="20" y="20" xlink:href="#rect1234"/>
+                            <defs>
+                                <rect id="rect1234" x="0" y="20" width="50" height="50"/>
+                            </defs>
+                        </svg>''')
+        svg = SVG.parse(q)
+        use = list(svg.select(lambda e: isinstance(e, Use)))
+        self.assertEqual(2, len(use))
+        self.assertEqual((0.0, 20.0, (0.0 + 50.0), (20.0 + 50.0)), use[0].bbox())
+        self.assertEqual((20.0 + 0.0, 20.0 + 20.0, (20.0 + 50.0), (20.0 + 20.0 + 50.0)), use[1].bbox())
+
     def test_issue_156(self):
         q1 = io.StringIO(u'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
