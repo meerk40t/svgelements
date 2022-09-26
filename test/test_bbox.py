@@ -276,7 +276,7 @@ class TestElementBbox(unittest.TestCase):
         ))
 
     def test_bbox_rotated_circle(self):
-        """The rotation of circle must not affect it's bounding box"""
+        # Rotation of circle must not affect it's bounding box
         c = Circle(cx=0, cy=0, r=1, transform="rotate(45)")
         (xmin, ymin, xmax, ymax) = c.bbox()
         self.assertAlmostEqual(-1, xmin)
@@ -285,7 +285,7 @@ class TestElementBbox(unittest.TestCase):
         self.assertAlmostEqual( 1, ymax)
 
     def test_bbox_svg_with_rotated_circle(self):
-        """The rotation of circle within group must not affect it's bounding box"""
+        # Rotation of circle within group must not affect it's bounding box
         q = io.StringIO(
             u'''<?xml version="1.0" encoding="utf-8" ?>
             <svg>
@@ -309,7 +309,7 @@ class TestElementBbox(unittest.TestCase):
         self.assertAlmostEqual( 0, ymax)
 
     def test_bbox_svg_with_translated_group_with_circle(self):
-        """The translation of nested group must be applied correctly"""
+        # Translation of nested group must be applied correctly
         q = io.StringIO(
             u'''<?xml version="1.0" encoding="utf-8" ?>
             <svg>
