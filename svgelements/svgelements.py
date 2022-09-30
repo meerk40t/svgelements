@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.8.3"
+SVGELEMENTS_VERSION = "1.8.4"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -130,6 +130,8 @@ SVG_ATTR_FONT_WEIGHT = "font-weight"  # normal, bold, bolder, lighter, 100-900
 SVG_ATTR_FONT_STRETCH = "font-stretch"
 SVG_ATTR_FONT_SIZE = "font-size"
 SVG_ATTR_TEXT_ANCHOR = "text-anchor"
+SVG_ATTR_TEXT_ALIGNMENT_BASELINE = "alignment-baseline"
+SVG_ATTR_TEXT_DOMINANT_BASELINE = "dominant-baseline"
 SVG_ATTR_PATTERN_CONTENT_UNITS = "patternContentUnits"
 SVG_ATTR_PATTERN_TRANSFORM = "patternTransform"
 SVG_ATTR_PATTERN_UNITS = "patternUnits"
@@ -3518,15 +3520,17 @@ class GraphicObject:
             if not self.apply:
                 return self.stroke_width
             if self.stroke_width is not None:
+                transform = self.transform
                 if (
                     hasattr(self, "values")
                     and SVG_ATTR_VECTOR_EFFECT in self.values
                     and SVG_VALUE_NON_SCALING_STROKE
                     in self.values[SVG_ATTR_VECTOR_EFFECT]
                 ):
-                    return self.stroke_width  # we are not to scale the stroke.
+                    # If we do not apply scaling stroke we still apply viewport transform.
+                    transform = Matrix(self.values.get("viewport_transform", ""))
                 width = self.stroke_width
-                det = self.transform.determinant
+                det = transform.determinant
                 return width * sqrt(abs(det))
         except AttributeError:
             return self.stroke_width
@@ -8894,6 +8898,7 @@ class SVG(Group):
                             values[SVG_ATTR_TRANSFORM] += " " + viewport_transform
                         else:
                             values[SVG_ATTR_TRANSFORM] = viewport_transform
+                        values["viewport_transform"] = values[SVG_ATTR_TRANSFORM]
                         width, height = s.viewbox.width, s.viewbox.height
                     if context is None:
                         stack[-1] = (context, values)
