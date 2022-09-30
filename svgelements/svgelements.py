@@ -3518,15 +3518,17 @@ class GraphicObject:
             if not self.apply:
                 return self.stroke_width
             if self.stroke_width is not None:
+                transform = self.transform
                 if (
                     hasattr(self, "values")
                     and SVG_ATTR_VECTOR_EFFECT in self.values
                     and SVG_VALUE_NON_SCALING_STROKE
                     in self.values[SVG_ATTR_VECTOR_EFFECT]
                 ):
-                    return self.stroke_width  # we are not to scale the stroke.
+                    # If we do not apply scaling stroke we still apply viewport transform.
+                    transform = Matrix(self.values.get("viewport_transform", ""))
                 width = self.stroke_width
-                det = self.transform.determinant
+                det = transform.determinant
                 return width * sqrt(abs(det))
         except AttributeError:
             return self.stroke_width
