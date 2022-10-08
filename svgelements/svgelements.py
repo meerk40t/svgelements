@@ -4986,9 +4986,7 @@ class Arc(Curve):
                 self.prx *= other
             if self.pry is not None:
                 self.pry *= other
-            if other.value_scale_x() < 0:
-                self.sweep = -self.sweep
-            if other.value_scale_y() < 0:
+            if other.determinant < 0:
                 self.sweep = -self.sweep
         return self
 
