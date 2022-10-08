@@ -90,8 +90,8 @@ Some things are currently not supported.
 * Full CSS StyleSheet. Stylesheets should be read anywhere in the file and styled all matching objects even those already parsed. We accept Styling that occurs before the objects.
 * Color: OS Specific System colors.
 * `Script` and Scripting.
-* `RadialGradiant` Fills
-* `LinearGradiant` Fills
+* `RadialGradient` Fills
+* `LinearGradient` Fills
 * `Pattern` linking to Fill the IRI linked object.
 * `a` hyperlink text objects
 * `Switch` elements.
