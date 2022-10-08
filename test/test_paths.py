@@ -1,3 +1,4 @@
+import io
 import unittest
 from math import sqrt, pi, cos, sin
 
@@ -341,6 +342,122 @@ class QuadraticBezierTest(unittest.TestCase):
         self.assertTrue(segment != QuadraticBezier(200 + 301j, 400 + 50j, 600 + 300j))
         self.assertFalse(segment == Arc(0j, 100 + 50j, 0, 0, 0, 100 + 50j))
         self.assertTrue(Arc(0j, 100 + 50j, 0, 0, 0, 100 + 50j) != segment)
+
+    def test_issue_50_a(self):
+        c = Circle(0, 0, 200) * "scale(-1,1)"
+        p = abs(Path(c))
+        p.validate_connections()
+        arc1 = p[1]
+        arc2 = p[2]
+        arc3 = p[3]
+        arc4 = p[4]
+        self.assertEqual(type(arc1), Arc)
+        self.assertEqual(arc1.sweep, -tau/4.0)
+        self.assertEqual(type(arc2), Arc)
+        self.assertEqual(arc2.sweep, -tau / 4.0)
+        self.assertEqual(type(arc3), Arc)
+        self.assertEqual(arc3.sweep, -tau / 4.0)
+        self.assertEqual(type(arc4), Arc)
+        self.assertEqual(arc4.sweep, -tau / 4.0)
+
+    def test_issue_50_b(self):
+        c = Circle(0, 0, 200) * "scale(1,1)"
+        p = abs(Path(c))
+        p.validate_connections()
+        arc1 = p[1]
+        arc2 = p[2]
+        arc3 = p[3]
+        arc4 = p[4]
+        self.assertEqual(type(arc1), Arc)
+        self.assertEqual(arc1.sweep, tau / 4.0)
+        self.assertEqual(type(arc2), Arc)
+        self.assertEqual(arc2.sweep, tau / 4.0)
+        self.assertEqual(type(arc3), Arc)
+        self.assertEqual(arc3.sweep, tau / 4.0)
+        self.assertEqual(type(arc4), Arc)
+        self.assertEqual(arc4.sweep, tau / 4.0)
+
+    def test_issue_50_c(self):
+        c = Circle(0, 0, 200) * "scale(-1,-1)"
+        p = abs(Path(c))
+        p.validate_connections()
+        arc1 = p[1]
+        arc2 = p[2]
+        arc3 = p[3]
+        arc4 = p[4]
+        self.assertEqual(type(arc1), Arc)
+        self.assertEqual(arc1.sweep, tau / 4.0)
+        self.assertEqual(type(arc2), Arc)
+        self.assertEqual(arc2.sweep, tau / 4.0)
+        self.assertEqual(type(arc3), Arc)
+        self.assertEqual(arc3.sweep, tau / 4.0)
+        self.assertEqual(type(arc4), Arc)
+        self.assertEqual(arc4.sweep, tau / 4.0)
+
+    def test_issue_50_d(self):
+        c = Circle(0, 0, 200) * "scale(-1,1)"
+        p = abs(Path(c))
+        p.validate_connections()
+        arc1 = p[1]
+        arc2 = p[2]
+        arc3 = p[3]
+        arc4 = p[4]
+        self.assertEqual(type(arc1), Arc)
+        self.assertEqual(arc1.sweep, -tau / 4.0)
+        self.assertEqual(type(arc2), Arc)
+        self.assertEqual(arc2.sweep, -tau / 4.0)
+        self.assertEqual(type(arc3), Arc)
+        self.assertEqual(arc3.sweep, -tau / 4.0)
+        self.assertEqual(type(arc4), Arc)
+        self.assertEqual(arc4.sweep, -tau / 4.0)
+
+
+    def test_issue_50_parse(self):
+        """
+        Circles can render into knots if some flips inversions are applied.
+        """
+        q = io.StringIO(u'''<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="320mm"
+   height="220mm"
+   viewBox="0 0 320 220"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+<g transform="matrix(0,-1,-1,0,30,30)">
+<circle
+           stroke="blue"
+		strike-width="1"
+           id="circle1563"
+           cx="20"
+           cy="20"
+           r="0.5"/>
+</g>
+</svg>
+        ''')
+        m = SVG.parse(q)
+        shapes = list(m.elements(lambda e: isinstance(e, Circle)))
+        circle = shapes[0]
+        length = circle.length()
+        self.assertAlmostEqual(length, tau * 0.5)
+        path = Path(circle)
+        path.validate_connections()
+        length = path.length()
+        self.assertAlmostEqual(length, tau * 0.5)
+        self.assertEqual(len(list(path.as_subpaths())), 1)
+        quadpath = Path(path)
+        quadpath.approximate_arcs_with_quads(0.001)
+        quadpath.validate_connections()
+        length = quadpath.length(0.00001)
+        self.assertAlmostEqual(length, tau * 0.5, places=5)
+        self.assertEqual(len(list(quadpath.as_subpaths())), 1)
+        cubicpath = Path(path)
+        cubicpath.approximate_arcs_with_cubics(0.001)
+        cubicpath.validate_connections()
+        length = cubicpath.length(0.00001)
+        self.assertAlmostEqual(length, tau * 0.5, places=5)
+        self.assertEqual(len(list(quadpath.as_subpaths())), 1)
+
 
     def test_issue_61(self):
         p = Path('M 206.5,525 Q 162.5,583 162.5,583')
