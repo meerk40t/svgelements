@@ -411,6 +411,16 @@ class QuadraticBezierTest(unittest.TestCase):
         self.assertEqual(type(arc4), Arc)
         self.assertEqual(arc4.sweep, -tau / 4.0)
 
+    def test_issue_mk_1362(self):
+        circle = Circle(cx="-1.5", cy="-1.5", r="0.5")
+        circle *= "matrix(0,-1,-1,0,0,0)"
+        path = Path(circle)
+        path_d = path.d()
+        circle_d = circle.d()
+        self.assertEqual(path_d, circle_d)
+        abs_path = abs(Path(circle))
+        self.assertEqual(path.transform, circle.transform)
+        self.assertEqual(circle.point_at_t(tau/4), abs_path[1].end)
 
     def test_issue_50_parse(self):
         """
