@@ -371,6 +371,7 @@ class TestElementBbox(unittest.TestCase):
         circle *= "scale(1,2)"
         bbox = circle.bbox()
         path = abs(Path(circle))
+        # self.assertEqual(circle.rotation, Angle.parse("30deg"))
         for p in range(1000):
             step = p / 999.0
             cx, cy = circle.point(step)
@@ -383,8 +384,8 @@ class TestElementBbox(unittest.TestCase):
             self.assertGreaterEqual(bbox[2], px)
             self.assertGreaterEqual(py, bbox[1])
             self.assertGreaterEqual(bbox[3], py)
-            self.assertAlmostEqual(cx, px, delta=0.02)
-            self.assertAlmostEqual(cy, py, delta=0.02)
+            self.assertAlmostEqual(cx, px, delta=0.2)
+            self.assertAlmostEqual(cy, py, delta=0.2)
 
     def test_issue_186b(self):
         """
@@ -395,6 +396,7 @@ class TestElementBbox(unittest.TestCase):
         circle *= "rotate(30deg)"
         bbox = circle.bbox()
         path = abs(Path(circle))
+        self.assertEqual(circle.rotation, Angle.parse("30deg"))
         for p in range(1000):
             step = p / 999.0
             cx, cy = circle.point(step)
@@ -407,5 +409,5 @@ class TestElementBbox(unittest.TestCase):
             self.assertGreaterEqual(bbox[2], px)
             self.assertGreaterEqual(py, bbox[1])
             self.assertGreaterEqual(bbox[3], py)
-            self.assertAlmostEqual(cx, px, delta=0.02)
-            self.assertAlmostEqual(cy, py, delta=0.02)
+            self.assertAlmostEqual(cx, px, delta=0.2)
+            self.assertAlmostEqual(cy, py, delta=0.2)
