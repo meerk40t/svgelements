@@ -15,9 +15,9 @@ class TestElementWrite(unittest.TestCase):
             </g>
             </svg>
             ''')
-        svg = SVG.parse(q)
+        svg = SVG.parse(q, reify=False)
         print(svg.tostring())
-        svg.write("myfile.svg", svg[0])
+        svg.write("myfile.svg", svg)
 
     def test_write_group(self):
         g = Group()

@@ -9116,6 +9116,8 @@ class SVG(Group):
             else:
                 xml_tree = SubElement(xml_tree, tag)
             for key, value in values.items():
+                if key in ("tag", SVG_STRUCT_ATTRIB, SVG_ATTR_TRANSFORM, SVG_ATTR_FILL, SVG_ATTR_STROKE, SVG_TAG_STYLE):
+                    continue
                 xml_tree.set(key, str(value))
             return xml_tree
 
@@ -9240,7 +9242,7 @@ class SVG(Group):
                 self._write_node(child, xml_tree)
 
         # Write Transform
-        if hasattr(node, "transform"):
+        if hasattr(node, "transform") and not isinstance(node, Group):
             t = node.transform
             if not t.is_identity():
                 xml_tree.set(
