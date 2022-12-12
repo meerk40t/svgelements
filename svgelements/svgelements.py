@@ -9108,7 +9108,7 @@ class SVG(Group):
             f = gzip.open(f, "wb")
         tree.write(f)
 
-    def _write_node(self, node, xml_tree=None):
+    def _write_node(self, node, xml_tree=None, viewport_transform=None):
         if hasattr(node, "values"):
             values = node.values
             values = node.values.get(SVG_STRUCT_ATTRIB, values)
@@ -9154,8 +9154,15 @@ class SVG(Group):
                 xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
             if node.viewbox:
                 xml_tree.set(SVG_ATTR_VIEWBOX, str(node.viewbox))
+            vt = node.viewbox_transform
+            if vt:
+                m = Matrix(vt)
+                m.inverse()
+                vt = m
+            else:
+                vt = None
             for child in node:
-                self._write_node(child, xml_tree)
+                self._write_node(child, xml_tree, vt)
         elif isinstance(node, Ellipse):
             xml_tree = subxml(xml_tree, SVG_TAG_ELLIPSE)
             if node.cx:
@@ -9253,11 +9260,13 @@ class SVG(Group):
             # This is a structural group node of elements. Recurse call to write values.
             xml_tree = subxml(xml_tree, SVG_TAG_GROUP)
             for child in node:
-                self._write_node(child, xml_tree)
+                self._write_node(child, xml_tree, viewport_transform)
 
         # Write Transform
         if hasattr(node, "transform") and not isinstance(node, Group):
             t = node.transform
+            if viewport_transform:
+                t = t * viewport_transform
             if not t.is_identity():
                 xml_tree.set(
                     SVG_ATTR_TRANSFORM,
