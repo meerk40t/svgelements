@@ -9084,3 +9084,216 @@ class SVG(Group):
                     # Rare wc3 test uses a 'd' namespace.
                     values[elem[0]] = elem[1]
         return root
+
+    def tostring(self, node=None):
+        from xml.etree.ElementTree import tostring
+        return tostring(self._write_node(node if node is not None else self), encoding="unicode")
+
+    def write(self, f, node=None, pretty=True):
+        from xml.etree.ElementTree import ElementTree
+        if node is None:
+            node = self
+        root = self._write_node(node)
+        if pretty:
+            self._pretty_print(root)
+        tree = ElementTree(root)
+        if f.lower().endswith("svgz"):
+            import gzip
+            f = gzip.open(f, "wb")
+        tree.write(f)
+
+    def _write_node(self, node, xml_tree=None):
+        if hasattr(node, "values"):
+            values = node.values
+            values = node.values.get(SVG_STRUCT_ATTRIB, values)
+        else:
+            values = None
+
+        def subxml(xml_tree, tag):
+            from xml.etree.ElementTree import Element, SubElement
+            if xml_tree is None:
+                xml_tree = Element(tag)
+            else:
+                xml_tree = SubElement(xml_tree, tag)
+            for key, value in values.items():
+                xml_tree.set(key, str(value))
+            return xml_tree
+
+        if isinstance(node, SVG):
+            if xml_tree is None:
+                xml_tree = subxml(xml_tree, SVG_NAME_TAG)
+                xml_tree.set(SVG_ATTR_VERSION, SVG_VALUE_VERSION)
+                xml_tree.set(SVG_ATTR_XMLNS, SVG_VALUE_XMLNS)
+                xml_tree.set(SVG_ATTR_XMLNS_LINK, SVG_VALUE_XLINK)
+                xml_tree.set(SVG_ATTR_XMLNS_EV, SVG_VALUE_XMLNS_EV)
+            else:
+                xml_tree = subxml(xml_tree, SVG_NAME_TAG)
+            if node.x:
+                xml_tree.set(SVG_ATTR_X, str(node.x))
+            if node.y:
+                xml_tree.set(SVG_ATTR_Y, str(node.y))
+            if node.width:
+                xml_tree.set(SVG_ATTR_WIDTH, str(node.width))
+            if node.height:
+                xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
+            if node.viewbox:
+                xml_tree.set(SVG_ATTR_VIEWBOX, str(node.viewbox))
+            for child in node:
+                self._write_node(child, xml_tree)
+        elif isinstance(node, Ellipse):
+            xml_tree = subxml(xml_tree, SVG_TAG_ELLIPSE)
+            if node.cx:
+                xml_tree.set(SVG_ATTR_CENTER_X, str(node.cx))
+            if node.cy:
+                xml_tree.set(SVG_ATTR_CENTER_Y, str(node.cy))
+            if node.rx:
+                xml_tree.set(SVG_ATTR_RADIUS_X, str(node.rx))
+            if node.ry:
+                xml_tree.set(SVG_ATTR_RADIUS_Y, str(node.ry))
+        elif isinstance(node, Circle):
+            xml_tree = subxml(xml_tree, SVG_TAG_ELLIPSE)
+            if node.cx:
+                xml_tree.set(SVG_ATTR_CENTER_X, str(node.cx))
+            if node.cy:
+                xml_tree.set(SVG_ATTR_CENTER_Y, str(node.cy))
+            if node.rx:
+                xml_tree.set(SVG_ATTR_RADIUS, str(node.rx))
+        elif isinstance(node, Image):
+            xml_tree = subxml(xml_tree, SVG_TAG_IMAGE)
+            from io import BytesIO
+            from base64 import b64encode
+
+            stream = BytesIO()
+            node.image.save(stream, format="PNG")
+            xml_tree.set(
+                "xlink:href",
+                f"data:image/png;base64,{b64encode(stream.getvalue()).decode('utf8')}",
+            )
+            if node.x:
+                xml_tree.set(SVG_ATTR_X, str(node.x))
+            if node.y:
+                xml_tree.set(SVG_ATTR_Y, str(node.y))
+            if node.width:
+                xml_tree.set(SVG_ATTR_WIDTH, str(node.width))
+            if node.height:
+                xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
+        elif isinstance(node, SimpleLine):
+            xml_tree = subxml(xml_tree, SVG_TAG_LINE)
+            if node.x1:
+                xml_tree.set(SVG_ATTR_X1, str(node.x1))
+            if node.y1:
+                xml_tree.set(SVG_ATTR_Y1, str(node.y1))
+            if node.x2:
+                xml_tree.set(SVG_ATTR_X2, str(node.x2))
+            if node.y2:
+                xml_tree.set(SVG_ATTR_Y2, str(node.y2))
+        elif isinstance(node, Path):
+            xml_tree = subxml(xml_tree, SVG_TAG_PATH)
+            xml_tree.set(SVG_ATTR_DATA, node.d(transformed=False))
+        elif isinstance(node, Polyline):
+            xml_tree = subxml(xml_tree, SVG_TAG_POLYLINE)
+            xml_tree.set(
+                SVG_ATTR_POINTS,
+                " ".join([f"{e[0]} {e[1]}" for e in node.points]),
+            )
+        elif isinstance(node, Polygon):
+            xml_tree = subxml(xml_tree, SVG_TAG_POLYGON)
+            xml_tree.set(
+                SVG_ATTR_POINTS,
+                " ".join([f"{e[0]} {e[1]}" for e in node.points]),
+            )
+        elif isinstance(node, Rect):
+            xml_tree = subxml(xml_tree, SVG_TAG_RECT)
+            if node.x:
+                xml_tree.set(SVG_ATTR_X, str(node.x))
+            if node.y:
+                xml_tree.set(SVG_ATTR_Y, str(node.y))
+            if node.rx:
+                xml_tree.set(SVG_ATTR_RADIUS_X, str(node.rx))
+            if node.ry:
+                xml_tree.set(SVG_ATTR_RADIUS_Y, str(node.ry))
+            if node.width:
+                xml_tree.set(SVG_ATTR_WIDTH, str(node.width))
+            if node.height:
+                xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
+        elif isinstance(node, Text):
+            xml_tree = subxml(xml_tree, SVG_TAG_TEXT)
+            xml_tree.text = node.text
+            if node.font_family:
+                xml_tree.set(SVG_ATTR_FONT_FAMILY, node.font_family)
+            if node.font_style:
+                xml_tree.set(SVG_ATTR_FONT_STYLE, node.font_style)
+            if node.font_variant:
+                xml_tree.set(SVG_ATTR_FONT_VARIANT, node.font_variant)
+            if node.font_stretch:
+                xml_tree.set(SVG_ATTR_FONT_STRETCH, node.font_stretch)
+            if node.font_size:
+                xml_tree.set(SVG_ATTR_FONT_SIZE, str(node.font_size))
+            if node.line_height:
+                xml_tree.set("line_height", str(node.line_height))
+            if node.anchor:
+                xml_tree.set(SVG_ATTR_TEXT_ANCHOR, node.anchor)
+        elif isinstance(node, Group):
+            # This is a structural group node of elements. Recurse call to write values.
+            xml_tree = subxml(xml_tree, SVG_TAG_GROUP)
+            for child in node:
+                self._write_node(child, xml_tree)
+
+        # Write Transform
+        if hasattr(node, "transform"):
+            t = node.transform
+            if not t.is_identity():
+                xml_tree.set(
+                    SVG_ATTR_TRANSFORM,
+                    "matrix(%f, %f, %f, %f, %f, %f)" % (t.a, t.b, t.c, t.d, t.e, t.f),
+                )
+
+        # Write Stroke
+        if hasattr(node, "stroke"):
+            stroke = node.stroke
+            stroke_opacity = stroke.opacity
+            stroke = (
+                str(abs(stroke))
+                if stroke is not None and stroke.value is not None
+                else SVG_VALUE_NONE
+            )
+            xml_tree.set(SVG_ATTR_STROKE, stroke)
+            if stroke_opacity != 1.0 and stroke_opacity is not None:
+                xml_tree.set(SVG_ATTR_STROKE_OPACITY, str(stroke_opacity))
+
+            try:
+                stroke_width = str(node.stroke_width)
+                xml_tree.set(SVG_ATTR_STROKE_WIDTH, stroke_width)
+            except AttributeError:
+                pass
+
+        # Write Fill
+        if hasattr(node, "fill"):
+            fill = node.fill
+            fill_opacity = fill.opacity
+            fill = (
+                str(abs(fill))
+                if fill is not None and fill.value is not None
+                else SVG_VALUE_NONE
+            )
+            xml_tree.set(SVG_ATTR_FILL, fill)
+            if fill_opacity != 1.0 and fill_opacity is not None:
+                xml_tree.set(SVG_ATTR_FILL_OPACITY, str(fill_opacity))
+
+        # Write id
+        if hasattr(node, "id"):
+            if node.id is not None:
+                xml_tree.set(SVG_ATTR_ID, str(node.id))
+
+        return xml_tree
+
+    def _pretty_print(self, current, parent=None, index=-1, depth=0):
+        for i, node in enumerate(current):
+            self._pretty_print(node, current, i, depth + 1)
+        if parent is not None:
+            if index == 0:
+                parent.text = "\n" + ("\t" * depth)
+            else:
+                parent[index - 1].tail = "\n" + ("\t" * depth)
+            if index == len(parent) - 1:
+                current.tail = "\n" + ("\t" * (depth - 1))
