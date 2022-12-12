@@ -8683,6 +8683,7 @@ class SVG(Group):
             else:
                 children.append((elem, None))
         nodes = children
+
         # End preprocess
 
         # Semiparse the nodes. All nodes are given in iterparse ordering with start-ns, start, and end.
@@ -9087,10 +9088,14 @@ class SVG(Group):
 
     def tostring(self, node=None):
         from xml.etree.ElementTree import tostring
-        return tostring(self._write_node(node if node is not None else self), encoding="unicode")
+
+        return tostring(
+            self._write_node(node if node is not None else self), encoding="unicode"
+        )
 
     def write(self, f, node=None, pretty=True):
         from xml.etree.ElementTree import ElementTree
+
         if node is None:
             node = self
         root = self._write_node(node)
@@ -9099,6 +9104,7 @@ class SVG(Group):
         tree = ElementTree(root)
         if f.lower().endswith("svgz"):
             import gzip
+
             f = gzip.open(f, "wb")
         tree.write(f)
 
@@ -9111,12 +9117,20 @@ class SVG(Group):
 
         def subxml(xml_tree, tag):
             from xml.etree.ElementTree import Element, SubElement
+
             if xml_tree is None:
                 xml_tree = Element(tag)
             else:
                 xml_tree = SubElement(xml_tree, tag)
             for key, value in values.items():
-                if key in ("tag", SVG_STRUCT_ATTRIB, SVG_ATTR_TRANSFORM, SVG_ATTR_FILL, SVG_ATTR_STROKE, SVG_TAG_STYLE):
+                if key in (
+                    "tag",
+                    SVG_STRUCT_ATTRIB,
+                    SVG_ATTR_TRANSFORM,
+                    SVG_ATTR_FILL,
+                    SVG_ATTR_STROKE,
+                    SVG_TAG_STYLE,
+                ):
                     continue
                 xml_tree.set(key, str(value))
             return xml_tree
