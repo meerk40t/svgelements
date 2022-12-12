@@ -9256,12 +9256,40 @@ class SVG(Group):
                 xml_tree.set("line_height", str(node.line_height))
             if node.anchor:
                 xml_tree.set(SVG_ATTR_TEXT_ANCHOR, node.anchor)
+        elif isinstance(node, Desc):
+            xml_tree = subxml(xml_tree, SVG_TAG_DESC)
+            if node.desc:
+                xml_tree.set(SVG_TAG_DESC, str(node.desc))
+        elif isinstance(node, Title):
+            xml_tree = subxml(xml_tree, SVG_TAG_TITLE)
+            if node.title:
+                xml_tree.set(SVG_TAG_TITLE, str(node.title))
+        elif isinstance(node, Pattern):
+            xml_tree = subxml(xml_tree, SVG_TAG_PATTERN)
+            if node.pattern_transform:
+                xml_tree.set(SVG_ATTR_PATTERN_TRANSFORM, str(node.pattern_transform))
+            if node.pattern_content_units:
+                xml_tree.set(SVG_ATTR_PATTERN_CONTENT_UNITS, str(node.pattern_content_units))
+            if node.pattern_units:
+                xml_tree.set(SVG_ATTR_PATTERN_UNITS, str(node.pattern_units))
+            if node.preserve_aspect_ratio:
+                xml_tree.set(SVG_ATTR_PRESERVEASPECTRATIO, str(node.preserve_aspect_ratio))
+        elif isinstance(node, Use):
+            # While Use elements are originally their own thing it can't be restored.
+            xml_tree = subxml(xml_tree, SVG_TAG_GROUP)
+            for child in node:
+                self._write_node(child, xml_tree, viewport_transform)
         elif isinstance(node, Group):
             # This is a structural group node of elements. Recurse call to write values.
             xml_tree = subxml(xml_tree, SVG_TAG_GROUP)
             for child in node:
                 self._write_node(child, xml_tree, viewport_transform)
-
+        elif isinstance(node, SVGElement):
+            if SVG_ATTR_TAG in values:
+                xml_tree = subxml(xml_tree, values.get(SVG_ATTR_TAG))
+            else:
+                # Cannot write generic svgelement form
+                return
         # Write Transform
         if hasattr(node, "transform") and not isinstance(node, Group):
             t = node.transform
