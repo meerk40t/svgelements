@@ -552,7 +552,7 @@ These are the SVG PathSegment classes. See the `SVG specifications
 <http://www.w3.org/TR/SVG/paths.html>`_ for more information on what each
 parameter means.
 
-* ``Move(start, end)`` The move object describes a move to the start of the next subpath. It may lack a start position but not en end position.
+* ``Move(start, end)`` The move object describes a move to the start of the next subpath. It may lack a start position but not an end position.
 
 * ``Close(start, end)`` The close object describes a close path element. It will have a length if and only if the end point is not equal to the subpath start point. Neither the start point or end point is required.
 
@@ -890,6 +890,7 @@ Point is used in all the SVG path segment objects. With regard to `svg.path` it 
 The class supports `complex` subscribable elements, `.x` and `.y` methods, and `.imag` and `.real`. As well as providing several of these indexing methods.
 
 It includes a number of point functions like:
+
 * `move_towards(point,float)`: Move this point towards the other point. with an amount [0,1]
 * `distance_to(point)`: Calculate the Euclidean distance to the other point.
 * `angle_to(point)`: Calculate the angle to the given point.
