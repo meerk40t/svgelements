@@ -42,12 +42,12 @@ class TestElementWrite(unittest.TestCase):
         self.assertEqual(r.string_xml(), '<path d="M 5,5 z z z z" />')
 
     def test_write_circle(self):
-        c = Circle(r=0)
-        self.assertEqual(c.string_xml(), '<circle r="0" />')
+        c = Circle(r=0, stroke="none", )
+        self.assertEqual(c.string_xml(), '<circle r="0" stroke="none" stroke-width="1.0"/>')
 
     def test_write_ellipse(self):
-        c = Ellipse(r=0)
-        self.assertEqual(c.string_xml(), '<ellipse r="0" />')
+        c = Ellipse(r=0, fill="lime")
+        self.assertEqual(c.string_xml(), '<ellipse r="0" fill="#00ff00" />')
 
     # def test_read_write(self):
     #     import glob
