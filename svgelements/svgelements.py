@@ -4295,7 +4295,7 @@ class Line(Linear):
 
 
 class QuadraticBezier(Curve):
-    """Represents Quadratic Bezier commands."""
+    """Represents Quadratic Bézier commands."""
 
     def __init__(self, start, control, end, **kwargs):
         Curve.__init__(self, start, end, **kwargs)
@@ -4477,7 +4477,7 @@ class QuadraticBezier(Curve):
 
 
 class CubicBezier(Curve):
-    """Represents Cubic Bezier commands."""
+    """Represents Cubic Bézier commands."""
 
     def __init__(self, start, control1, control2, end, **kwargs):
         Curve.__init__(self, start, end, **kwargs)
