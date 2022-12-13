@@ -9308,15 +9308,16 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
     # Write Stroke
     if hasattr(node, "stroke"):
         stroke = node.stroke
-        stroke_opacity = stroke.opacity
-        stroke = (
-            str(abs(stroke))
-            if stroke is not None and stroke.value is not None
-            else SVG_VALUE_NONE
-        )
-        xml_tree.set(SVG_ATTR_STROKE, stroke)
-        if stroke_opacity != 1.0 and stroke_opacity is not None:
-            xml_tree.set(SVG_ATTR_STROKE_OPACITY, str(stroke_opacity))
+        if stroke is not None:
+            stroke_opacity = stroke.opacity
+            stroke = (
+                str(abs(stroke))
+                if stroke is not None and stroke.value is not None
+                else SVG_VALUE_NONE
+            )
+            xml_tree.set(SVG_ATTR_STROKE, stroke)
+            if stroke_opacity != 1.0 and stroke_opacity is not None:
+                xml_tree.set(SVG_ATTR_STROKE_OPACITY, str(stroke_opacity))
 
             try:
                 stroke_width = str(node.stroke_width)
