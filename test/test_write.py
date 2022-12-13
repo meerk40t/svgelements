@@ -16,11 +16,10 @@ class TestElementWrite(unittest.TestCase):
             </svg>
             ''')
         svg = SVG.parse(q, reify=False)
-        print(svg.tostring())
-        svg.write("myfile.svg", svg)
+        print(svg.string_xml())
+        svg.write_xml("myfile.svg")
 
     def test_write_group(self):
         g = Group()
-        svg = SVG()
-        self.assertEqual(svg.tostring(g), "<g />")
+        self.assertEquals(g.string_xml(), "<g />")
 
