@@ -49,6 +49,11 @@ class TestElementWrite(unittest.TestCase):
         c = Ellipse(r=0, fill="lime")
         self.assertEqual(c.string_xml(), '<ellipse r="0" fill="#00ff00" />')
 
+    def test_write_line(self):
+        c = SimpleLine(x1=0, x2=10, y1=5, y2=6, id="line")
+        self.assertEqual(c.string_xml(), '<line x1="0" x2="10.0" y1="5.0" y2="6.0" id="line" />')
+
+
     # def test_read_write(self):
     #     import glob
     #     for g in glob.glob("*.svg"):
