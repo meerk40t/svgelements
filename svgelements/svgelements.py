@@ -4711,7 +4711,7 @@ class Arc(Curve):
 
         Sweep is a value in t.
         The sweep angle can be a value greater than tau and less than -tau.
-        However if this is the case, conversion back to Path.d() is expected to fail.
+        However, if this is the case, conversion back to Path.d() is expected to fail.
         We can denote these arc events but not as a single command.
 
         start_t + sweep = end_t
@@ -5090,7 +5090,7 @@ class Arc(Curve):
 
     def _exact_length(self):
         """scipy is not a dependency. However, if scipy exists this function will find the
-        exact arc length. By default .length() delegates to here and on failure uses the
+        exact arc length. .length() delegates to here and on failure uses the
         fallback method."""
         from scipy.special import ellipeinc
 
@@ -5107,7 +5107,7 @@ class Arc(Curve):
     def length(self, error=ERROR, min_depth=MIN_DEPTH):
         """The length of an elliptical arc segment requires numerical
         integration, and in that case it's simpler to just do a geometric
-        approximation, as for cubic bezier curves.
+        approximation, as for cubic Bézier curves.
         """
         if self.sweep == 0:
             return 0
