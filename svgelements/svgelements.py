@@ -9178,7 +9178,7 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         if node.ry:
             xml_tree.set(SVG_ATTR_RADIUS_Y, str(node.ry))
     elif isinstance(node, Circle):
-        xml_tree = subxml(xml_tree, SVG_TAG_ELLIPSE)
+        xml_tree = subxml(xml_tree, SVG_TAG_CIRCLE)
         if node.cx:
             xml_tree.set(SVG_ATTR_CENTER_X, str(node.cx))
         if node.cy:
@@ -9318,24 +9318,25 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         if stroke_opacity != 1.0 and stroke_opacity is not None:
             xml_tree.set(SVG_ATTR_STROKE_OPACITY, str(stroke_opacity))
 
-        try:
-            stroke_width = str(node.stroke_width)
-            xml_tree.set(SVG_ATTR_STROKE_WIDTH, stroke_width)
-        except AttributeError:
-            pass
+            try:
+                stroke_width = str(node.stroke_width)
+                xml_tree.set(SVG_ATTR_STROKE_WIDTH, stroke_width)
+            except AttributeError:
+                pass
 
     # Write Fill
     if hasattr(node, "fill"):
         fill = node.fill
-        fill_opacity = fill.opacity
-        fill = (
-            str(abs(fill))
-            if fill is not None and fill.value is not None
-            else SVG_VALUE_NONE
-        )
-        xml_tree.set(SVG_ATTR_FILL, fill)
-        if fill_opacity != 1.0 and fill_opacity is not None:
-            xml_tree.set(SVG_ATTR_FILL_OPACITY, str(fill_opacity))
+        if fill is not None:
+            fill_opacity = fill.opacity
+            fill = (
+                str(abs(fill))
+                if fill is not None and fill.value is not None
+                else SVG_VALUE_NONE
+            )
+            xml_tree.set(SVG_ATTR_FILL, fill)
+            if fill_opacity != 1.0 and fill_opacity is not None:
+                xml_tree.set(SVG_ATTR_FILL_OPACITY, str(fill_opacity))
 
     # Write id
     if hasattr(node, "id"):
