@@ -9121,16 +9121,17 @@ class SVG(Group):
         :param enhance_samples:
         :return:
         """
-        assert(samples >= 2)
+        assert samples >= 2
 
         import numpy as np
+
         a = np.linspace(ta[0], ta[1], num=samples)
         b = np.linspace(tb[0], tb[1], num=samples)
         step_a = a[1] - a[0]
         step_b = b[1] - b[0]
         j = segment1.npoint(a)
         k = segment2.npoint(b)
-        j = j[:,0] + j[:,1] * 1j
+        j = j[:, 0] + j[:, 1] * 1j
         k = k[:, 0] + k[:, 1] * 1j
 
         ax1, bx1 = np.meshgrid(np.real(j[:-1]), np.real(k[:-1]))
@@ -9166,7 +9167,9 @@ class SVG(Group):
 
             at = ta[0] + float(hit[1]) * step_a  # Zoomed min+segment intersected.
             bt = tb[0] + float(hit[0]) * step_b
-            a_fractional = ta_hit[i] * step_a  # Fractional guess within intersected segment
+            a_fractional = (
+                ta_hit[i] * step_a
+            )  # Fractional guess within intersected segment
             b_fractional = tb_hit[i] * step_b
             if depth == enhancements:
                 # We've enhanced as best as we can, yield the current + segment t-value to our answer
@@ -9178,7 +9181,7 @@ class SVG(Group):
                     ta=(at, at + step_a, at + a_fractional),
                     tb=(bt, bt + step_b, bt + b_fractional),
                     samples=enhance_samples,
-                    depth=depth+1,
+                    depth=depth + 1,
                     enhancements=enhancements,
                     enhance_samples=enhance_samples,
                 )
