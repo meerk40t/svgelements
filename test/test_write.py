@@ -1,5 +1,6 @@
 import io
 import unittest
+from xml.etree.ElementTree import ParseError
 
 from svgelements import *
 
@@ -23,3 +24,17 @@ class TestElementWrite(unittest.TestCase):
         g = Group()
         self.assertEquals(g.string_xml(), "<g />")
 
+    # def test_read_write(self):
+    #     import glob
+    #     for g in glob.glob("*.svg"):
+    #         if g.startswith("test-"):
+    #             continue
+    #         print(g)
+    #         try:
+    #             svg = SVG.parse(g, transform="translate(1in,1in)")
+    #         except ParseError:
+    #             print(f"{g} could not be parsed.")
+    #             continue
+    #         except ValueError:
+    #             continue
+    #         svg.write_xml(f"test-{g}.")

@@ -9189,13 +9189,13 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         xml_tree = subxml(xml_tree, SVG_TAG_IMAGE)
         from io import BytesIO
         from base64 import b64encode
-
-        stream = BytesIO()
-        node.image.save(stream, format="PNG")
-        xml_tree.set(
-            "xlink:href",
-            f"data:image/png;base64,{b64encode(stream.getvalue()).decode('utf8')}",
-        )
+        if node.image is not None:
+            stream = BytesIO()
+            node.image.save(stream, format="PNG")
+            xml_tree.set(
+                "xlink:href",
+                f"data:image/png;base64,{b64encode(stream.getvalue()).decode('utf8')}",
+            )
         if node.x:
             xml_tree.set(SVG_ATTR_X, str(node.x))
         if node.y:
