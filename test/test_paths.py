@@ -415,12 +415,13 @@ class QuadraticBezierTest(unittest.TestCase):
         circle = Circle(cx="-1.5", cy="-1.5", r="0.5")
         circle *= "matrix(0,-1,-1,0,0,0)"
         path = Path(circle)
+        path.reverse()  # cw to ccw
         path_d = path.d()
         circle_d = circle.d()
-        # self.assertEqual(path_d, circle_d)
-        # abs_path = abs(Path(circle))
-        # self.assertEqual(path.transform, circle.transform)
-        # self.assertEqual(circle.point_at_t(tau/4), abs_path[1].end)
+
+        self.assertEqual(path_d, circle_d)
+        abs_path = abs(Path(circle))
+        self.assertEqual(path.transform, circle.transform)
 
     def test_issue_50_parse(self):
         """
