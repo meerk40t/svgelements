@@ -9008,7 +9008,9 @@ class SVG(Group):
                         pass
                     if clip != 0:
                         try:
-                            clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+                            clip_rule = s.values.get(
+                                SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO
+                            )
                             if clip_rule is not None:
                                 s.clip_rule = clip_rule
                         except AttributeError:
@@ -9209,6 +9211,7 @@ def tostring(node):
 
 def write(node, f, pretty=True):
     from xml.etree.ElementTree import ElementTree
+
     root = _write_node(node)
     if pretty:
         _pretty_print(root)
@@ -9297,6 +9300,7 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         xml_tree = subxml(xml_tree, SVG_TAG_IMAGE)
         from io import BytesIO
         from base64 import b64encode
+
         if node.image is not None:
             stream = BytesIO()
             node.image.save(stream, format="PNG")
@@ -9381,7 +9385,9 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         if node.pattern_transform:
             xml_tree.set(SVG_ATTR_PATTERN_TRANSFORM, str(node.pattern_transform))
         if node.pattern_content_units:
-            xml_tree.set(SVG_ATTR_PATTERN_CONTENT_UNITS, str(node.pattern_content_units))
+            xml_tree.set(
+                SVG_ATTR_PATTERN_CONTENT_UNITS, str(node.pattern_content_units)
+            )
         if node.pattern_units:
             xml_tree.set(SVG_ATTR_PATTERN_UNITS, str(node.pattern_units))
         if node.preserve_aspect_ratio:
@@ -9453,6 +9459,7 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_ID, str(node.id))
 
     return xml_tree
+
 
 def _pretty_print(current, parent=None, index=-1, depth=0):
     for i, node in enumerate(current):
