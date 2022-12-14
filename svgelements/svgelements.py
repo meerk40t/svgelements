@@ -4062,6 +4062,110 @@ class PathSegment:
         can be returned."""
         raise NotImplementedError
 
+    def intersect(self, segment):
+        return list(PathSegment.find_intersections(self, segment))
+
+    @staticmethod
+    def find_intersections(
+        segment1,
+        segment2,
+        samples=50,
+        ta=(0.0, 1.0, None),
+        tb=(0.0, 1.0, None),
+        depth=0,
+        enhancements=2,
+        enhance_samples=50,
+    ):
+        """
+        Calculate intersections by linearized polyline intersections with enhancements.
+        We calculate probable intersections by linearizing our segment into `sample` polylines
+        we then find those intersecting segments and the range of t where those intersections
+        could have occurred and then subdivide those segments in a series of enhancements to
+        find their intersections with increased precision.
+
+        This code is fast, but it could fail by both finding a rare phantom intersection (if there
+        is a low or no enhancements) or by failing to find a real intersection. Because the polylines
+        approximation did not intersect in the base case.
+
+        At a resolution of about 1e-15 the intersection calculations become unstable and intersection
+        candidates can duplicate or become lost. We terminate at that point and give the last best
+        guess.
+
+        :param segment1:
+        :param segment2:
+        :param samples:
+        :param ta:
+        :param tb:
+        :param depth:
+        :param enhancements:
+        :param enhance_samples:
+        :return:
+        """
+        assert samples >= 2
+
+        import numpy as np
+
+        a = np.linspace(ta[0], ta[1], num=samples)
+        b = np.linspace(tb[0], tb[1], num=samples)
+        step_a = a[1] - a[0]
+        step_b = b[1] - b[0]
+        j = segment1.npoint(a)
+        k = segment2.npoint(b)
+        j = j[:, 0] + j[:, 1] * 1j
+        k = k[:, 0] + k[:, 1] * 1j
+
+        ax1, bx1 = np.meshgrid(np.real(j[:-1]), np.real(k[:-1]))
+        ax2, bx2 = np.meshgrid(np.real(j[1:]), np.real(k[1:]))
+        ay1, by1 = np.meshgrid(np.imag(j[:-1]), np.imag(k[:-1]))
+        ay2, by2 = np.meshgrid(np.imag(j[1:]), np.imag(k[1:]))
+
+        denom = (by2 - by1) * (ax2 - ax1) - (bx2 - bx1) * (ay2 - ay1)
+        qa = (bx2 - bx1) * (ay1 - by1) - (by2 - by1) * (ax1 - bx1)
+        qb = (ax2 - ax1) * (ay1 - by1) - (ay2 - ay1) * (ax1 - bx1)
+        hits = np.dstack(
+            (
+                denom != 0,  # Cannot be parallel.
+                np.sign(denom) == np.sign(qa),  # D and Qa must have same sign.
+                np.sign(denom) == np.sign(qb),  # D and Qb must have same sign.
+                abs(denom) >= abs(qa),  # D >= Qa (else not between 0 - 1)
+                abs(denom) >= abs(qb),  # D >= Qb (else not between 0 - 1)
+            )
+        ).all(axis=2)
+
+        where_hit = np.argwhere(hits)
+        if len(where_hit) != 1 and step_a < 1e-10:
+            # We're hits are becoming unstable give last best value.
+            if ta[2] is not None and tb[2] is not None:
+                yield ta[2], tb[2]
+            return
+
+        # Calculate the t values for the intersections
+        ta_hit = qa[hits] / denom[hits]
+        tb_hit = qb[hits] / denom[hits]
+
+        for i, hit in enumerate(where_hit):
+
+            at = ta[0] + float(hit[1]) * step_a  # Zoomed min+segment intersected.
+            bt = tb[0] + float(hit[0]) * step_b
+            a_fractional = (
+                ta_hit[i] * step_a
+            )  # Fractional guess within intersected segment
+            b_fractional = tb_hit[i] * step_b
+            if depth == enhancements:
+                # We've enhanced as best as we can, yield the current + segment t-value to our answer
+                yield at + a_fractional, bt + b_fractional
+            else:
+                yield from PathSegment.find_intersections(
+                    segment1,
+                    segment2,
+                    ta=(at, at + step_a, at + a_fractional),
+                    tb=(bt, bt + step_b, bt + b_fractional),
+                    samples=enhance_samples,
+                    depth=depth + 1,
+                    enhancements=enhancements,
+                    enhance_samples=enhance_samples,
+                )
+
 
 class Move(PathSegment):
     """Represents move commands. Moves to a new location without any path distance.
@@ -9008,7 +9112,9 @@ class SVG(Group):
                         pass
                     if clip != 0:
                         try:
-                            clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+                            clip_rule = s.values.get(
+                                SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO
+                            )
                             if clip_rule is not None:
                                 s.clip_rule = clip_rule
                         except AttributeError:
@@ -9108,6 +9214,7 @@ def tostring(node):
 
 def write(node, f, pretty=True):
     from xml.etree.ElementTree import ElementTree
+
     root = _write_node(node)
     if pretty:
         _pretty_print(root)
@@ -9196,6 +9303,7 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         xml_tree = subxml(xml_tree, SVG_TAG_IMAGE)
         from io import BytesIO
         from base64 import b64encode
+
         if node.image is not None:
             stream = BytesIO()
             node.image.save(stream, format="PNG")
@@ -9280,7 +9388,9 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
         if node.pattern_transform:
             xml_tree.set(SVG_ATTR_PATTERN_TRANSFORM, str(node.pattern_transform))
         if node.pattern_content_units:
-            xml_tree.set(SVG_ATTR_PATTERN_CONTENT_UNITS, str(node.pattern_content_units))
+            xml_tree.set(
+                SVG_ATTR_PATTERN_CONTENT_UNITS, str(node.pattern_content_units)
+            )
         if node.pattern_units:
             xml_tree.set(SVG_ATTR_PATTERN_UNITS, str(node.pattern_units))
         if node.preserve_aspect_ratio:
@@ -9352,6 +9462,7 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_ID, str(node.id))
 
     return xml_tree
+
 
 def _pretty_print(current, parent=None, index=-1, depth=0):
     for i, node in enumerate(current):
