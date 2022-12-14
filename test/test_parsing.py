@@ -616,6 +616,21 @@ class TestParseDisplay(unittest.TestCase):
         q = list(m.elements())
         self.assertTrue(isinstance(q[-1], SimpleLine))
 
+    def test_svgfile_no_root_issue175(self):
+        """
+        SVG files loaded without a valid root element crash. Issue 175.
+        """
+        q = io.StringIO(u'''<g/>''')
+        m = SVG.parse(q)
+        self.assertTrue(isinstance(m, Group))
+        q = io.StringIO(u'''<path d="M0,0z"/>''')
+        m = SVG.parse(q)
+        self.assertTrue(isinstance(m, Path))
+        q = io.StringIO(u'''<g><path d="M0,0z"/></g>''')
+        m = SVG.parse(q)
+        self.assertTrue(isinstance(m, Group))
+        self.assertTrue(isinstance(m[0], Path))
+
     def test_svgfile_0_width(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
                         <svg width="0cm" height="3.0cm" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
