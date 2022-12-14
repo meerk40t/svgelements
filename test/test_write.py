@@ -43,7 +43,7 @@ class TestElementWrite(unittest.TestCase):
 
     def test_write_circle(self):
         c = Circle(r=0, stroke="none", )
-        self.assertEqual(c.string_xml(), '<circle r="0" stroke="none" stroke-width="1.0"/>')
+        self.assertEqual(c.string_xml(), '<circle r="0" stroke="none" stroke-width="1.0" />')
 
     def test_write_ellipse(self):
         c = Ellipse(r=0, fill="lime")
@@ -61,7 +61,7 @@ class TestElementWrite(unittest.TestCase):
     #             continue
     #         print(g)
     #         try:
-    #             svg = SVG.parse(g, transform="translate(1in,1in)")
+    #             svg = SVG.parse(g, transform="translate(1,1)")
     #         except ParseError:
     #             print(f"{g} could not be parsed.")
     #             continue
