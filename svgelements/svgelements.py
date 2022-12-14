@@ -8903,11 +8903,10 @@ class SVG(Group):
                     if context is not None:
                         context.append(s)
                     context = s
-                    if root is None:
-                        root = s
                 elif SVG_TAG_GROUP == tag:
                     s = Group(values)
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                     context = s
                     s.render(ppi=ppi, width=width, height=height)
                 elif SVG_TAG_DEFS == tag:
@@ -8932,7 +8931,8 @@ class SVG(Group):
                         del values[SVG_ATTR_WIDTH]
                     if SVG_ATTR_HEIGHT in values:
                         del values[SVG_ATTR_HEIGHT]
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                     context = s
                     use += 1
                     if SVG_ATTR_ID in attributes and root is not None and use == 1:
@@ -8975,7 +8975,8 @@ class SVG(Group):
                         s.reify()
                     if s.is_degenerate():
                         continue
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                 elif tag in (
                     SVG_TAG_STYLE,
                     SVG_TAG_TEXT,
@@ -8987,25 +8988,29 @@ class SVG(Group):
                     continue
                 else:
                     s = SVGElement(values)  # SVG Unknown object return as element.
-                    context.append(s)
-
-                # Assign optional linked properties.
-                try:
-                    clip_path_url = s.values.get(SVG_ATTR_CLIP_PATH, None)
-                    if clip_path_url is not None:
-                        clip_path = root.get_element_by_url(clip_path_url)
-                        s.clip_path = clip_path
-                except AttributeError:
-                    pass
-                if clip != 0:
+                    if context is not None:
+                        context.append(s)
+                # If no root was established, s is root.
+                if root is None:
+                    root = s
+                if isinstance(root, SVG):
+                    # Assign optional linked properties.
                     try:
-                        clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
-                        if clip_rule is not None:
-                            s.clip_rule = clip_rule
+                        clip_path_url = s.values.get(SVG_ATTR_CLIP_PATH, None)
+                        if clip_path_url is not None:
+                            clip_path = root.get_element_by_url(clip_path_url)
+                            s.clip_path = clip_path
                     except AttributeError:
                         pass
-                if SVG_ATTR_ID in attributes and root is not None and use == 0:
-                    root.objects[attributes[SVG_ATTR_ID]] = s
+                    if clip != 0:
+                        try:
+                            clip_rule = s.values.get(SVG_ATTR_CLIP_RULE, SVG_RULE_NONZERO)
+                            if clip_rule is not None:
+                                s.clip_rule = clip_rule
+                        except AttributeError:
+                            pass
+                    if SVG_ATTR_ID in attributes and use == 0:
+                        root.objects[attributes[SVG_ATTR_ID]] = s
             elif event == "end":  # End event.
                 # The iterparse spec makes it clear that internal text data is undefined except at the end.
                 if (
@@ -9031,13 +9036,16 @@ class SVG(Group):
                     s.render(ppi=ppi, width=width, height=height)
                     if reify:
                         s.reify()
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                 elif SVG_TAG_DESC == tag:
                     s = Desc(values, desc=elem.text)
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                 elif SVG_TAG_TITLE == tag:
                     s = Title(values, title=elem.text)
-                    context.append(s)
+                    if context is not None:
+                        context.append(s)
                 elif SVG_TAG_STYLE == tag:
                     textstyle = elem.text
                     if textstyle is None:
@@ -9060,6 +9068,8 @@ class SVG(Group):
                 elif SVG_TAG_USE == tag:
                     use -= 1
                 if s is not None:
+                    if root is None:
+                        root = s
                     # Assign optional linked properties.
                     try:
                         clip_path_url = s.values.get(SVG_ATTR_CLIP_PATH, None)

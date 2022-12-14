@@ -622,14 +622,14 @@ class TestParseDisplay(unittest.TestCase):
         """
         q = io.StringIO(u'''<g/>''')
         m = SVG.parse(q)
-        self.assertTrue(isinstance(m[0], Group))
-        q = io.StringIO(u'''<path d="M0,0z/>''')
+        self.assertTrue(isinstance(m, Group))
+        q = io.StringIO(u'''<path d="M0,0z"/>''')
         m = SVG.parse(q)
+        self.assertTrue(isinstance(m, Path))
+        q = io.StringIO(u'''<g><path d="M0,0z"/></g>''')
+        m = SVG.parse(q)
+        self.assertTrue(isinstance(m, Group))
         self.assertTrue(isinstance(m[0], Path))
-        q = io.StringIO(u'''<g><path d="M0,0z/></g>''')
-        m = SVG.parse(q)
-        self.assertTrue(isinstance(m[0], Group))
-        self.assertTrue(isinstance(m[0][0], Path))
 
     def test_svgfile_0_width(self):
         q = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
