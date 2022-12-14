@@ -29,8 +29,8 @@ class TestElementIntersections(unittest.TestCase):
                 continue
             x = segdict[x]
             y = segdict[y]
-            xiy = sorted(SVG.find_intersections(x, y))
-            yix = sorted(SVG.find_intersections(y, x), key=itemgetter(1))
+            xiy = sorted(x.intersect(y))
+            yix = sorted(y.intersect(x), key=itemgetter(1))
             for xy, yx in zip(xiy, yix):
                 self.assertAlmostEqual(xy[0], yx[1], delta=TOL)
                 self.assertAlmostEqual(xy[1], yx[0], delta=TOL)
@@ -45,8 +45,8 @@ class TestElementIntersections(unittest.TestCase):
             x = segdict[x]
             mid = x.point(0.5)
             y = x * Matrix(f"translate(5,0) rotate(90, {mid.x}, {mid.y})")
-            xiy = sorted(SVG.find_intersections(x, y))
-            yix = sorted(SVG.find_intersections(y, x), key=itemgetter(1))
+            xiy = sorted(x.intersect(y))
+            yix = sorted(y.intersect(x), key=itemgetter(1))
             for xy, yx in zip(xiy, yix):
                 self.assertAlmostEqual(xy[0], yx[1], delta=TOL)
                 self.assertAlmostEqual(xy[1], yx[0], delta=TOL)
