@@ -53,6 +53,7 @@ SVG is a huge spec and bleeds into a lot of areas. Many of these are supported s
 ## Supported
 
 * Robust SVG parsing.
+* Basic SVG writing
 * SVG/CSS Lengths: `px`, `pt`, `pc`, `cm`, `mm`, `in`, `%`
 * SVG/CSS Color: keyword, `#rrggbb`, `#rgb`, `rgb(r,g,b)`, `rgb(r%,g%,b%)`, `rgba(r,g,b,a)`, `hsl(hue, s, l)`
 * SVG/CSS Matrix
@@ -171,10 +172,43 @@ Here's an example parser with elements().
 
 Here a few things are checked. The element.values for ['visibility'] is checked if it's hidden it is not added to our flat object list. Texts are specific added. Paths are only added if they have `PathSegments` and are not completely blank. Any Shape object is converted to a Path() object and reified. Any SVGImage objects are loaded. This is a soft dependency on PIL/Pillow to load images stored within SVG. The SVG `.elements()` function can also take a conditional function that well be used to test each element before yielding it. In most cases we don't want every single type of thing an svg can produce. We might just want all the Path objects so we check for any Path and include that but also for any non-Path Shape and convert that to a path. `pathname` is an attempt to get the local directory for loading relative path images.
 
+# Writing
+Circa 1.9.0+ some basic SVG writing was added. Any `SVGElement` object will permit you to call `write_xml(filename)` the expectation is that you save svg files. If you specify an `svgz` file it will gzip the save stream providing you with a `svgz` file. If you want the xml for a different purpose you may also call `string_xml` which provides the object as a string.
+
+```python
+>>> Group(id="group").string_xml()
+'<g id="group" />'
+```
+This is not intended to be perfect, the project itself is potentially lossy and CSS tables and style tags will be gone, `Use` objects will be replaced with their real objects and these modifications are not able to be restored. The primary purpose of this project is to read correct geometric data.
+
+```python
+>>> SVG().write_xml("empty.svg")
+```
+
+Writes a file called `empty.svg`.
+```xml
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events" width="100%" height="100%" />
+```
+
+Or getting slightly more complex:
+```python
+s = SVG()
+s.append(Rect(0,0,"2in", "2in"))
+s.write_xml("rect.svg")
+```
+
+Produces a file called `rect.svg`.
+```xml
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events" width="100%" height="100%">
+	<rect width="2in" height="2in" />
+</svg>
+```
+
+Writing should work, but this is not the initial purpose of the library. Some non-parsed elements will restore to the file correctly, others may be lost. However, errors in this should still be reported. The reading is quite well vetted and robust, the writing may have issues needing to be corrected.
 
 # Overview
 
-The versatility of the project is provided through through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d
+The versatility of the project is provided through expansive and highly intuitive dunder methods, and robust parsing of object parameters. Points, PathSegments, Paths, Shapes, Subpaths can be multiplied by a matrix. We can add Shapes, Paths, PathSegments, and Subpaths together. And many non-declared but functionally understandable elements are automatically parsed. Such as adding strings of path_d
  characters to a Path or multiplying an element by the SVG Transform string elements.
 
 While many objects perform a lot of interoperations, a lot many svg elements are designed to also work independently, and be independently useful.
