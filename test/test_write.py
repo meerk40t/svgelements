@@ -42,16 +42,19 @@ class TestElementWrite(unittest.TestCase):
         self.assertEqual(r.string_xml(), '<path d="M 5,5 z z z z" />')
 
     def test_write_circle(self):
-        c = Circle(r=0, stroke="none", )
-        self.assertEqual(c.string_xml(), '<circle r="0" stroke="none" stroke-width="1.0" />')
+        c = Circle(r=5, stroke="none", fill="yellow")
+        q = SVG.parse(io.StringIO(c.string_xml()))
+        self.assertEqual(c, q)
 
     def test_write_ellipse(self):
-        c = Ellipse(r=0, fill="lime")
-        self.assertEqual(c.string_xml(), '<ellipse r="0" fill="#00ff00" />')
+        c = Ellipse(rx=3, ry=2, fill="cornflower blue")
+        q = SVG.parse(io.StringIO(c.string_xml()))
+        self.assertEqual(c, q)
 
     def test_write_line(self):
-        c = SimpleLine(x1=0, x2=10, y1=5, y2=6, id="line")
-        self.assertEqual(c.string_xml(), '<line x1="0" x2="10.0" y1="5.0" y2="6.0" id="line" />')
+        c = SimpleLine(x1=0, x2=10, y1=5, y2=6, id="line", fill="light grey")
+        q = SVG.parse(io.StringIO(c.string_xml()))
+        self.assertEqual(c, q)
 
 
     # def test_read_write(self):
