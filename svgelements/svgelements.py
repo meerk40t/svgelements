@@ -98,6 +98,7 @@ SVG_ATTR_FILL_OPACITY = "fill-opacity"
 SVG_ATTR_STROKE = "stroke"
 SVG_ATTR_STROKE_OPACITY = "stroke-opacity"
 SVG_ATTR_STROKE_WIDTH = "stroke-width"
+SVG_ATTR_STROKE_DASHARRAY = "stroke-dasharray"
 SVG_ATTR_TRANSFORM = "transform"
 SVG_ATTR_STYLE = "style"
 SVG_ATTR_CLASS = "class"
@@ -3454,6 +3455,7 @@ class GraphicObject:
     """Any drawn element."""
 
     def __init__(self, *args, **kwargs):
+        self.stroke_dasharray = None
         self.stroke = None
         self.fill = None
         self.stroke_width = None
@@ -3496,6 +3498,8 @@ class GraphicObject:
         self.stroke_width = Length(
             values.get(SVG_ATTR_STROKE_WIDTH, self.stroke_width)
         ).value()
+        
+        self.stroke_dasharray = values.get(SVG_ATTR_STROKE_DASHARRAY)
 
     def render(self, **kwargs):
         if isinstance(self.stroke_width, Length):
@@ -3865,6 +3869,8 @@ class Shape(SVGElement, GraphicObject, Transformable):
                 values.append("%s=%s" % (SVG_ATTR_FILL_OPACITY, str(self.fill.opacity)))
         if self.stroke_width is not None and self.stroke_width != 1.0:
             values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
+        if self.stroke_dasharray is not None:
+            values.append("%s='%s'" % (SVG_ATTR_STROKE_DASHARRAY, str(self.stroke_dasharray)))
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.apply is not None and not self.apply:
@@ -8008,6 +8014,7 @@ class Text(SVGElement, GraphicObject, Transformable):
             values.append("%s='%s'" % (SVG_ATTR_FILL, self.fill))
         if self.stroke_width is not None and self.stroke_width != 1.0:
             values.append("%s=%s" % (SVG_ATTR_STROKE_WIDTH, str(self.stroke_width)))
+        # SVG_ATTR_STROKE_DASHARRAY not required - Text is never used
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
@@ -8042,6 +8049,7 @@ class Text(SVGElement, GraphicObject, Transformable):
             values.append(
                 "stroke_width=%s" % str(self.stroke_width)
             )  # Cannot use SVG_ATTR_STROKE_WIDTH for repr because it contains a hyphen
+        # SVG_ATTR_STROKE_DASHARRAY not required - Text is never used
         if not self.transform.is_identity():
             values.append("%s=%s" % (SVG_ATTR_TRANSFORM, repr(self.transform)))
         if self.id is not None:
@@ -9440,6 +9448,13 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
                 stroke_width = str(node.stroke_width)
                 xml_tree.set(SVG_ATTR_STROKE_WIDTH, stroke_width)
             except AttributeError:
+                pass
+
+            try:
+                stroke_dasharray = node.stroke_dasharray
+                if stroke_dasharray is not None:
+                    xml_tree.set(SVG_ATTR_STROKE_DASHARRAY, str(stroke_dasharray))
+            except:
                 pass
 
     # Write Fill
