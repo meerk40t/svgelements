@@ -310,3 +310,14 @@ class TestPathMatrix(unittest.TestCase):
         m1 = Matrix("scale(2) translate(40,40)")
         m1.inverse()
         self.assertEqual(m1, Matrix("translate(-40,-40) scale(0.5)"))
+
+    def test_matrix_perspective(self):
+        m1 = Matrix.perspective(Point(1,1), Point(1,-1), Point(-1,-1), Point(-1,1))
+        self.assertTrue(m1.is_identity())
+        m1 = Matrix.perspective(Point(2, -2), Point(-2, -2), Point(-2, 2), Point(2, 2))
+        m2 = Matrix.scale(2.0)
+        m2.post_rotate(-tau / 4.0)
+        self.assertEqual(m1, m2)
+
+        m1 = Matrix.perspective(Point(2, 2), Point(2, -2), Point(-2, -2), Point(-2, 2))
+        self.assertEqual(m1, Matrix.scale(2.0))
