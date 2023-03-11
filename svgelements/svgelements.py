@@ -3046,6 +3046,24 @@ class Matrix:
         return matrix * cls(a, d, b, e, c, f)
 
     @classmethod
+    def map(cls, p1, p2, p3, p4,  p5, p6, p7, p8):
+        """
+        Create a matrix which transforms these four ordered points to the clockwise points of the unit-square.
+
+        If G and H are very close to 0, this is an affine transformation. If they are not, then the perspective
+        transform requires g and h, but we do not support non-affine transformations.
+
+        @param p1:
+        @param p2:
+        @param p3:
+        @param p4:
+        @return:
+        """
+        m1 = Matrix.perspective(p1, p2, p3, p4)
+        m2 = Matrix.perspective(p5, p6, p7, p8)
+        return cls(~m1 * m2)
+
+    @classmethod
     def scale(cls, sx=1.0, sy=None):
         if sy is None:
             sy = sx
