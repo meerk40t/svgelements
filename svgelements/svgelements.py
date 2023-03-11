@@ -3001,7 +3001,11 @@ class Matrix:
     @classmethod
     def perspective(cls, p1, p2, p3, p4):
         """
-        Create a matrix which transforms these four ordered points to the points (1,1), (1,-1), (-1, -1), (-1,1)
+        Create a matrix which transforms these four ordered points to the clockwise points of the unit-square.
+
+        If G and H are very close to 0, this is an affine transformation. If they are not, then the perspective
+        transform requires g and h, but we do not support non-affine transformations.
+
         @param p1:
         @param p2:
         @param p3:
@@ -3012,26 +3016,34 @@ class Matrix:
         x2, y2 = p2
         x3, y3 = p3
         x4, y4 = p4
+
         j = x1 - x2 - x3 + x4
         k = -x1 - x2 + x3 + x4
         l = -x1 + x2 - x3 + x4
         m = y1 - y2 - y3 + y4
         n = -y1 - y2 + y3 + y4
         o = -y1 + y2 - y3 + y4
-        try:
-            i = 1.0
-            h = (j * o - m * l) * i / (m * k - j * n)
-            g = (k * h + l * i) / j
+        i = 1.0
 
-            f = (y1 * (g + h + i) + y3 * (-g - h + i)) / 2.0
-            e = (y1 * (g + h + i) - y2 * (g - h + i)) / 2.0
-            d = y1 * (g + h + i) - f - e
-            c = (x1 * (g + h + i) + x3 * (-g - h + i)) / 2.0
-            b = (x1 * (g + h + i) - x2 * (g - h + i)) / 2.0
-            a = x1 * (g + h + i) - c - b
+        try:
+            h = (j * o - m * l) * i / (m * k - j * n)
         except ZeroDivisionError:
-            return cls()
-        return cls(a, d, b, e, c, f)
+            h = 0
+
+        try:
+            g = (k * h + l * i)
+        except ZeroDivisionError:
+            g = 0
+
+        f = (y1 * (g + h + i) + y3 * (-g - h + i)) / 2.0
+        e = (y1 * (g + h + i) - y2 * (g - h + i)) / 2.0
+        d = y1 * (g + h + i) - f - e
+        c = (x1 * (g + h + i) + x3 * (-g - h + i)) / 2.0
+        b = (x1 * (g + h + i) - x2 * (g - h + i)) / 2.0
+        a = x1 * (g + h + i) - c - b
+
+        matrix = Matrix(-2, 0, 0, -2, 1, 1)
+        return matrix * cls(a, d, b, e, c, f)
 
     @classmethod
     def scale(cls, sx=1.0, sy=None):
