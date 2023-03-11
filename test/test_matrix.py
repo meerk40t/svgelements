@@ -333,6 +333,13 @@ class TestPathMatrix(unittest.TestCase):
                         Point(100, 100), Point(100, 101), Point(101, 101), Point(101, 100))
         self.assertEqual(m1, Matrix.translate(100, 100))
 
+    def test_matrix_map_rotate(self):
+        m1 = Matrix.map(Point(0, 0), Point(0, 1), Point(1, 1), Point(1, 0),
+                        Point(0, 1), Point(1, 1), Point(1, 0), Point(0,0))
+        m2 = Matrix("rotate(-90deg, 0.5, 0.5)")
+        self.assertEqual(m1, m2)
+
+
     def test_matrix_map_translate_scale_y(self):
         m1 = Matrix.map(Point(0, 0), Point(0, 1), Point(1, 1), Point(1, 0),
                         Point(100, 100), Point(100, 102), Point(101, 102), Point(101, 100))
