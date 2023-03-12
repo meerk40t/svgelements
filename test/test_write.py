@@ -55,7 +55,10 @@ class TestElementWrite(unittest.TestCase):
     def test_write_path(self):
         r = Path("M0,0zzzz")
         r *= "translate(5,5)"
-        self.assertEqual(r.string_xml(), '<path d="M 0,0 z z z z" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 5.000000, 5.000000)" />')
+        self.assertEqual(
+            r.string_xml(),
+            '<path d="M 0,0 z z z z" transform="matrix(1.000000, 0.000000, 0.000000, 1.000000, 5.000000, 5.000000)" />',
+        )
         r.reify()
         self.assertEqual(r.string_xml(), '<path d="M 5,5 z z z z" />')
 
