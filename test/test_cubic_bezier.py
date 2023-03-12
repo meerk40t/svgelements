@@ -1,3 +1,4 @@
+import random
 import unittest
 from random import *
 
@@ -55,3 +56,16 @@ class TestElementCubicBezierPoint(unittest.TestCase):
         cubic = CubicBezier(0, -2 - 3j, -1 - 4j, -3j)
         bbox = cubic.bbox()
         self.assertLess(bbox[1], -3)
+
+    def test_cubic_bounds_issue_214_random(self):
+        for i in range(100):
+            a = random() * 5
+            b = random() * 5
+            c = random() * 5
+            d = a - 3 * b + 3 * c
+            cubic1 = CubicBezier(a, b, c, d)
+            bbox1 = cubic1.bbox()
+            cubic2 = CubicBezier(a, b, c, d + 1e-11)
+            bbox2 = cubic2.bbox()
+            for a, b in zip(bbox1, bbox2):
+                self.assertAlmostEqual(a, b, delta=1e-5)
