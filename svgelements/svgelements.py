@@ -4787,7 +4787,10 @@ class CubicBezier(Curve):
                 if 0 < r2 < 1:
                     local_extremizers.append(r2)
         else:
-            local_extremizers.append(0.5)
+            c = a[1] - a[0]
+            b = 2 * (a[0] - 2*a[1] + a[2])
+            if b != 0:
+                local_extremizers.append(-c/b)
         local_extrema = [self.point(t)[v] for t in local_extremizers]
         return min(local_extrema), max(local_extrema)
 
