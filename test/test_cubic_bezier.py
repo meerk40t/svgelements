@@ -54,4 +54,4 @@ class TestElementCubicBezierPoint(unittest.TestCase):
     def test_cubic_bounds_issue_214(self):
         cubic = CubicBezier(0, -2 - 3j, -1 - 4j, -3j)
         bbox = cubic.bbox()
-        self.assertGreater(bbox[3], 0)
+        self.assertLess(bbox[1], -3)
