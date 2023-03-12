@@ -34,9 +34,21 @@ class TestElementWrite(unittest.TestCase):
             ),
         )
         r *= "scale(3)"
-        self.assertEqual(r.string_xml(), '<rect rx="0.15in" x="1in" y="1in" ry="0.15in" width="3in" height="3in" transform="matrix(3.000000, 0.000000, 0.000000, 3.000000, 0.000000, 0.000000)" />')
+        self.assertIn(
+            r.string_xml(),
+            (
+                '<rect rx="0.15in" x="1in" y="1in" ry="0.15in" width="3in" height="3in" transform="matrix(3.000000, 0.000000, 0.000000, 3.000000, 0.000000, 0.000000)" />',
+                '<rect height="3in" rx="0.15in" ry="0.15in" transform="matrix(3.000000, 0.000000, 0.000000, 3.000000, 0.000000, 0.000000)" width="3in" x="1in" y="1in" />',
+            ),
+        )
         r.reify()
-        self.assertEqual(r.string_xml(), '<rect rx="0.45in" x="3in" y="3in" ry="0.45in" width="9in" height="9in" />')
+        self.assertIn(
+            r.string_xml(),
+            (
+                '<rect rx="0.45in" x="3in" y="3in" ry="0.45in" width="9in" height="9in" />',
+                '<rect height="9in" rx="0.45in" ry="0.45in" width="9in" x="3in" y="3in" />',
+            ),
+        )
         r = Path(r)
         self.assertEqual(r.string_xml(), '<path rx="5%" d="M 3.45,3 L 11.55,3 A 0.45,0.45 0 0,1 12,3.45 L 12,11.55 A 0.45,0.45 0 0,1 11.55,12 L 3.45,12 A 0.45,0.45 0 0,1 3,11.55 L 3,3.45 A 0.45,0.45 0 0,1 3.45,3 Z" />')
 
