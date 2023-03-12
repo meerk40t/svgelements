@@ -6,12 +6,15 @@ from svgelements import *
 
 
 def get_random_cubic_bezier():
-    return CubicBezier((random() * 50, random() * 50), (random() * 50, random() * 50),
-                       (random() * 50, random() * 50), (random() * 50, random() * 50))
+    return CubicBezier(
+        (random() * 50, random() * 50),
+        (random() * 50, random() * 50),
+        (random() * 50, random() * 50),
+        (random() * 50, random() * 50),
+    )
 
 
 class TestElementCubicBezierLength(unittest.TestCase):
-
     def test_cubic_bezier_length(self):
         n = 100
         error = 0
@@ -26,18 +29,20 @@ class TestElementCubicBezierLength(unittest.TestCase):
 
 
 class TestElementCubicBezierPoint(unittest.TestCase):
-
     def test_cubic_bezier_point_start_stop(self):
         import numpy as np
+
         for _ in range(1000):
             b = get_random_cubic_bezier()
             self.assertEqual(b.start, b.point(0))
             self.assertEqual(b.end, b.point(1))
-            self.assertTrue(np.all(np.array([list(b.start), list(b.end)])
-                                   == b.npoint([0, 1])))
+            self.assertTrue(
+                np.all(np.array([list(b.start), list(b.end)]) == b.npoint([0, 1]))
+            )
 
     def test_cubic_bezier_point_implementations_match(self):
         import numpy as np
+
         for _ in range(1000):
             b = get_random_cubic_bezier()
 
