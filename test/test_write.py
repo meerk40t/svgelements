@@ -26,7 +26,13 @@ class TestElementWrite(unittest.TestCase):
 
     def test_write_rect(self):
         r = Rect("1in", "1in", "3in", "3in", rx="5%")
-        self.assertEqual(r.string_xml(), '<rect rx="0.15in" x="1in" y="1in" ry="0.15in" width="3in" height="3in" />')
+        self.assertIn(
+            r.string_xml(),
+            (
+                '<rect rx="0.15in" x="1in" y="1in" ry="0.15in" width="3in" height="3in" />',
+                '<rect height="3in" rx="0.15in" ry="0.15in" width="3in" x="1in" y="1in" />',
+            ),
+        )
         r *= "scale(3)"
         self.assertEqual(r.string_xml(), '<rect rx="0.15in" x="1in" y="1in" ry="0.15in" width="3in" height="3in" transform="matrix(3.000000, 0.000000, 0.000000, 3.000000, 0.000000, 0.000000)" />')
         r.reify()
