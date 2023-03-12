@@ -50,3 +50,8 @@ class TestElementCubicBezierPoint(unittest.TestCase):
             for p, p1, p2 in zip(pos, v1, v2):
                 self.assertEqual(b.point(p), Point(p1))
                 self.assertEqual(Point(p1), Point(p2))
+
+    def test_cubic_bounds_issue_214(self):
+        cubic = CubicBezier(0, -2 - 3j, -1 - 4j, -3j)
+        bbox = cubic.bbox()
+        self.assertGreater(bbox[3], 0)
