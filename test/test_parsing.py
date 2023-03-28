@@ -936,3 +936,38 @@ class TestParseDefUse(unittest.TestCase):
         line = list(m.elements(conditional=lambda el: isinstance(el, Text)))[0]
         self.assertIsInstance(line, Text)
         self.assertEqual(line.font_weight, "bolder")
+
+    def test_parse_error_issue_217_stop(self):
+        block = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                        xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <path d="M10,10 L20,20 L NaN NaN"/>
+                        <path d="M20,10 L20,20"/>
+                        </svg>''')
+
+        m = SVG.parse(block, on_error="stop")
+        q = list(m.elements())
+        self.assertEqual(2, len(q))
+        self.assertTrue(isinstance(q[-1], Path))
+        self.assertEquals("M 10,10 L 20,20", q[-1].d())
+
+    def test_parse_error_issue_217_raises(self):
+        block = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                                xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                                <path d="M10,10 L20,20 L NaN NaN"/>
+                                <path d="M20,10 L20,20"/>
+                                </svg>''')
+        self.assertRaises(ValueError, lambda: SVG.parse(block, on_error="raise"))
+
+    def test_parse_error_issue_217_ignore(self):
+        block = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
+                                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" 
+                                xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+                                <path d="M10,10 L20,20 L NaN NaN"/>
+                                <path d="M20,10 L20,20"/>
+                                </svg>''')
+
+        m = SVG.parse(block)
+        q = list(m.elements())
+        self.assertEqual(3, len(q))
