@@ -289,3 +289,35 @@ class TestPath(unittest.TestCase):
         def m_assign():
             m[-1] = 'M5,5z'
         self.assertRaises(ValueError, m_assign)
+
+    def test_iterative_loop_building_line(self):
+        path = Path()
+        path.move(0)
+        path.line(*([complex(1, 1)] * 2000))
+
+    def test_iterative_loop_building_vert(self):
+        path = Path()
+        path.move(0)
+        path.vertical(*([5.0] * 2000))
+
+    def test_iterative_loop_building_horiz(self):
+        path = Path()
+        path.move(0)
+        path.horizontal(*([5.0] * 2000))
+
+    def test_iterative_loop_building_quad(self):
+        path = Path()
+        path.move(0)
+        path.quad(*([complex(1, 1)] * 2000))
+
+    def test_iterative_loop_building_cubic(self):
+        path = Path()
+        path.move(0)
+        path.cubic(*([complex(1, 1)] * 2000))
+
+    def test_iterative_loop_building_arc(self):
+        path = Path()
+        path.move(0)
+        q = [0, 0, 0, 0, 0, complex(1, 1)] * 2000
+        path.arc(*q)
+
