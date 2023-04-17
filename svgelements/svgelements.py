@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.9.2"
+SVGELEMENTS_VERSION = "1.9.3"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -6030,7 +6030,7 @@ class Path(Shape, MutableSequence):
     @property
     def smooth_point(self):
         """Returns the smoothing control point for the smooth commands.
-        With regards to the SVG standard if the last command was a curve the smooth
+        In regard to the SVG standard if the last command was a curve the smooth
         control point is the reflection of the previous control point.
 
         If the last command was not a curve, the smooth_point is coincident with the current.
@@ -6455,7 +6455,7 @@ class Path(Shape, MutableSequence):
 
     def approximate_arcs_with_cubics(self, error=0.1):
         """
-        Iterates through this path and replaces any Arcs with cubic bezier curves.
+        Iterates through this path and replaces any Arcs with cubic Bézier curves.
         """
         sweep_limit = tau * error
         for s in range(len(self) - 1, -1, -1):
@@ -6466,7 +6466,7 @@ class Path(Shape, MutableSequence):
 
     def approximate_arcs_with_quads(self, error=0.1):
         """
-        Iterates through this path and replaces any Arcs with quadratic bezier curves.
+        Iterates through this path and replaces any Arcs with quadratic Bézier curves.
         """
         sweep_limit = tau * error
         for s in range(len(self) - 1, -1, -1):
@@ -6477,7 +6477,7 @@ class Path(Shape, MutableSequence):
 
     def approximate_bezier_with_circular_arcs(self, error=0.01):
         """
-        Iterates through this path and replaces any bezier curves with circular arcs.
+        Iterates through this path and replaces any Bézier curves with circular arcs.
         """
         for s in range(len(self) - 1, -1, -1):
             segment = self[s]
@@ -8955,7 +8955,7 @@ class SVG(Group):
         transform=None,
         context=None,
         parse_display_none=False,
-        on_error="ignore"
+        on_error="ignore",
     ):
         """
         Parses the SVG file. All attributes are things which the SVG document itself could not be aware of, such as
