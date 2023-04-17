@@ -8870,6 +8870,7 @@ class SVG(Group):
         transform=None,
         context=None,
         parse_display_none=False,
+        on_error="ignore"
     ):
         """
         Parses the SVG file. All attributes are things which the SVG document itself could not be aware of, such as
@@ -8884,6 +8885,7 @@ class SVG(Group):
         :param transform: Any required transformations to be pre-applied to this document
         :param context: Any existing document context.
         :param parse_display_none: Parse display_none values anyway.
+        :param on_error: Error mode, "ignore", "raise", "stop"
         :return:
         """
         use = 0
@@ -9097,9 +9099,13 @@ class SVG(Group):
                     SVG_TAG_RECT,
                     SVG_TAG_IMAGE,
                 ):
+                    parse_error = None
+                    s = None
                     try:
                         if SVG_TAG_PATH == tag:
-                            s = Path(values)
+                            # Delayed path parsing, for partial paths.
+                            s = Path(values, pathd_loaded=True)
+                            s.parse(values.get(SVG_ATTR_DATA))
                         elif SVG_TAG_CIRCLE == tag:
                             s = Circle(values)
                         elif SVG_TAG_ELLIPSE == tag:
@@ -9114,8 +9120,11 @@ class SVG(Group):
                             s = Rect(values)
                         else:  # SVG_TAG_IMAGE == tag:
                             s = Image(values)
-                    except ValueError:
-                        continue
+                    except ValueError as e:
+                        parse_error = e
+                        if s is None:
+                            # s was not established we continue without it.
+                            continue
                     s.render(ppi=ppi, width=width, height=height)
                     if reify:
                         s.reify()
@@ -9123,6 +9132,14 @@ class SVG(Group):
                         continue
                     if context is not None:
                         context.append(s)
+                    if parse_error:
+                        # Error was encountered, but s was established and processed.
+                        if on_error == "ignore":
+                            continue
+                        elif on_error == "raise":
+                            raise parse_error
+                        else:  # "stop"
+                            return root
                 elif tag in (
                     SVG_TAG_STYLE,
                     SVG_TAG_TEXT,
