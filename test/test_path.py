@@ -248,6 +248,11 @@ class TestPath(unittest.TestCase):
         m = Path("M0,0Lz")
         self.assertEqual(m.d(), "M 0,0 L 0,0 z")
 
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3").quad("Z").closed()
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 4,4 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3").cubic("Z").closed()
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 4,4 4,4 4,4 Z")
+
     def test_path_setitem_slice(self):
         m = Path("M0,0 1,1 z")
         m[1:] = 'L2,2z'
