@@ -3033,7 +3033,7 @@ class Matrix:
             h = 0
 
         try:
-            g = (k * h + l * i)
+            g = k * h + l * i
         except ZeroDivisionError:
             g = 0
 
@@ -3048,7 +3048,7 @@ class Matrix:
         return matrix * cls(a, d, b, e, c, f)
 
     @classmethod
-    def map(cls, p1, p2, p3, p4,  p5, p6, p7, p8):
+    def map(cls, p1, p2, p3, p4, p5, p6, p7, p8):
         """
         Create a matrix which transforms these four ordered points to the clockwise points of the unit-square.
 
@@ -4790,9 +4790,9 @@ class CubicBezier(Curve):
                     local_extremizers.append(r2)
         else:
             c = a[1] - a[0]
-            b = 2 * (a[0] - 2*a[1] + a[2])
+            b = 2 * (a[0] - 2 * a[1] + a[2])
             if b != 0:
-                r0 = -c/b
+                r0 = -c / b
                 if 0 < r0 < 1:
                     local_extremizers.append(r0)
         local_extrema = [self.point(t)[v] for t in local_extremizers]
@@ -6078,18 +6078,42 @@ class Path(Shape, MutableSequence):
         for index in range(len(y_points)):
             start_pos = self.current_point
             if relative:
-                self.append(Line(start_pos, Point(start_pos.x, start_pos.y + y_points[index]), relative=relative))
+                self.append(
+                    Line(
+                        start_pos,
+                        Point(start_pos.x, start_pos.y + y_points[index]),
+                        relative=relative,
+                    )
+                )
             else:
-                self.append(Line(start_pos, Point(start_pos.x, y_points[index]), relative=relative))
+                self.append(
+                    Line(
+                        start_pos,
+                        Point(start_pos.x, y_points[index]),
+                        relative=relative,
+                    )
+                )
         return self
 
     def horizontal(self, *x_points, relative=False, **kwargs):
         for index in range(len(x_points)):
             start_pos = self.current_point
             if relative:
-                self.append(Line(start_pos, Point(start_pos.x + x_points[index], start_pos.y), relative=relative))
+                self.append(
+                    Line(
+                        start_pos,
+                        Point(start_pos.x + x_points[index], start_pos.y),
+                        relative=relative,
+                    )
+                )
             else:
-                self.append(Line(start_pos, Point(x_points[index], start_pos.y), relative=relative))
+                self.append(
+                    Line(
+                        start_pos,
+                        Point(x_points[index], start_pos.y),
+                        relative=relative,
+                    )
+                )
         return self
 
     def smooth_quad(self, *points, relative=False, **kwargs):
@@ -6101,7 +6125,11 @@ class Path(Shape, MutableSequence):
             end_pos = points[index]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            self.append(QuadraticBezier(start_pos, control1, end_pos, relative=relative, smooth=True))
+            self.append(
+                QuadraticBezier(
+                    start_pos, control1, end_pos, relative=relative, smooth=True
+                )
+            )
         return self
 
     def quad(self, *points, relative=False, **kwargs):
@@ -6110,12 +6138,20 @@ class Path(Shape, MutableSequence):
             control = points[index]
             if control in ("z", "Z"):
                 control = self.z_point
-                self.append(QuadraticBezier(start_pos, control, control, relative=relative, smooth=False))
+                self.append(
+                    QuadraticBezier(
+                        start_pos, control, control, relative=relative, smooth=False
+                    )
+                )
                 return self
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            self.append(QuadraticBezier(start_pos, control, end_pos, relative=relative, smooth=False))
+            self.append(
+                QuadraticBezier(
+                    start_pos, control, end_pos, relative=relative, smooth=False
+                )
+            )
         return self
 
     def smooth_cubic(self, *points, relative=False, **kwargs):
@@ -6128,12 +6164,30 @@ class Path(Shape, MutableSequence):
 
             if control2 in ("z", "Z"):
                 control2 = self.z_point
-                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                self.append(
+                    CubicBezier(
+                        start_pos,
+                        control1,
+                        control2,
+                        control2,
+                        relative=relative,
+                        smooth=True,
+                    )
+                )
                 return self
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=True))
+            self.append(
+                CubicBezier(
+                    start_pos,
+                    control1,
+                    control2,
+                    end_pos,
+                    relative=relative,
+                    smooth=True,
+                )
+            )
         return self
 
     def cubic(self, *points, relative=False, **kwargs):
@@ -6142,17 +6196,44 @@ class Path(Shape, MutableSequence):
             control1 = points[index]
             if control1 in ("z", "Z"):
                 control1 = self.z_point
-                self.append(CubicBezier(start_pos, control1, control1, control1, relative=relative, smooth=True))
+                self.append(
+                    CubicBezier(
+                        start_pos,
+                        control1,
+                        control1,
+                        control1,
+                        relative=relative,
+                        smooth=True,
+                    )
+                )
                 return self
             control2 = points[index + 1]
             if control2 in ("z", "Z"):
                 control2 = self.z_point
-                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                self.append(
+                    CubicBezier(
+                        start_pos,
+                        control1,
+                        control2,
+                        control2,
+                        relative=relative,
+                        smooth=True,
+                    )
+                )
                 return self
             end_pos = points[index + 2]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=False))
+            self.append(
+                CubicBezier(
+                    start_pos,
+                    control1,
+                    control2,
+                    end_pos,
+                    relative=relative,
+                    smooth=False,
+                )
+            )
         return self
 
     def arc(self, *arc_args, relative=False, **kwargs):
@@ -6170,7 +6251,9 @@ class Path(Shape, MutableSequence):
             end_pos = arc_args[index + 5]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            self.append(Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos, relative=relative))
+            self.append(
+                Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos, relative=relative)
+            )
         return self
 
     def closed(self, relative=False):
@@ -9341,8 +9424,8 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_RADIUS, str(node.rx))
     elif isinstance(node, Image):
         xml_tree = subxml(xml_tree, SVG_TAG_IMAGE)
-        from io import BytesIO
         from base64 import b64encode
+        from io import BytesIO
 
         if node.image is not None:
             stream = BytesIO()
