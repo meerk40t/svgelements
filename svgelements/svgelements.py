@@ -6058,9 +6058,7 @@ class Path(Shape, MutableSequence):
         end_pos = points[0]
         if end_pos in ("z", "Z"):
             end_pos = self.z_point
-        segment = Move(start_pos, end_pos)
-        segment.relative = relative
-        self.append(segment)
+        self.append(Move(start_pos, end_pos, relative=relative))
         if len(points) > 1:
             self.line(*points[1:], relative=relative)
         return self
@@ -6071,31 +6069,25 @@ class Path(Shape, MutableSequence):
             end_pos = points[index]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = Line(start_pos, end_pos)
-            segment.relative = relative
-            self.append(segment)
+            self.append(Line(start_pos, end_pos, relative=relative))
         return self
 
     def vertical(self, *y_points, relative=False, **kwargs):
         for index in range(len(y_points)):
             start_pos = self.current_point
             if relative:
-                segment = Line(start_pos, Point(start_pos.x, start_pos.y + y_points[index]))
+                self.append(Line(start_pos, Point(start_pos.x, start_pos.y + y_points[index]), relative=relative))
             else:
-                segment = Line(start_pos, Point(start_pos.x, y_points[index]))
-            segment.relative = relative
-            self.append(segment)
+                self.append(Line(start_pos, Point(start_pos.x, y_points[index]), relative=relative))
         return self
 
     def horizontal(self, *x_points, relative=False, **kwargs):
         for index in range(len(x_points)):
             start_pos = self.current_point
             if relative:
-                segment = Line(start_pos, Point(start_pos.x + x_points[index], start_pos.y))
+                self.append(Line(start_pos, Point(start_pos.x + x_points[index], start_pos.y), relative=relative))
             else:
-                segment = Line(start_pos, Point(x_points[index], start_pos.y))
-            segment.relative = relative
-            self.append(segment)
+                self.append(Line(start_pos, Point(x_points[index], start_pos.y), relative=relative))
         return self
 
     def smooth_quad(self, *points, relative=False, **kwargs):
@@ -6107,10 +6099,7 @@ class Path(Shape, MutableSequence):
             end_pos = points[index]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = QuadraticBezier(start_pos, control1, end_pos)
-            segment.relative = relative
-            segment.smooth = True
-            self.append(segment)
+            self.append(QuadraticBezier(start_pos, control1, end_pos, relative=relative, smooth=True))
         return self
 
     def quad(self, *points, relative=False, **kwargs):
@@ -6122,10 +6111,7 @@ class Path(Shape, MutableSequence):
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = QuadraticBezier(start_pos, control, end_pos)
-            segment.relative = relative
-            segment.smooth = False
-            self.append(segment)
+            self.append(QuadraticBezier(start_pos, control, end_pos, relative=relative, smooth=False))
         return self
 
     def smooth_cubic(self, *points, relative=False, **kwargs):
@@ -6141,10 +6127,7 @@ class Path(Shape, MutableSequence):
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = CubicBezier(start_pos, control1, control2, end_pos)
-            segment.relative = relative
-            segment.smooth = True
-            self.append(segment)
+            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=True))
         return self
 
     def cubic(self, *points, relative=False, **kwargs):
@@ -6159,10 +6142,7 @@ class Path(Shape, MutableSequence):
             end_pos = points[index + 2]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = CubicBezier(start_pos, control1, control2, end_pos)
-            segment.relative = relative
-            segment.smooth = False
-            self.append(segment)
+            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=False))
         return self
 
     def arc(self, *arc_args, relative=False, **kwargs):
@@ -6180,9 +6160,7 @@ class Path(Shape, MutableSequence):
             end_pos = arc_args[index + 5]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
-            segment = Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos)
-            segment.relative = relative
-            self.append(segment)
+            self.append(Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos, relative=relative))
         return self
 
     def closed(self, relative=False):
