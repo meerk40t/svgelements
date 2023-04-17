@@ -29,8 +29,14 @@ class TestPathMatrix(unittest.TestCase):
         self.assertEqual("M 200,0 Z", path.d())
 
     def test_matrix_multiplication(self):
-        self.assertEqual(Matrix("scale(0.2) translate(-5,-5)"), Matrix("translate(-5,-5)") * Matrix("scale(0.2)"))
-        self.assertEqual(Matrix("translate(-5,-5) scale(0.2)"), Matrix("scale(0.2)") * Matrix("translate(-5,-5)"))
+        self.assertEqual(
+            Matrix("scale(0.2) translate(-5,-5)"),
+            Matrix("translate(-5,-5)") * Matrix("scale(0.2)"),
+        )
+        self.assertEqual(
+            Matrix("translate(-5,-5) scale(0.2)"),
+            Matrix("scale(0.2)") * Matrix("translate(-5,-5)"),
+        )
 
     def test_rotate_css_distance(self):
         matrix = Matrix("rotate(90deg,100cm,100cm)")
@@ -89,7 +95,7 @@ class TestPathMatrix(unittest.TestCase):
     def test_transform_scale(self):
         matrix = Matrix("scale(2)")
         path = Path()
-        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, 'z').closed()
+        path.move((0, 0), (0, 100), (100, 100), 100 + 0j, "z").closed()
         path *= matrix
         self.assertEqual("M 0,0 L 0,200 L 200,200 L 200,0 L 0,0 Z", path.d())
 
@@ -136,7 +142,8 @@ class TestPathMatrix(unittest.TestCase):
         path *= matrix
         self.assertEqual(
             "M -8.81634903542,0 L 8.81634903542,100 L 108.816349035,100 L 91.1836509646,0 L -8.81634903542,0 Z",
-            path.d())
+            path.d(),
+        )
 
     def test_transform_skewy(self):
         matrix = Matrix("skewY(10, 50,50)")
@@ -145,7 +152,8 @@ class TestPathMatrix(unittest.TestCase):
         path *= matrix
         self.assertEqual(
             "M 0,-8.81634903542 L 0,91.1836509646 L 100,108.816349035 L 100,8.81634903542 L 0,-8.81634903542 Z",
-            path.d())
+            path.d(),
+        )
 
     def test_matrix_repr_rotate(self):
         """
@@ -231,6 +239,7 @@ class TestPathMatrix(unittest.TestCase):
     def test_matrix_cat_identity(self):
         identity = Matrix()
         from random import random
+
         for i in range(50):
             q = Matrix(random(), random(), random(), random(), random(), random())
             p = copy(q)
@@ -239,6 +248,7 @@ class TestPathMatrix(unittest.TestCase):
 
     def test_matrix_pre_and_post_1(self):
         from random import random
+
         for i in range(50):
             tx = random() * 1000 - 500
             ty = random() * 1000 - 500
@@ -310,3 +320,124 @@ class TestPathMatrix(unittest.TestCase):
         m1 = Matrix("scale(2) translate(40,40)")
         m1.inverse()
         self.assertEqual(m1, Matrix("translate(-40,-40) scale(0.5)"))
+
+    def test_matrix_map_identity(self):
+        """
+        Maps one perspective the same perspective.
+        """
+        m1 = Matrix.map(
+            Point(1, 1),
+            Point(1, -1),
+            Point(-1, -1),
+            Point(-1, 1),
+            Point(1, 1),
+            Point(1, -1),
+            Point(-1, -1),
+            Point(-1, 1),
+        )
+        self.assertTrue(m1.is_identity())
+
+        m1 = Matrix.map(
+            Point(101, 101),
+            Point(101, 99),
+            Point(99, 99),
+            Point(99, 101),
+            Point(101, 101),
+            Point(101, 99),
+            Point(99, 99),
+            Point(99, 101),
+        )
+        self.assertTrue(m1.is_identity())
+
+    def test_matrix_map_scale_half(self):
+        m1 = Matrix.map(
+            Point(2, 2),
+            Point(2, -2),
+            Point(-2, -2),
+            Point(-2, 2),
+            Point(1, 1),
+            Point(1, -1),
+            Point(-1, -1),
+            Point(-1, 1),
+        )
+        self.assertEqual(m1, Matrix.scale(0.5))
+
+    def test_matrix_map_translate(self):
+        m1 = Matrix.map(
+            Point(0, 0),
+            Point(0, 1),
+            Point(1, 1),
+            Point(1, 0),
+            Point(100, 100),
+            Point(100, 101),
+            Point(101, 101),
+            Point(101, 100),
+        )
+        self.assertEqual(m1, Matrix.translate(100, 100))
+
+    def test_matrix_map_rotate(self):
+        m1 = Matrix.map(
+            Point(0, 0),
+            Point(0, 1),
+            Point(1, 1),
+            Point(1, 0),
+            Point(0, 1),
+            Point(1, 1),
+            Point(1, 0),
+            Point(0, 0),
+        )
+        m2 = Matrix("rotate(-90deg, 0.5, 0.5)")
+        self.assertEqual(m1, m2)
+
+    def test_matrix_map_translate_scale_y(self):
+        m1 = Matrix.map(
+            Point(0, 0),
+            Point(0, 1),
+            Point(1, 1),
+            Point(1, 0),
+            Point(100, 100),
+            Point(100, 102),
+            Point(101, 102),
+            Point(101, 100),
+        )
+        self.assertEqual(m1, Matrix.scale_y(2) * Matrix.translate(100, 100))
+
+    def test_matrix_map_map(self):
+        points = [Point(0, 0), Point(0, 1), Point(1, 1), Point(1, 0)]
+
+        for m in (
+            Matrix("skewX(10deg)"),
+            Matrix("skewX(8deg)"),
+            Matrix("skewX(5deg)"),
+            Matrix("skewY(10deg)"),
+            Matrix("skewX(8deg)"),
+            Matrix("skewX(5deg)"),
+            Matrix("scale(1.4235)"),
+            Matrix("scale(1.4235,4.39392)"),
+            Matrix("translate(100,200)"),
+            Matrix("translate(-50,-20.3949)"),
+        ):
+            points_to = [m.point_in_matrix_space(p) for p in points]
+            m1 = Matrix.map(*points, *points_to)
+            self.assertEqual(m, m1)
+
+    def test_matrix_perspective_ccw_unit_square(self):
+        """
+        This is the unit square ccw. So we mirror it across the x-axis and rotate it back into position.
+        """
+        m1 = Matrix.perspective(Point(0, 0), Point(1, 0), Point(1, 1), Point(0, 1))
+        m2 = Matrix.scale(-1, 1) * Matrix("rotate(-90deg)")
+        self.assertEqual(m1, m2)
+
+    def test_matrix_perspective_unit_square(self):
+        """
+        This is the cw unit square, which is our default perspective, meaning we have the identity matrix
+        """
+        m1 = Matrix.perspective(Point(0, 0), Point(0, 1), Point(1, 1), Point(1, 0))
+        m2 = Matrix()
+        self.assertEqual(m1, m2)
+
+    def test_matrix_perspective_scale_rotate(self):
+        m1 = Matrix.perspective(Point(-2, -2), Point(-2, 2), Point(2, 2), Point(2, -2))
+        m2 = Matrix("scale(4)") * Matrix("translate(-2,-2)")
+        self.assertEqual(m1, m2)
