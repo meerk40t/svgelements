@@ -6108,6 +6108,8 @@ class Path(Shape, MutableSequence):
             control = points[index]
             if control in ("z", "Z"):
                 control = self.z_point
+                self.append(QuadraticBezier(start_pos, control, control, relative=relative, smooth=False))
+                return self
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
@@ -6124,6 +6126,8 @@ class Path(Shape, MutableSequence):
 
             if control2 in ("z", "Z"):
                 control2 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                return self
             end_pos = points[index + 1]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
@@ -6136,9 +6140,13 @@ class Path(Shape, MutableSequence):
             control1 = points[index]
             if control1 in ("z", "Z"):
                 control1 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control1, control1, relative=relative, smooth=True))
+                return self
             control2 = points[index + 1]
             if control2 in ("z", "Z"):
                 control2 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                return self
             end_pos = points[index + 2]
             if end_pos in ("z", "Z"):
                 end_pos = self.z_point
