@@ -308,12 +308,12 @@ class TestPath(unittest.TestCase):
     def test_iterative_loop_building_quad(self):
         path = Path()
         path.move(0)
-        path.quad(*([complex(1, 1)] * 2000))
+        path.quad(*([complex(1, 1), complex(1, 1)] * 1000))
 
     def test_iterative_loop_building_cubic(self):
         path = Path()
         path.move(0)
-        path.cubic(*([complex(1, 1)] * 2000))
+        path.cubic(*([complex(1, 1), complex(1, 1), complex(1, 1)] * 1000))
 
     def test_iterative_loop_building_arc(self):
         path = Path()
