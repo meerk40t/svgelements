@@ -235,6 +235,10 @@ class TestPath(unittest.TestCase):
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 4,4 Z")
         m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T Z")
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q Z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 4,4 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3 C Z")
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 4,4 4,4 4,4 Z")
         m = Path("M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T z")
         self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 20,33 100,100 T 4,4 z")
         m = Path("m 0,0 1,1 A 5.01,5.01 180 0,0 z")
@@ -243,6 +247,11 @@ class TestPath(unittest.TestCase):
         self.assertEqual(m.d(), "m 0,0 z")
         m = Path("M0,0Lz")
         self.assertEqual(m.d(), "M 0,0 L 0,0 z")
+
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3").quad("Z").closed()
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 Q 4,4 4,4 Z")
+        m = Path("M 4,4 L 20,20 L 25,25 L 6,3").cubic("Z").closed()
+        self.assertEqual(m.d(), "M 4,4 L 20,20 L 25,25 L 6,3 C 4,4 4,4 4,4 Z")
 
     def test_path_setitem_slice(self):
         m = Path("M0,0 1,1 z")
@@ -289,3 +298,35 @@ class TestPath(unittest.TestCase):
         def m_assign():
             m[-1] = 'M5,5z'
         self.assertRaises(ValueError, m_assign)
+
+    def test_iterative_loop_building_line(self):
+        path = Path()
+        path.move(0)
+        path.line(*([complex(1, 1)] * 2000))
+
+    def test_iterative_loop_building_vert(self):
+        path = Path()
+        path.move(0)
+        path.vertical(*([5.0] * 2000))
+
+    def test_iterative_loop_building_horiz(self):
+        path = Path()
+        path.move(0)
+        path.horizontal(*([5.0] * 2000))
+
+    def test_iterative_loop_building_quad(self):
+        path = Path()
+        path.move(0)
+        path.quad(*([complex(1, 1), complex(1, 1)] * 1000))
+
+    def test_iterative_loop_building_cubic(self):
+        path = Path()
+        path.move(0)
+        path.cubic(*([complex(1, 1), complex(1, 1), complex(1, 1)] * 1000))
+
+    def test_iterative_loop_building_arc(self):
+        path = Path()
+        path.move(0)
+        q = [0, 0, 0, 0, 0, complex(1, 1)] * 2000
+        path.arc(*q)
+

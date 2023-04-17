@@ -6053,154 +6053,122 @@ class Path(Shape, MutableSequence):
     def end(self):
         pass
 
-    def move(self, *points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
+    def move(self, *points, relative=False, **kwargs):
         start_pos = self.current_point
         end_pos = points[0]
         if end_pos in ("z", "Z"):
             end_pos = self.z_point
-        segment = Move(start_pos, end_pos)
-        segment.relative = relative
-        self.append(segment)
+        self.append(Move(start_pos, end_pos, relative=relative))
         if len(points) > 1:
             self.line(*points[1:], relative=relative)
         return self
 
-    def line(self, *points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        end_pos = points[0]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = Line(start_pos, end_pos)
-        segment.relative = relative
-        self.append(segment)
-        if len(points) > 1:
-            self.line(*points[1:])
+    def line(self, *points, relative=False, **kwargs):
+        for index in range(len(points)):
+            start_pos = self.current_point
+            end_pos = points[index]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(Line(start_pos, end_pos, relative=relative))
         return self
 
-    def vertical(self, *y_points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        if relative:
-            segment = Line(start_pos, Point(start_pos.x, start_pos.y + y_points[0]))
-        else:
-            segment = Line(start_pos, Point(start_pos.x, y_points[0]))
-        segment.relative = relative
-        self.append(segment)
-        if len(y_points) > 1:
-            self.vertical(*y_points[1:], relative=relative)
+    def vertical(self, *y_points, relative=False, **kwargs):
+        for index in range(len(y_points)):
+            start_pos = self.current_point
+            if relative:
+                self.append(Line(start_pos, Point(start_pos.x, start_pos.y + y_points[index]), relative=relative))
+            else:
+                self.append(Line(start_pos, Point(start_pos.x, y_points[index]), relative=relative))
         return self
 
-    def horizontal(self, *x_points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        if relative:
-            segment = Line(start_pos, Point(start_pos.x + x_points[0], start_pos.y))
-            segment.relative = relative
-        else:
-            segment = Line(start_pos, Point(x_points[0], start_pos.y))
-            segment.relative = relative
-        self.append(segment)
-        if len(x_points) > 1:
-            self.horizontal(*x_points[1:], relative=relative)
+    def horizontal(self, *x_points, relative=False, **kwargs):
+        for index in range(len(x_points)):
+            start_pos = self.current_point
+            if relative:
+                self.append(Line(start_pos, Point(start_pos.x + x_points[index], start_pos.y), relative=relative))
+            else:
+                self.append(Line(start_pos, Point(x_points[index], start_pos.y), relative=relative))
         return self
 
-    def smooth_quad(self, *points, **kwargs):
+    def smooth_quad(self, *points, relative=False, **kwargs):
         """Smooth curve. First control point is the "reflection" of
         the second control point in the previous path."""
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        control1 = self.smooth_point
-        end_pos = points[0]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = QuadraticBezier(start_pos, control1, end_pos)
-        segment.relative = relative
-        segment.smooth = True
-        self.append(segment)
-        if len(points) > 1:
-            self.smooth_quad(*points[1:])
+        for index in range(len(points)):
+            start_pos = self.current_point
+            control1 = self.smooth_point
+            end_pos = points[index]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(QuadraticBezier(start_pos, control1, end_pos, relative=relative, smooth=True))
         return self
 
-    def quad(self, *points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        control = points[0]
-        if control in ("z", "Z"):
-            control = self.z_point
-        end_pos = points[1]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = QuadraticBezier(start_pos, control, end_pos)
-        segment.relative = relative
-        segment.smooth = False
-        self.append(segment)
-        if len(points) > 2:
-            self.quad(*points[2:])
+    def quad(self, *points, relative=False, **kwargs):
+        for index in range(0, len(points), 2):
+            start_pos = self.current_point
+            control = points[index]
+            if control in ("z", "Z"):
+                control = self.z_point
+                self.append(QuadraticBezier(start_pos, control, control, relative=relative, smooth=False))
+                return self
+            end_pos = points[index + 1]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(QuadraticBezier(start_pos, control, end_pos, relative=relative, smooth=False))
         return self
 
-    def smooth_cubic(self, *points, **kwargs):
+    def smooth_cubic(self, *points, relative=False, **kwargs):
         """Smooth curve. First control point is the "reflection" of
         the second control point in the previous path."""
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        control1 = self.smooth_point
-        control2 = points[0]
+        for index in range(0, len(points), 2):
+            start_pos = self.current_point
+            control1 = self.smooth_point
+            control2 = points[index]
 
-        if control2 in ("z", "Z"):
-            control2 = self.z_point
-        end_pos = points[1]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = CubicBezier(start_pos, control1, control2, end_pos)
-        segment.relative = relative
-        segment.smooth = True
-        self.append(segment)
-        if len(points) > 2:
-            self.smooth_cubic(*points[2:])
+            if control2 in ("z", "Z"):
+                control2 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                return self
+            end_pos = points[index + 1]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=True))
         return self
 
-    def cubic(self, *points, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        control1 = points[0]
-        if control1 in ("z", "Z"):
-            control1 = self.z_point
-        control2 = points[1]
-        if control2 in ("z", "Z"):
-            control2 = self.z_point
-        end_pos = points[2]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = CubicBezier(start_pos, control1, control2, end_pos)
-        segment.relative = relative
-        segment.smooth = False
-        self.append(segment)
-        if len(points) > 3:
-            self.cubic(*points[3:])
+    def cubic(self, *points, relative=False, **kwargs):
+        for index in range(0, len(points), 3):
+            start_pos = self.current_point
+            control1 = points[index]
+            if control1 in ("z", "Z"):
+                control1 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control1, control1, relative=relative, smooth=True))
+                return self
+            control2 = points[index + 1]
+            if control2 in ("z", "Z"):
+                control2 = self.z_point
+                self.append(CubicBezier(start_pos, control1, control2, control2, relative=relative, smooth=True))
+                return self
+            end_pos = points[index + 2]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(CubicBezier(start_pos, control1, control2, end_pos, relative=relative, smooth=False))
         return self
 
-    def arc(self, *arc_args, **kwargs):
-        relative = kwargs["relative"] if "relative" in kwargs else False
-        start_pos = self.current_point
-        rx = arc_args[0]
-        ry = arc_args[1]
-        if rx < 0:
-            rx = abs(rx)
-        if ry < 0:
-            ry = abs(ry)
-        rotation = arc_args[2]
-        arc = arc_args[3]
-        sweep = arc_args[4]
-        end_pos = arc_args[5]
-        if end_pos in ("z", "Z"):
-            end_pos = self.z_point
-        segment = Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos)
-        segment.relative = relative
-        self.append(segment)
-        if len(arc_args) > 6:
-            self.arc(*arc_args[6:])
+    def arc(self, *arc_args, relative=False, **kwargs):
+        for index in range(0, len(arc_args), 6):
+            start_pos = self.current_point
+            rx = arc_args[index]
+            ry = arc_args[index + 1]
+            if rx < 0:
+                rx = abs(rx)
+            if ry < 0:
+                ry = abs(ry)
+            rotation = arc_args[index + 2]
+            arc = arc_args[index + 3]
+            sweep = arc_args[index + 4]
+            end_pos = arc_args[index + 5]
+            if end_pos in ("z", "Z"):
+                end_pos = self.z_point
+            self.append(Arc(start_pos, rx, ry, rotation, arc, sweep, end_pos, relative=relative))
         return self
 
     def closed(self, relative=False):
