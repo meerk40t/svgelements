@@ -43,7 +43,7 @@ Though not required the Image class acquires new functionality if provided with 
 and the Arc can do exact arc calculations if scipy is installed.
 """
 
-SVGELEMENTS_VERSION = "1.9.1"
+SVGELEMENTS_VERSION = "1.9.2"
 
 MIN_DEPTH = 5
 ERROR = 1e-12
@@ -4773,7 +4773,7 @@ class CubicBezier(Curve):
         local_extremizers = [0, 1]
         a = [c[v] for c in self]
         denom = a[0] - 3 * a[1] + 3 * a[2] - a[3]
-        if abs(denom) >= 1e-12:
+        if abs(denom) >= 1e-8:
             delta = (
                 a[1] * a[1] - (a[0] + a[1]) * a[2] + a[2] * a[2] + (a[0] - a[1]) * a[3]
             )
