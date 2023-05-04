@@ -3016,36 +3016,15 @@ class Matrix:
         """
         x1, y1 = p1
         x2, y2 = p2
-        x3, y3 = p3
         x4, y4 = p4
 
-        j = x1 - x2 - x3 + x4
-        k = -x1 - x2 + x3 + x4
-        l = -x1 + x2 - x3 + x4
-        m = y1 - y2 - y3 + y4
-        n = -y1 - y2 + y3 + y4
-        o = -y1 + y2 - y3 + y4
-        i = 1.0
-
-        try:
-            h = (j * o - m * l) * i / (m * k - j * n)
-        except ZeroDivisionError:
-            h = 0
-
-        try:
-            g = k * h + l * i
-        except ZeroDivisionError:
-            g = 0
-
-        f = (y1 * (g + h + i) + y3 * (-g - h + i)) / 2.0
-        e = (y1 * (g + h + i) - y2 * (g - h + i)) / 2.0
-        d = y1 * (g + h + i) - f - e
-        c = (x1 * (g + h + i) + x3 * (-g - h + i)) / 2.0
-        b = (x1 * (g + h + i) - x2 * (g - h + i)) / 2.0
-        a = x1 * (g + h + i) - c - b
-
-        matrix = Matrix(-2, 0, 0, -2, 1, 1)
-        return matrix * cls(a, d, b, e, c, f)
+        a = x4 - x1
+        b = x2 - x1
+        c = x1
+        d = y4 - y1
+        e = y2 - y1
+        f = y1
+        return cls(a, d, b, e, c, f)
 
     @classmethod
     def map(cls, p1, p2, p3, p4, p5, p6, p7, p8):
