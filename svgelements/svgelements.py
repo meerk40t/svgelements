@@ -9412,13 +9412,15 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
         if node.viewbox:
             xml_tree.set(SVG_ATTR_VIEWBOX, str(node.viewbox))
-        vt = node.viewbox_transform
-        if vt:
-            m = Matrix(vt)
-            m.inverse()
-            vt = m
-        else:
-            vt = None
+        vt = None
+        try:
+            vt = node.viewbox_transform
+            if vt:
+                m = Matrix(vt)
+                m.inverse()
+                vt = m
+        except ValueError:
+            pass
         for child in node:
             _write_node(child, xml_tree, vt)
     elif isinstance(node, Ellipse):

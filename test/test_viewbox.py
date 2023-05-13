@@ -227,6 +227,10 @@ class TestElementViewbox(unittest.TestCase):
         v = Viewbox({'viewBox': '0 0 100 100'})
         self.assertEqual(v.transform(r), '')
 
+    def test_viewbox_issue_228(self):
+        self.assertEqual(SVG(viewBox="0 0 10 10", width="10mm", height="10mm").string_xml(),
+                         """<svg viewBox="0 0 10 10" width="10mm" height="10mm" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events" />""")
+
     def test_viewbox_scale(self):
         r = Rect(0, 0, 200, 200)
         v = Viewbox('0 0 100 100')
