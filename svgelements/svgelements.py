@@ -3001,6 +3001,28 @@ class Matrix:
         return v
 
     @classmethod
+    def affine(cls, p1, p2, p4):
+        """
+        Create a matrix which transforms these three ordered points to the clockwise points of the unit-square.
+
+        @param p1:
+        @param p2:
+        @param p4:
+        @return:
+        """
+        x1, y1 = p1
+        x2, y2 = p2
+        x4, y4 = p4
+
+        a = x4 - x1
+        b = x2 - x1
+        c = x1
+        d = y4 - y1
+        e = y2 - y1
+        f = y1
+        return cls(a, d, b, e, c, f)
+
+    @classmethod
     def perspective(cls, p1, p2, p3, p4):
         """
         Create a matrix which transforms these four ordered points to the clockwise points of the unit-square.
@@ -3016,14 +3038,29 @@ class Matrix:
         """
         x1, y1 = p1
         x2, y2 = p2
+        x3, y3 = p3
         x4, y4 = p4
 
-        a = x4 - x1
-        b = x2 - x1
-        c = x1
-        d = y4 - y1
-        e = y2 - y1
-        f = y1
+        i = 1
+        try:
+            j = (y1 - y2 + y3 - y4) / (y2 - y3)
+            k = (x1 - x2 + x3 - x4) / (x4 - x3)
+            m = (y4 - y3) / (y2 - y3)
+            n = (x2 - x3) / (x4 - x3)
+
+            h = i * (j - k * m) / (1 - m * n)
+            g = i * (k - j * n) / (1 - m * n)
+        except ZeroDivisionError:
+            h = 0.0
+            g = 0.0
+
+        c = x1 * i
+        f = y1 * i
+        a = x4 * (g + i) - x1 * i
+        b = x2 * (h + i) - x1 * i
+        d = y4 * (g + i) - y1 * i
+        e = y2 * (h + i) - y1 * i
+
         return cls(a, d, b, e, c, f)
 
     @classmethod
