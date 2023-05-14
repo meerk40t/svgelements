@@ -227,6 +227,29 @@ class TestElementViewbox(unittest.TestCase):
         v = Viewbox({'viewBox': '0 0 100 100'})
         self.assertEqual(v.transform(r), '')
 
+    def test_viewbox_issue_228(self):
+        self.assertIn(
+            SVG(viewBox="0 0 10 10", width="10mm", height="10mm").string_xml(),
+            (
+                """<svg viewBox="0 0 10 10" width="10mm" height="10mm" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:ev="http://www.w3.org/2001/xml-events" />""",
+                """<svg height="10mm" version="1.1" viewBox="0 0 10 10" width="10mm" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink" />""",  # Python 3.6
+            ),
+        )
+
+    def test_issue_228b(self):
+        svg = SVG(viewBox="0 0 10 10", width="10mm", height="10mm")
+        svg.append(Rect(x="1mm", y="1mm", width="5mm", height="5mm", rx="0.5mm", stroke="red"))
+        svg.append(Circle(cx="5mm", cy="5mm", r="0.5mm", stroke="blue"))
+        svg.append(Ellipse(cx="5mm", cy="5mm", rx="0.5mm", ry="0.8mm", stroke="lime"))
+        svg.append(SimpleLine(x1="5mm", y1="5em", x2="10%", y2="15%", stroke="gray"))
+        svg.append(Polygon(5, 10, 20, 30, 40, 7))
+        svg.append(Path("M10,10z", stroke="yellow"))
+        print(svg.string_xml())
+
+    def test_issue_228c(self):
+        rect = Rect(x="1mm", y="1mm", width="5mm", height="5mm", rx="0.5mm", stroke="red")
+        print(rect.length())
+
     def test_viewbox_scale(self):
         r = Rect(0, 0, 200, 200)
         v = Viewbox('0 0 100 100')

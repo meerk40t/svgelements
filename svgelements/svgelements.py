@@ -846,14 +846,16 @@ class Length(object):
         if self.amount == other.amount and self.units == other.units:
             return True
         if s is not None:
-            o = self.in_pixels()
-            if abs(s - o) <= ERROR:
-                return True
+            o = other.in_pixels()
+            if o is not None:
+                if abs(s - o) <= ERROR:
+                    return True
         s = self.in_inches()
         if s is not None:
-            o = self.in_inches()
-            if abs(s - o) <= ERROR:
-                return True
+            o = other.in_inches()
+            if o is not None:
+                if abs(s - o) <= ERROR:
+                    return True
         return False
 
     @property
@@ -2045,7 +2047,8 @@ class Point:
                 other = Point(other)
         except Exception:
             return NotImplemented
-
+        if isinstance(self.x, Length) or isinstance(self.y, Length) or isinstance(other.x, Length) or isinstance(other.x, Length):
+            return self.x == other.x and self.y == other.y
         return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
 
     def __ne__(self, other):
@@ -9446,13 +9449,15 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_HEIGHT, str(node.height))
         if node.viewbox:
             xml_tree.set(SVG_ATTR_VIEWBOX, str(node.viewbox))
-        vt = node.viewbox_transform
-        if vt:
-            m = Matrix(vt)
-            m.inverse()
-            vt = m
-        else:
-            vt = None
+        vt = None
+        try:
+            vt = node.viewbox_transform
+            if vt:
+                m = Matrix(vt)
+                m.inverse()
+                vt = m
+        except ValueError:
+            pass
         for child in node:
             _write_node(child, xml_tree, vt)
     elif isinstance(node, Ellipse):
