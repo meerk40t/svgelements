@@ -3066,7 +3066,7 @@ class Matrix:
     @classmethod
     def map(cls, p1, p2, p3, p4, p5, p6, p7, p8):
         """
-        Create a matrix which transforms these four ordered points to the clockwise points of the unit-square.
+        Create a matrix which transforms these four ordered points to equivalent points for the other 4 ordered points.
 
         If G and H are very close to 0, this is an affine transformation. If they are not, then the perspective
         transform requires g and h, but we do not support non-affine transformations.
@@ -3079,6 +3079,24 @@ class Matrix:
         """
         m1 = Matrix.perspective(p1, p2, p3, p4)
         m2 = Matrix.perspective(p5, p6, p7, p8)
+        return cls(~m1 * m2)
+
+    @classmethod
+    def map3(cls, p1, p2, p4, p5, p6, p8):
+        """
+        Create a matrix which transforms these three ordered points to map to 3 other ordered points. This does not
+        include p3 or p7 for the ordered squares.
+
+        @param p1:
+        @param p2:
+        @param p4:
+        @param p5:
+        @param p6:
+        @param p8:
+        @return:
+        """
+        m1 = Matrix.affine(p1, p2, p4)
+        m2 = Matrix.affine(p5, p6, p8)
         return cls(~m1 * m2)
 
     @classmethod
