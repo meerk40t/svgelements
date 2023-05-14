@@ -99,6 +99,32 @@ class TestElementWrite(unittest.TestCase):
         svg.append(Rect("10%", "10%", "80%", "80%", fill="red"))
         svg.write_xml(file, pretty=False, short_empty_elements=False)
 
+    def test_write_filename(self):
+        """
+        Tests filename file saving. This is permitted by the xml writer but would crash see issue #227
+
+        This also provides an example short_empty_elements off, utf-8 encoding.
+
+        """
+        file1 = "myfile-f.svg"
+        self.addCleanup(os.remove, file1)
+        svg = SVG(viewport="0 0 1000 1000", height="10mm", width="10mm")
+        svg.append(Rect("10%", "10%", "80%", "80%", fill="red"))
+        svg.write_xml(file1, short_empty_elements=False, encoding="utf-8")
+
+    def test_write_filename_svgz(self):
+        """
+        Tests pathlib.Path file saving. This is permitted by the xml writer but would crash see issue #227
+
+        This also provides an example of xml_declaration=True.
+
+        """
+        file1 = "myfile-f.svgz"
+        self.addCleanup(os.remove, file1)
+        svg = SVG(viewport="0 0 1000 1000", height="10mm", width="10mm")
+        svg.append(Rect("10%", "10%", "80%", "80%", fill="red"))
+        svg.write_xml(file1, xml_declaration=True)
+
 
     # def test_read_write(self):
     #     import glob
