@@ -441,3 +441,43 @@ class TestPathMatrix(unittest.TestCase):
         m1 = Matrix.perspective(Point(-2, -2), Point(-2, 2), Point(2, 2), Point(2, -2))
         m2 = Matrix("scale(4)") * Matrix("translate(-2,-2)")
         self.assertEqual(m1, m2)
+
+    def test_matrix_map_map3(self):
+        points = [Point(0, 0), Point(0, 1), Point(1, 0)]
+
+        for m in (
+            Matrix("skewX(10deg)"),
+            Matrix("skewX(8deg)"),
+            Matrix("skewX(5deg)"),
+            Matrix("skewY(10deg)"),
+            Matrix("skewX(8deg)"),
+            Matrix("skewX(5deg)"),
+            Matrix("scale(1.4235)"),
+            Matrix("scale(1.4235,4.39392)"),
+            Matrix("translate(100,200)"),
+            Matrix("translate(-50,-20.3949)"),
+        ):
+            points_to = [m.point_in_matrix_space(p) for p in points]
+            m1 = Matrix.map3(*points, *points_to)
+            self.assertEqual(m, m1)
+
+    def test_matrix_affine_ccw_unit_square(self):
+        """
+        This is the unit square ccw. So we mirror it across the x-axis and rotate it back into position.
+        """
+        m1 = Matrix.affine(Point(0, 0), Point(1, 0), Point(0, 1))
+        m2 = Matrix.scale(-1, 1) * Matrix("rotate(-90deg)")
+        self.assertEqual(m1, m2)
+
+    def test_matrix_affine_unit_square(self):
+        """
+        This is the cw unit square, which is our default perspective, meaning we have the identity matrix
+        """
+        m1 = Matrix.affine(Point(0, 0), Point(0, 1), Point(1, 0))
+        m2 = Matrix()
+        self.assertEqual(m1, m2)
+
+    def test_matrix_affine_scale_rotate(self):
+        m1 = Matrix.affine(Point(-2, -2), Point(-2, 2), Point(2, -2))
+        m2 = Matrix("scale(4)") * Matrix("translate(-2,-2)")
+        self.assertEqual(m1, m2)
