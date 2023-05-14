@@ -2047,7 +2047,8 @@ class Point:
                 other = Point(other)
         except Exception:
             return NotImplemented
-
+        if isinstance(self.x, Length) or isinstance(self.y, Length) or isinstance(other.x, Length) or isinstance(other.x, Length):
+            return self.x == other.x and self.y == other.y
         return abs(self.x - other.x) <= ERROR and abs(self.y - other.y) <= ERROR
 
     def __ne__(self, other):
