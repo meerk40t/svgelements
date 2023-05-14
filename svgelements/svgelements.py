@@ -3462,8 +3462,8 @@ class SVGElement(object):
         self.values[key] = value
         return self
 
-    def write_xml(self, f):
-        write(self, f)
+    def write_xml(self, f, **kwargs):
+        write(self, f, **kwargs)
 
     def string_xml(self):
         return tostring(self)
@@ -9389,18 +9389,26 @@ def tostring(node):
     return tostring(_write_node(node), encoding="unicode")
 
 
-def write(node, f, pretty=True):
+def write(node, f, pretty=True, **kwargs):
+    """
+    Gets the write node and writes to the ElementTree.write() function, all options in Element.write() are passed
+    along via this method. encoding, xml_declaration, short_empty_elements, etc.
+    """
     from xml.etree.ElementTree import ElementTree
 
     root = _write_node(node)
     if pretty:
         _pretty_print(root)
     tree = ElementTree(root)
-    if f.lower().endswith("svgz"):
-        import gzip
+    try:
+        if f.lower().endswith("svgz"):
+            import gzip
 
-        f = gzip.open(f, "wb")
-    tree.write(f)
+            f = gzip.open(f, "wb")
+    except AttributeError:
+        # might be a pathlib.Path()
+        pass
+    tree.write(f, **kwargs)
 
 
 def _write_node(node, xml_tree=None, viewport_transform=None):
