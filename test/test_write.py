@@ -1,4 +1,6 @@
 import io
+import os
+import pathlib
 import unittest
 from xml.etree.ElementTree import ParseError
 
@@ -82,6 +84,20 @@ class TestElementWrite(unittest.TestCase):
         c = SimpleLine(x1=0, x2=10, y1=5, y2=6, id="line", fill="light grey")
         q = SVG.parse(io.StringIO(c.string_xml()))
         self.assertEqual(c, q)
+
+    def test_write_pathlib_issue_227(self):
+        """
+        Tests pathlib.Path file saving. This is permitted by the xml writer but would crash see issue #227
+
+        This also provides an example of pretty-print off and short_empty_elements off (an xml writer option).
+
+        """
+        file1 = "myfile.svg"
+        self.addCleanup(os.remove, file1)
+        file = pathlib.Path(file1)
+        svg = SVG(viewport="0 0 1000 1000", height="10mm", width="10mm")
+        svg.append(Rect("10%", "10%", "80%", "80%", fill="red"))
+        svg.write_xml(file, pretty=False, short_empty_elements=False)
 
 
     # def test_read_write(self):
