@@ -846,14 +846,16 @@ class Length(object):
         if self.amount == other.amount and self.units == other.units:
             return True
         if s is not None:
-            o = self.in_pixels()
-            if abs(s - o) <= ERROR:
-                return True
+            o = other.in_pixels()
+            if o is not None:
+                if abs(s - o) <= ERROR:
+                    return True
         s = self.in_inches()
         if s is not None:
-            o = self.in_inches()
-            if abs(s - o) <= ERROR:
-                return True
+            o = other.in_inches()
+            if o is not None:
+                if abs(s - o) <= ERROR:
+                    return True
         return False
 
     @property
