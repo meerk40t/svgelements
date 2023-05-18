@@ -7742,7 +7742,7 @@ class Subpath:
 
     def d(self, relative=None, smooth=None):
         segments = self._path._segments[self._start : self._end + 1]
-        return Path.svg_d(segments, relative=relative, smooth=None)
+        return Path.svg_d(segments, relative=relative, smooth=smooth)
 
     def _reverse_segments(self, start, end):
         """Reverses segments between the given indexes in the subpath space."""
