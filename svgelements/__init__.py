@@ -1,3 +1,3 @@
-name = "svgelements"
-
 from .svgelements import *
+
+name = "svgelements"
