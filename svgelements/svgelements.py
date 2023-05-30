@@ -8998,6 +8998,7 @@ class SVG(Group):
         transform=None,
         context=None,
         parse_display_none=False,
+        render=False,
         on_error="ignore",
     ):
         """
@@ -9153,8 +9154,8 @@ class SVG(Group):
                         )  # 1000 default no information.
                     if height is None:
                         height = s.viewbox.height if s.viewbox is not None else 1000
-
-                    s.render(ppi=ppi, width=width, height=height, viewbox=s.viewbox)
+                    if render:
+                        s.render(ppi=ppi, width=width, height=height, viewbox=s.viewbox)
                     height, width = s.width, s.height
                     if s.viewbox is not None:
                         try:
@@ -9184,15 +9185,18 @@ class SVG(Group):
                     if context is not None:
                         context.append(s)
                     context = s
-                    s.render(ppi=ppi, width=width, height=height)
+                    if render:
+                        s.render(ppi=ppi, width=width, height=height)
                 elif SVG_TAG_DEFS == tag:
                     s = Group(values)
                     context = s  # Non-Rendered
-                    s.render(ppi=ppi, width=width, height=height)
+                    if render:
+                        s.render(ppi=ppi, width=width, height=height)
                 elif SVG_TAG_CLIPPATH == tag:
                     s = ClipPath(values)
                     context = s  # Non-Rendered
-                    s.render(ppi=ppi, width=width, height=height)
+                    if render:
+                        s.render(ppi=ppi, width=width, height=height)
                     clip += 1
                 elif SVG_TAG_USE == tag:
                     s = Use(values)
