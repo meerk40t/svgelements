@@ -971,3 +971,14 @@ class TestParseDefUse(unittest.TestCase):
         m = SVG.parse(block)
         q = list(m.elements())
         self.assertEqual(3, len(q))
+
+
+    def test_dims_preservation_parsing_issue_235(self):
+        q = io.StringIO(u'''<svg height="20mm" version="1.1" width="20mm" viewBox="10 10 20 20" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <rect x="10" y="10" width="20" height="20"/>
+</svg>''')
+        parsed_svg = SVG.parse(q)
+        expected_svg = SVG(width="20mm", height="20mm", viewBox="10 10 20 20")
+        expected_svg.append(Rect(x=10, y=10, width=20, height=20))
+        self.assertEqual(parsed_svg, expected_svg)
+
