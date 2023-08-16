@@ -949,7 +949,7 @@ class TestParseDefUse(unittest.TestCase):
         q = list(m.elements())
         self.assertEqual(2, len(q))
         self.assertTrue(isinstance(q[-1], Path))
-        self.assertEquals("M 10,10 L 20,20", q[-1].d())
+        self.assertEqual("M 10,10 L 20,20", q[-1].d())
 
     def test_parse_error_issue_217_raises(self):
         block = io.StringIO(u'''<?xml version="1.0" encoding="utf-8" ?>
