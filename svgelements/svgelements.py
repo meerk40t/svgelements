@@ -199,7 +199,7 @@ PATTERN_TRANSFORM_UNITS = (
 )
 
 REGEX_IRI = re.compile(r"url\(#?(.*)\)")
-REGEX_DATA_URL = re.compile(r"^data:([^,]*),(.*)")
+REGEX_DATA_URL = re.compile(r"^data:([^,]*),")
 REGEX_FLOAT = re.compile(PATTERN_FLOAT)
 REGEX_COORD_PAIR = re.compile(
     "(%s)%s(%s)" % (PATTERN_FLOAT, PATTERN_COMMA, PATTERN_FLOAT)
@@ -8531,7 +8531,7 @@ class Image(SVGElement, GraphicObject, Transformable):
             if match:
                 # Data URL
                 self.media_type = match.group(1).split(";")
-                self.data = match.group(2)
+                self.data = self.url[match.end(1) + 1 :]
                 if "base64" in self.media_type:
                     from base64 import b64decode
 
