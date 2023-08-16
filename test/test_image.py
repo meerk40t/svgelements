@@ -3,9 +3,35 @@ import unittest
 
 from svgelements import *
 
+ISSUE_239 = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   xml:space="preserve"
+   inkscape:version="1.3 (0e150ed6c4, 2023-07-21)"
+   sodipodi:docname="test-image.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+   <image
+       width="1.7638888"
+       height="1.7638888"
+       preserveAspectRatio="none"
+       xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAAXNSR0IArs4c6QAAAARnQU1BAACx&#10;jwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAAYSURBVChTY/z//z8DbsAEpXGAkSnNwAAApeMD&#10;EUEua14AAAAASUVORK5CYII=&#10;"
+       id="image1"
+       x="60.703339"
+       y="146.7903" />
+</svg>"""
+
 
 class TestElementImage(unittest.TestCase):
-
     def test_image_preserveaspectratio(self):
         """
         "none" stretches to whatever width and height were given.
@@ -52,3 +78,13 @@ class TestElementImage(unittest.TestCase):
         e4 = Image(href="data:text/plain;charset=UTF-8;page=21,the%20data:1234,5678")
         self.assertEqual(e4.data, b"the data:1234,5678")
 
+    def test_image_issue_239(self):
+        """
+        Tests issue 239 newline characters in embedded png data.
+        """
+        q = io.StringIO(ISSUE_239)
+        svg = SVG.parse(q)
+        m = list(svg.elements())
+        a = m[1]
+        a.load_data()
+        self.assertEqual(type(a), Image)
