@@ -24,7 +24,7 @@ class TestElementWrite(unittest.TestCase):
 
     def test_write_group(self):
         g = Group()
-        self.assertEquals(g.string_xml(), "<g />")
+        self.assertEqual(g.string_xml(), "<g />")
 
     def test_write_rect(self):
         r = Rect("1in", "1in", "3in", "3in", rx="5%")

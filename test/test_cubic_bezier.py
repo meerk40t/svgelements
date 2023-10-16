@@ -79,4 +79,4 @@ class TestElementCubicBezierPoint(unittest.TestCase):
         p = Path(transform=Matrix(682.657124793113, 0.000000000003, -0.000000000003, 682.657124793113, 257913.248909660178, -507946.354527872754))
         p += CubicBezier(start=Point(-117.139521365,1480.99923469), control1=Point(-41.342266634,1505.62725567), control2=Point(40.3422666342,1505.62725567), end=Point(116.139521365,1480.99923469))
         bounds = p.bbox()
-        self.assertNotAlmostEquals(bounds[1], bounds[3], delta=100)
+        self.assertNotAlmostEqual(bounds[1], bounds[3], delta=100)
