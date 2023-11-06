@@ -286,3 +286,22 @@ class TestElementViewbox(unittest.TestCase):
         q = list(m.elements())
         self.assertEqual(len(q), 1)
         self.assertEqual(Matrix(m.viewbox_transform), Matrix.translate(1, 1))
+
+    def test_viewbox_issue_236(self):
+        """
+        Test against issue 236, viewbox origin not equal to 0,0 error
+        """
+        svg_data = u'''<svg height="20" version="1.1" width="20" viewBox="10 10 20 20" xmlns="http://www.w3.org/2000/svg" xmlns:ev="http://www.w3.org/2001/xml-events" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <rect x="10" y="10" width="20" height="20"/>
+    </svg>'''
+        q = io.StringIO(svg_data)
+        m = SVG.parse(q)
+        e = list(m.elements())
+        rect1 = e[1]
+
+        for i in range(10):
+            q = io.StringIO(svg_data)
+            m = SVG.parse(q)
+            svg_data = m.string_xml()
+            e = list(m.elements())
+            self.assertEqual(abs(rect1), abs(e[1]))
