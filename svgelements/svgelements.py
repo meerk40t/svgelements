@@ -9233,7 +9233,7 @@ class SVG(Group):
                         if SVG_TAG_PATH == tag:
                             # Delayed path parsing, for partial paths.
                             s = Path(values, pathd_loaded=True)
-                            s.parse(values.get(SVG_ATTR_DATA))
+                            s.parse(values.get(SVG_ATTR_DATA, ""))
                         elif SVG_TAG_CIRCLE == tag:
                             s = Circle(values)
                         elif SVG_TAG_ELLIPSE == tag:
