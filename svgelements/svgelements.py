@@ -138,6 +138,22 @@ SVG_ATTR_PATTERN_UNITS = "patternUnits"
 
 SVG_ATTR_VECTOR_EFFECT = "vector-effect"
 
+SODIPODI_NS = "{http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd}"
+SODIPODI_ATTR_TYPE = SODIPODI_NS + "type"
+SODIPODI_ATTR_CX = SODIPODI_NS + "cx"
+SODIPODI_ATTR_CY = SODIPODI_NS + "cy"
+SODIPODI_ATTR_RX = SODIPODI_NS + "rx"
+SODIPODI_ATTR_RY = SODIPODI_NS + "ry"
+SODIPODI_ATTR_START = SODIPODI_NS + "start"
+SODIPODI_ATTR_END = SODIPODI_NS + "end"
+SODIPODI_ATTR_OPEN = SODIPODI_NS + "open"
+SODIPODI_ATTR_ARC_TYPE = SODIPODI_NS + "arc-type"
+
+SODIPODI_TYPE_ARC = "arc"
+SODIPODI_ARC_TYPE_ARC = "arc"
+SODIPODI_ARC_TYPE_CHORD = "chord"
+SODIPODI_ARC_TYPE_SLICE = "slice"
+
 SVG_UNIT_TYPE_USERSPACEONUSE = "userSpaceOnUse"
 SVG_UNIT_TYPE_OBJECTBOUNDINGBOX = "objectBoundingBox"
 
@@ -6972,6 +6988,72 @@ class _RoundShape(Shape):
         center *= self.transform
         return center
 
+    def _segments(self, start, end, transformed):
+        """
+        Internal implementation of segments() which supports partial ellipses
+        """
+        original = self.apply
+        self.apply = transformed
+        path = Path()
+
+        # make sure that end > start
+        while end < start:
+            end += tau
+
+        # calculate step size
+        steps = 4
+        step_size = tau / steps
+
+        # if we're flipped, go backwards
+        if (
+            transformed
+            and self.transform.value_scale_x() * self.transform.value_scale_y() < 0
+        ):
+            step_size = -step_size
+            start = -start
+            end = -end
+
+        # zero for either dimension, or a computed value of auto for both dimensions, disables rendering of the element.
+        rx = self.implicit_rx
+        ry = self.implicit_ry
+        if self.is_degenerate():
+            return ()
+
+        # generate arc segments, beginning at start
+        t_start = start
+        t_end = start + step_size
+        center = self.implicit_center
+        path.move((self.point_at_t(t_start)))
+
+        # instead of checking t_start < end (which would fail if we're walking backwards)
+        # check the sign of the difference and correct the sign by multiplying with step_size
+        while (t_start - end) * step_size < 0:
+            # limit last segment if necessary; use the same comparison method as above
+            if (t_end - end) * step_size > 0:
+                t_end = end
+
+            path += Arc(
+                self.point_at_t(t_start),
+                self.point_at_t(t_end),
+                center,
+                rx=rx,
+                ry=ry,
+                rotation=self.rotation,
+                sweep=step_size,
+            )
+
+            t_start = t_end
+            t_end += step_size
+
+        # allow subclasses to customize how the path is closed
+        self._close_segments(path)
+        self.apply = original
+        return path.segments(transformed)
+
+    def _close_segments(self, path):
+        # Moved out of _segments() so subclasses can override
+        path.closed()
+
     def segments(self, transformed=True):
         """
         SVG path decomposition is given in SVG 2.0 10.3, 10.4.
@@ -6984,40 +7066,7 @@ class _RoundShape(Shape):
 
         Converts the parameters from an ellipse or a circle to a string for a
         Path object d-attribute"""
-        original = self.apply
-        self.apply = transformed
-        path = Path()
-        steps = 4
-        step_size = tau / steps
-        if (
-            transformed
-            and self.transform.value_scale_x() * self.transform.value_scale_y() < 0
-        ):
-            step_size = -step_size
-        t_start = 0
-        t_end = step_size
-        # zero for either dimension, or a computed value of auto for both dimensions, disables rendering of the element.
-        rx = self.implicit_rx
-        ry = self.implicit_ry
-        if self.is_degenerate():
-            return ()
-        center = self.implicit_center
-        path.move((self.point_at_t(0)))
-        for i in range(steps):
-            path += Arc(
-                self.point_at_t(t_start),
-                self.point_at_t(t_end),
-                center,
-                rx=rx,
-                ry=ry,
-                rotation=self.rotation,
-                sweep=step_size,
-            )
-            t_start = t_end
-            t_end += step_size
-        path.closed()
-        self.apply = original
-        return path.segments(transformed)
+        return self._segments(0, tau, transformed)
 
     def reify(self):
         """
@@ -7256,6 +7305,114 @@ class Circle(_RoundShape):
 
     def _name(self):
         return self.__class__.__name__
+
+
+class _SodipodiArcShape(_RoundShape):
+    def __init__(self, *args, **kwargs):
+        self.start = None
+        self.end = None
+        _RoundShape.__init__(self, *args, **kwargs)
+
+    def property_by_object(self, s):
+        _RoundShape.property_by_object(self, s)
+        self.start = s.start
+        self.end = s.end
+
+    def property_by_values(self, values):
+        Shape.property_by_values(self, values)
+        self.cx = Length(values.get(SODIPODI_ATTR_CX, 0)).value()
+        self.cy = Length(values.get(SODIPODI_ATTR_CY, 0)).value()
+        self.rx = Length(values.get(SODIPODI_ATTR_RX, 1)).value()
+        self.ry = Length(values.get(SODIPODI_ATTR_RY, 1)).value()
+        self.start = Angle(values.get(SODIPODI_ATTR_START, 0)).as_radians
+        self.end = Angle(values.get(SODIPODI_ATTR_END, tau)).as_radians
+
+    def property_by_args(self, *args):
+        _RoundShape.property_by_args(self, *args[:4])
+        arg_length = len(args)
+        self.start = Angle(args[4]).as_radians if arg_length >= 5 else 0
+        self.end = Angle(args[5]).as_radians if arg_length >= 6 else tau
+
+        if arg_length >= 7:
+            self._init_shape(*args[6:])
+
+    def _attrs(self, values):
+        if self.cx is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_CX, Length.str(self.cx)))
+        if self.cy is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_CY, Length.str(self.cy)))
+        if self.rx is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_RX, Length.str(self.rx)))
+        if self.ry is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_RY, Length.str(self.ry)))
+        if self.start is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_START, str(self.start)))
+        if self.end is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_END, str(self.end)))
+        if self.arc_type is not None:
+            values.append("%s=%s" % (SODIPODI_ATTR_ARC_TYPE, self.arc_type))
+
+    def segments(self, transformed=True):
+        return _RoundShape._segments(self, self.start, self.end, transformed)
+
+    def _name(self):
+        return self.__class__.__name__
+
+
+class SodipodiArc(_SodipodiArcShape):
+    """
+    Arc shape as supported by Sodipodi and Inkscape.
+    In addition to the Ellipse this has two additional parameters, start and end,
+    which restrict the arc in terms of tau radians.
+
+    This is the Arc flavor, which is open between the ends of the path.
+    """
+
+    arc_type = SODIPODI_ARC_TYPE_ARC
+
+    def __copy__(self):
+        return SodipodiArc(self)
+
+    def _close_segments(self, path):
+        # it's an arc; leave the path open
+        pass
+
+
+class SodipodiChord(_SodipodiArcShape):
+    """
+    Arc shape as supported by Sodipodi and Inkscape.
+    In addition to the Ellipse this has two additional parameters, start and end,
+    which restrict the arc in terms of tau radians.
+
+    This is the Chord flavor, which closes the path via a straight line between
+    both ends.
+    """
+    arc_type = SODIPODI_ARC_TYPE_CHORD
+
+    def __copy__(self):
+        return SodipodiChord(self)
+
+    def _close_segments(self, path):
+        path.closed()
+
+
+class SodipodiSlice(_SodipodiArcShape):
+    """
+    Arc shape as supported by Sodipodi and Inkscape.
+    In addition to the Ellipse this has two additional parameters, start and end,
+    which restrict the arc in terms of tau radians.
+
+    This is the Slice flavor, which closes the path in a pie shaped fashion by
+    adding a straight line from the center to either end of the path.
+    """
+    arc_type = SODIPODI_ARC_TYPE_SLICE
+
+    def __copy__(self):
+        return SodipodiSlice(self)
+
+    def _close_segments(self, path):
+        path.line(self.implicit_center)
+        path.closed()
 
 
 class SimpleLine(Shape):
@@ -9231,9 +9388,24 @@ class SVG(Group):
                     s = None
                     try:
                         if SVG_TAG_PATH == tag:
-                            # Delayed path parsing, for partial paths.
-                            s = Path(values, pathd_loaded=True)
-                            s.parse(values.get(SVG_ATTR_DATA, ""))
+                            # Parse out Inkscape's special object types
+                            sodi_type = values.get(SODIPODI_ATTR_TYPE)
+                            if SODIPODI_TYPE_ARC == sodi_type:
+                                arc_type = values.get(SODIPODI_ATTR_ARC_TYPE, SODIPODI_ARC_TYPE_ARC)
+                                # Support deprecated "open" attribute by turning closed arcs into chords
+                                if arc_type == SODIPODI_ARC_TYPE_ARC and not bool(values.get(SODIPODI_ATTR_OPEN, True)):
+                                    arc_type = SODIPODI_ARC_TYPE_CHORD
+
+                                if SODIPODI_ARC_TYPE_CHORD == arc_type:
+                                    s = SodipodiChord(values)
+                                elif SODIPODI_ARC_TYPE_SLICE == arc_type:
+                                    s = SodipodiSlice(values)
+                                else:  # default to arc
+                                    s = SodipodiArc(values)
+                            else:
+                                # Delayed path parsing, for partial paths.
+                                s = Path(values, pathd_loaded=True)
+                                s.parse(values.get(SVG_ATTR_DATA, ""))
                         elif SVG_TAG_CIRCLE == tag:
                             s = Circle(values)
                         elif SVG_TAG_ELLIPSE == tag:
