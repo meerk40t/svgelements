@@ -9560,6 +9560,8 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
             xml_tree.set(SVG_ATTR_FONT_STYLE, str(node.font_style))
         if node.font_variant:
             xml_tree.set(SVG_ATTR_FONT_VARIANT, str(node.font_variant))
+        if node.font_weight:
+            xml_tree.set(SVG_ATTR_FONT_WEIGHT, str(node.font_weight))
         if node.font_stretch:
             xml_tree.set(SVG_ATTR_FONT_STRETCH, node.font_stretch)
         if node.font_size:
