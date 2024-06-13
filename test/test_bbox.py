@@ -358,3 +358,56 @@ class TestElementBbox(unittest.TestCase):
         p1 = abs(p0)
         self.assertEqual(p0, p1)
         self.assertEqual(p0.bbox(), p1.bbox())
+
+    def test_issue_186a(self):
+        """
+        Wrong bounding box for rotated and scaled circles.
+
+        if the rotation is done before the scale we get a corrupted shape.
+
+        """
+        circle = Circle(cx=0, cy=0, r=2)
+        circle *= "rotate(30deg)"
+        circle *= "scale(1,2)"
+        bbox = circle.bbox()
+        path = abs(Path(circle))
+        # self.assertEqual(circle.rotation, Angle.parse("30deg"))
+        for p in range(1000):
+            step = p / 999.0
+            cx, cy = circle.point(step)
+            self.assertGreaterEqual(cx, bbox[0])
+            self.assertGreaterEqual(bbox[2], cx)
+            self.assertGreaterEqual(cy, bbox[1])
+            self.assertGreaterEqual(bbox[3], cy)
+            px, py = path.point(step)
+            self.assertGreaterEqual(px, bbox[0])
+            self.assertGreaterEqual(bbox[2], px)
+            self.assertGreaterEqual(py, bbox[1])
+            self.assertGreaterEqual(bbox[3], py)
+            self.assertAlmostEqual(cx, px, delta=0.2)
+            self.assertAlmostEqual(cy, py, delta=0.2)
+
+    def test_issue_186b(self):
+        """
+        Version of 186a with rotate second (Passes)
+        """
+        circle = Circle(cx=0, cy=0, r=2)
+        circle *= "scale(1,2)"
+        circle *= "rotate(30deg)"
+        bbox = circle.bbox()
+        path = abs(Path(circle))
+        self.assertEqual(circle.rotation, Angle.parse("30deg"))
+        for p in range(1000):
+            step = p / 999.0
+            cx, cy = circle.point(step)
+            self.assertGreaterEqual(cx, bbox[0])
+            self.assertGreaterEqual(bbox[2], cx)
+            self.assertGreaterEqual(cy, bbox[1])
+            self.assertGreaterEqual(bbox[3], cy)
+            px, py = path.point(step)
+            self.assertGreaterEqual(px, bbox[0])
+            self.assertGreaterEqual(bbox[2], px)
+            self.assertGreaterEqual(py, bbox[1])
+            self.assertGreaterEqual(bbox[3], py)
+            self.assertAlmostEqual(cx, px, delta=0.2)
+            self.assertAlmostEqual(cy, py, delta=0.2)
