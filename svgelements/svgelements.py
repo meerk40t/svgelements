@@ -9658,6 +9658,9 @@ def _write_node(node, xml_tree=None, viewport_transform=None):
 
     return xml_tree
 
+def write_node(node, xml_tree=None, viewport_transform=None):
+    # Wrapper function to expose the internal underscore function
+    _write_node(node, xml_tree, viewport_transform)
 
 def _pretty_print(current, parent=None, index=-1, depth=0):
     for i, node in enumerate(current):
