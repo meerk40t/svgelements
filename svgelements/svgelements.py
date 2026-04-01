@@ -21,6 +21,7 @@ from math import (
     sin,
     sqrt,
     tan,
+    isclose
 )
 from xml.etree.ElementTree import iterparse
 
@@ -3584,8 +3585,13 @@ class GraphicObject:
             and self.stroke is not None
             and self.stroke.value is not None
         ):
+            stroke_opacity = stroke_opacity.strip()
             try:
-                self.stroke.opacity = float(stroke_opacity)
+                if stroke_opacity.endswith('%'):
+                    stroke_opacity = float(stroke_opacity.removesuffix('%')) / 100
+                else:
+                    stroke_opacity = float(stroke_opacity)
+                self.stroke.opacity = stroke_opacity
             except ValueError:
                 pass
         fill = values.get(SVG_ATTR_FILL)
@@ -3597,8 +3603,13 @@ class GraphicObject:
             and self.fill is not None
             and self.fill.value is not None
         ):
+            fill_opacity = fill_opacity.strip()
             try:
-                self.fill.opacity = float(fill_opacity)
+                if fill_opacity.endswith('%'):
+                    fill_opacity = float(fill_opacity.removesuffix('%')) / 100
+                else:
+                    fill_opacity = float(fill_opacity)
+                self.fill.opacity = fill_opacity
             except ValueError:
                 pass
         self.stroke_width = Length(values.get("stroke_width", 1.0)).value()
@@ -5545,7 +5556,7 @@ class Arc(Curve):
     def is_circular(self):
         a = self.rx
         b = self.ry
-        return a == b
+        return isclose(a, b)
 
     @property
     def radius(self):
@@ -7812,7 +7823,10 @@ class Group(SVGElement, Transformable, list):
         if isinstance(other, Matrix):
             self.transform *= other
             for e in self:
-                e *= other
+                try:
+                    e *= other
+                except AttributeError:
+                    continue
         return self
 
     def render(self, **kwargs):
@@ -8147,6 +8161,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.line_height = 16.0
         self.font_family = "sans-serif"
         self.path = None
+        self.alignment_baseline = "auto"
 
         Transformable.__init__(self, *args, **kwargs)
         GraphicObject.__init__(self, *args, **kwargs)
@@ -8162,6 +8177,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         values.append("%s='%s'" % (SVG_ATTR_FONT_STRETCH, self.font_stretch))
         values.append("%s=%d" % (SVG_ATTR_FONT_SIZE, self.font_size))
         values.append("%s='%s'" % (SVG_ATTR_TEXT_ANCHOR, self.anchor))
+        values.append("%s='%s'" % (SVG_ATTR_TEXT_ALIGNMENT_BASELINE, self.alignment_baseline))
         if self.x != 0 or self.y != 0:
             values.append("%s=%s" % (SVG_ATTR_X, self.x))
             values.append("%s=%s" % (SVG_ATTR_Y, self.y))
@@ -8194,6 +8210,7 @@ class Text(SVGElement, GraphicObject, Transformable):
             values.append("font_stretch='%s'" % self.font_stretch)
         values.append("font_size=%d" % self.font_size)
         values.append("text_anchor='%s'" % self.anchor)
+        values.append("alignment_baseline='%s'" % self.alignment_baseline)
         if self.x != 0 or self.y != 0:
             values.append("%s=%s" % (SVG_ATTR_X, self.x))
             values.append("%s=%s" % (SVG_ATTR_Y, self.y))
@@ -8233,6 +8250,8 @@ class Text(SVGElement, GraphicObject, Transformable):
             return False
         if self.anchor != other.anchor:
             return False
+        if self.alignment_baseline != other.alignment_baseline:
+            return False
         if self.font_style != other.font_style:
             return False
         if self.font_variant != other.font_variant:
@@ -8268,6 +8287,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.dx = s.dx
         self.dy = s.dy
         self.anchor = s.anchor
+        self.alignment_baseline = s.alignment_baseline
         self.font_family = s.font_family
         self.font_style = s.font_style
         self.font_variant = s.font_variant
@@ -8379,7 +8399,7 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.font_family = values.get(SVG_ATTR_FONT_FAMILY, self.font_family)
 
         self.font_style = values.get("font_style", self.font_style)
-        self.font_style = values.get(SVG_ATTR_FONT_STYLE, self.font_family)
+        self.font_style = values.get(SVG_ATTR_FONT_STYLE, self.font_style)
 
         self.font_variant = values.get("font_variant", self.font_variant)
         self.font_variant = values.get(SVG_ATTR_FONT_VARIANT, self.font_variant)
@@ -8400,6 +8420,9 @@ class Text(SVGElement, GraphicObject, Transformable):
         self.anchor = values.get("text_anchor", self.anchor)
         self.anchor = values.get(SVG_ATTR_TEXT_ANCHOR, self.anchor)
 
+        self.alignment_baseline = values.get("alignment_baseline", self.alignment_baseline)
+        self.alignment_baseline = values.get(SVG_ATTR_TEXT_ALIGNMENT_BASELINE, self.alignment_baseline)
+
         font = values.get(SVG_ATTR_FONT, None)
         if font is not None:
             self.parse_font(font)
@@ -8413,6 +8436,14 @@ class Text(SVGElement, GraphicObject, Transformable):
     def reify(self):
         GraphicObject.reify(self)
         Transformable.reify(self)
+        matrix = self.transform
+        p = Point(self.x, self.y)
+        p *= matrix
+        self.x = p.x
+        self.y = p.y
+
+        matrix.reset()
+        return self
 
     def render(self, **kwargs):
         GraphicObject.render(self, **kwargs)
