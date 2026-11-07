@@ -219,6 +219,10 @@ REGEX_COLOR_RGB_PERCENT = re.compile(
     r"rgba?\(\s*(%s)%%\s*,\s*(%s)%%\s*,\s*(%s)%%\s*(?:,\s*(%s)\s*)?\)"
     % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT)
 )
+REGEX_COLOR_RGB_PERCENT_MODERN = re.compile(
+    r"rgba?\(\s*(%s)%%\s+(%s)%%\s+(%s)%%\s*(?:/\s*(%s)(%%)?)?\s*\)$"
+    % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT)
+)
 REGEX_COLOR_HSL = re.compile(
     r"hsla?\(\s*(%s)\s*,\s*(%s)%%\s*,\s*(%s)%%\s*(?:,\s*(%s)\s*)?\)"
     % (PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT, PATTERN_FLOAT)
@@ -1210,6 +1214,12 @@ class Color(object):
         match = REGEX_COLOR_RGB_PERCENT.match(color_string)
         if match:
             return Color.parse_color_rgbp(match.groups())
+        match = REGEX_COLOR_RGB_PERCENT_MODERN.match(color_string)
+        if match:
+            r, g, b, alpha, percent = match.groups()
+            if alpha is not None and percent:
+                alpha = str(float(alpha) / 100.0)
+            return Color.parse_color_rgbp((r, g, b, alpha))
         match = REGEX_COLOR_HSL.match(color_string)
         if match:
             return Color.parse_color_hsl(match.groups())
