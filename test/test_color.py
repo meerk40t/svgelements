@@ -8,6 +8,11 @@ from svgelements import *
 class TestElementColor(unittest.TestCase):
     """These tests test the basic functions of the Color element."""
 
+    def test_modern_percent_rgb(self):
+        self.assertEqual(Color('rgb(100% 0% 0%)'), Color('red'))
+        self.assertEqual(Color('rgb(100% 0% 0% / .5)'), Color('rgba(100%, 0%, 0%, .5)'))
+        self.assertEqual(Color('rgba(100% 0% 0% / 50%)'), Color('rgba(100%, 0%, 0%, .5)'))
+
     def test_color_red(self):
         reference = Color('red')
         self.assertEqual(reference, 'red')
